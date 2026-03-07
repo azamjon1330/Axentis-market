@@ -1,0 +1,736 @@
+import React, { useState, useEffect } from 'react';
+import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket } from 'lucide-react';
+import api from '../utils/api';
+// TODO: Main company management not yet in new API
+import CompanyManagement from './CompanyManagement';
+import PaymentSettings from './PaymentSettings';
+import PaymentHistoryPanel from './PaymentHistoryPanel';
+import AdminAdsPanel from './AdminAdsPanel';
+import AdminCategoriesPanel from './AdminCategoriesPanel';
+import AdminNotificationsPanel from './AdminNotificationsPanel';
+import AdminAnalyticsPanel from './AdminAnalyticsPanel';
+import AdminDiscountsPanel from './AdminDiscountsPanel';
+import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
+import { broadcastReload } from '../utils/reloadBroadcast';
+import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
+
+interface AdminPanelProps {
+  onLogout: () => void;
+}
+
+export default function AdminPanel({ onLogout }: AdminPanelProps) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'discounts' | 'referrals'>('overview');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
+  
+  // 🌍 Система локализации для админа (заблокирована на русском)
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  const t = useTranslation(language);
+  
+  const [stats, setStats] = useState({
+    users: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [companyData, setCompanyData] = useState({
+    name: '',
+    phone: '',
+    password: '',
+    access_key: ''
+  });
+  const [originalCompanyData, setOriginalCompanyData] = useState({
+    name: '',
+    phone: '',
+    password: '',
+    access_key: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAccessKey, setShowAccessKey] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadData();
+    
+    // 🔄 Auto-refresh every 10 seconds
+    console.log('🔄 [Admin] Setting up auto-refresh every 10 seconds');
+    const intervalId = setInterval(() => {
+      console.log('🔄 [Admin] Auto-refreshing data...');
+      loadData();
+    }, 10000); // 10 seconds
+    
+    // Cleanup on unmount
+    return () => {
+      console.log('🛑 [Admin] Stopping auto-refresh');
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  // 🔄 HISTORY API HANDLER
+  useEffect(() => {
+    // Initial state setup - preserve page: 'admin' context
+    const currentState = window.history.state || {};
+    window.history.replaceState({ ...currentState, tab: 'overview', page: 'admin' }, '', '#overview');
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.tab) {
+        setActiveTab(event.state.tab);
+      } else {
+        // Fallback to default
+        setActiveTab('overview');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Custom Navigation Handler
+  const handleNavigate = (tab: typeof activeTab) => {
+    // ИСПРАВЛЕНИЕ: Убрал проверку чтобы не требовался двойной клик
+    // Include page: 'admin' so App.tsx knows where we are
+    window.history.pushState({ tab: tab, page: 'admin' }, '', `#${tab}`);
+    setActiveTab(tab);
+    setIsSidebarOpen(false); // Закрываем sidebar на мобильных
+    window.scrollTo(0, 0);
+  };
+
+  const loadData = async () => {
+    try {
+      await Promise.all([loadStats(), loadCompanyData()]);
+    } catch (error) {
+      console.error('Error loading admin data:', error);
+      alert('Ошибка загрузки данных админа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStats = async () => {
+    try {
+      // ✅ Используем API client вместо прямого fetch
+      const data = await api.users.count();
+      setStats({
+        users: data.count || 0
+      });
+    } catch (error) {
+      console.error('Error loading stats:', error);
+      setStats({ users: 0 });
+    }
+  };
+
+  const handleCopyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Не удалось скопировать');
+    }
+  };
+
+  const loadCompanyData = async () => {
+    try {
+      console.log('🏢 Loading company data...');
+      // Получаем первую компанию из списка
+      const companies = await api.companies.list();
+      const company = companies && companies.length > 0 ? companies[0] : null;
+      
+      if (company) {
+        console.log('✅ Company data loaded:', company);
+        const data = {
+          name: company.name || '',
+          phone: company.phone || '',
+          password: '', // Пароль не возвращается из API
+          access_key: company.accessKey || company.access_key || ''
+        };
+        setCompanyData(data);
+        setOriginalCompanyData(data);
+      } else {
+        throw new Error('No companies found');
+      }
+    } catch (error) {
+      console.warn('⚠️ Error in loadCompanyData (fallback to defaults):', error);
+      const defaultData = {
+        name: 'Главная компания',
+        phone: '',
+        password: '',
+        access_key: ''
+      };
+      setCompanyData(defaultData);
+      setOriginalCompanyData(defaultData);
+    }
+  };
+
+  const handleSaveCompany = async () => {
+    try {
+      // Валидация
+      if (!companyData.name.trim()) {
+        alert('Введите название компании');
+        return;
+      }
+      
+      if (!companyData.phone.trim()) {
+        alert('Введите номер телефона');
+        return;
+      }
+      
+      const phoneDigits = companyData.phone.replace(/\s/g, '');
+      if (phoneDigits.length !== 9 || !/^\d+$/.test(phoneDigits)) {
+        alert('Номер телефона должен содержать 9 цифр');
+        return;
+      }
+      
+      if (!companyData.password.trim()) {
+        alert('Введите пароль');
+        return;
+      }
+      
+      if (!companyData.access_key.trim()) {
+        alert('Введите ключ доступа');
+        return;
+      }
+      
+      if (companyData.access_key.length !== 30 || !/^\d+$/.test(companyData.access_key)) {
+        alert('Ключ доступа должен содержать 30 цифр');
+        return;
+      }
+
+      setSaving(true);
+      
+      // Получаем первую компанию и обновляем её
+      const companies = await api.companies.list();
+      if (companies && companies.length > 0) {
+        const companyId = companies[0].id;
+        await api.companies.update(companyId.toString(), {
+          name: companyData.name,
+          phone: companyData.phone,
+          // password можно обновить отдельным endpoint если нужно
+          access_key: companyData.access_key
+        });
+      } else {
+        throw new Error('No company found to update');
+      }
+      
+      setOriginalCompanyData(companyData);
+      alert('✅ Данные компании успешно обновлены!');
+      
+      // Перезагрузить данные
+      await loadCompanyData();
+    } catch (error) {
+      console.error('Error saving company:', error);
+      alert('Ошибка при сохранении данных компании');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetCompany = () => {
+    setCompanyData(originalCompanyData);
+  };
+
+  const hasChanges = JSON.stringify(companyData) !== JSON.stringify(originalCompanyData);
+
+  const clearAllData = async (type: 'users' | 'all') => {
+    const confirmMessage = 
+      type === 'users' ? 'Удалить всех пользователей?' :
+      'Удалить ВСЕ данные пользователей? Это действие нельзя отменить!';
+    
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await deleteAllUsers();
+      await loadStats();
+      alert('Данные упешно удалены!');
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      alert('Ошибка при удалении данных');
+    }
+  };
+
+  const handleReloadAllDevices = async () => {
+    if (!confirm('🔄 Перезагрузить ВСЕ устройства?\n\nВсе смартфоны, планшеты и компьютеры с открытым приложением будут автоматически перезагружены через 2 секунды.\n\nЭто полезно после изменения настроек оплаты или других системных параметров.')) {
+      return;
+    }
+
+    try {
+      console.log('📡 [Admin] Отправка команды перезагрузки...');
+      
+      await broadcastReload('Админ');
+      
+      alert('✅ Команда перезагрузки отправлена!\n\nВсе устройства будут перезагружены через 2 секунды.\n\nВаше устройство тоже будет перезагружено.');
+      
+      // Перезагружаем также админ панель через 2 секунды
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('❌ Error broadcasting reload:', error);
+      alert('Ошибка при отправке команды перезагрузки');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* 📱 Overlay для мобильных (при открытом sidebar) */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar слева - РЕСПОНСИВНЫЙ */}
+      <aside className={`
+        w-64 bg-gradient-to-b from-red-600 to-red-700 text-white shadow-lg 
+        fixed h-full z-30 transition-transform duration-300
+        lg:translate-x-0
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <Shield className="w-8 h-8" />
+              <div>
+                <h1 className="text-xl font-bold">Админ Панель</h1>
+                <p className="text-red-100 text-xs">Полный контроль</p>
+              </div>
+            </div>
+            {/* Кнопка закрытия для мобильных */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-1 hover:bg-white/20 rounded-lg transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="space-y-2">
+            <button
+              onClick={() => handleNavigate('overview')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'overview'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Shield className="w-5 h-5" />
+              <span className="font-medium">Обзор</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('analytics')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'analytics'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <BarChart3 className="w-5 h-5" />
+              <span className="font-medium">Аналитика</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('companies')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'companies'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Building2 className="w-5 h-5" />
+              <span className="font-medium">Компании</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('payment')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'payment'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <CreditCard className="w-5 h-5" />
+              <span className="font-medium">Оплата</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('ads')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'ads'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Megaphone className="w-5 h-5" />
+              <span className="font-medium">Реклама</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('categories')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'categories'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Package className="w-5 h-5" />
+              <span className="font-medium">Категории</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('notifications')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'notifications'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Bell className="w-5 h-5" />
+              <span className="font-medium">Уведомления</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('discounts')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'discounts'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Tag className="w-5 h-5" />
+              <span className="font-medium">Модерация скидок</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('referrals')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'referrals'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Ticket className="w-5 h-5" />
+              <span className="font-medium">Реферальные агенты</span>
+            </button>
+          </nav>
+        </div>
+
+        {/* Logout Button */}
+        <div className="absolute bottom-0 left-0 right-0 w-64 p-6">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="font-medium">Выход</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content - РЕСПОНСИВНЫЙ */}
+      <main className="flex-1 lg:ml-64">
+        {/* Header с гамбургером */}
+        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+          <div className="px-4 lg:px-8 py-4 flex items-center gap-4">
+            {/* 📱 Кнопка гамбургера (только на мобильных) */}
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+            >
+              <Menu className="w-6 h-6 text-gray-600" />
+            </button>
+
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
+              {activeTab === 'overview' && 'Обзор'}
+              {activeTab === 'analytics' && 'Аналитика платформы'}
+              {activeTab === 'companies' && 'Компании'}
+              {activeTab === 'payment' && 'Настройки оплаты'}
+              {activeTab === 'history' && 'История платежей'}
+              {activeTab === 'ads' && 'Управление рекламой'}
+              {activeTab === 'categories' && 'Категории товаров'}
+              {activeTab === 'notifications' && 'Уведомления'}
+              {activeTab === 'discounts' && 'Модерация скидок'}
+              {activeTab === 'referrals' && 'Реферальные агенты'}
+            </h1>
+          </div>
+        </header>
+
+        {/* Контент панелей */}
+        <div className="p-4 lg:p-8">{/* Tab Content */}
+          {activeTab === 'overview' ? (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Users className="w-6 h-6 text-blue-600" />
+                    <div className="text-gray-600">Пользователи</div>
+                  </div>
+                  <div className="text-3xl text-blue-600">{stats.users}</div>
+                </div>
+              </div>
+
+              {/* Company Settings */}
+              <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <Building2 className="w-6 h-6 text-purple-600" />
+                  <h2 className="text-purple-900">Настройки главной компании</h2>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Company Name */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-2">
+                      Название компании
+                    </label>
+                    <input
+                      type="text"
+                      value={companyData.name}
+                      onChange={(e) => setCompanyData({ ...companyData, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                      placeholder="Главная Компания"
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-2">
+                      Номер телефона (9 цифр)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={companyData.phone}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 9);
+                          setCompanyData({ ...companyData, phone: value });
+                        }}
+                        className="w-full px-4 py-2 pr-20 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                        placeholder="909383572"
+                        maxLength={9}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCopyToClipboard(companyData.phone, 'phone')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1"
+                      >
+                        {copiedField === 'phone' ? (
+                          <><Check className="w-3 h-3" /> Скопировано</>
+                        ) : (
+                          <><Copy className="w-3 h-3" /> Копировать</>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Текущий: {companyData.phone || 'не установлен'} ({companyData.phone.length}/9)
+                    </p>
+                  </div>
+
+                  {/* Password */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-2">
+                      Пароль
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={companyData.password}
+                        onChange={(e) => setCompanyData({ ...companyData, password: e.target.value })}
+                        className="w-full px-4 py-2 pr-32 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500"
+                        placeholder="Введите пароль..."
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyToClipboard(companyData.password, 'password')}
+                          className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1"
+                          disabled={!companyData.password}
+                        >
+                          {copiedField === 'password' ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 Текущий пароль: {companyData.password || 'не установлен'}
+                    </p>
+                  </div>
+
+                  {/* Access Key */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-2">
+                      Ключ доступа (30 символов - буквы и цифры)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showAccessKey ? 'text' : 'password'}
+                        value={companyData.access_key}
+                        onChange={(e) => {
+                          const value = e.target.value.slice(0, 30);
+                          setCompanyData({ ...companyData, access_key: value });
+                        }}
+                        className="w-full px-4 py-2 pr-32 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm"
+                        placeholder="123456789012345678901234567890"
+                        maxLength={30}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyToClipboard(companyData.access_key, 'access_key')}
+                          className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1"
+                          disabled={!companyData.access_key}
+                        >
+                          {copiedField === 'access_key' ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAccessKey(!showAccessKey)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          {showAccessKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 break-all">
+                      💡 Текущий: {companyData.access_key || 'не установлен'} ({companyData.access_key.length}/30 символов)
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-3 pt-4">
+                    <button
+                      onClick={handleSaveCompany}
+                      disabled={!hasChanges || saving}
+                      className={`flex items-center gap-2 px-6 py-2 rounded-lg transition-colors ${
+                        hasChanges && !saving
+                          ? 'bg-purple-600 text-white hover:bg-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {saving ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                          Сохранение...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5" />
+                          Сохранить изменения
+                        </>
+                      )}
+                    </button>
+
+                    {hasChanges && (
+                      <button
+                        onClick={handleResetCompany}
+                        disabled={saving}
+                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Отменить
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+                  <h3 className="text-blue-900 mb-2">ℹ️ Важная информация</h3>
+                  <ul className="text-blue-800 text-sm space-y-1">
+                    <li>• После изменения данных все должны использовать новые данные для входа</li>
+                    <li>• Телефон: 9 цифр (без пробелов и спецсимволов)</li>
+                    <li>• Ключ доступа: строго 30 цифр</li>
+                    <li>• Пароль: может быть любой длины</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-red-200">
+                <h2 className="text-red-600 mb-6">Опасная зона</h2>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+                    <div>
+                      <div className="text-gray-900">Удалить всех пользователей</div>
+                      <div className="text-sm text-gray-600">Удалит всех зарегистрированных покупателей</div>
+                    </div>
+                    <button
+                      onClick={() => clearAllData('users')}
+                      className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Удалить
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-red-100 rounded-lg border-2 border-red-300">
+                    <div>
+                      <div className="text-gray-900">Удалить ВСЕ данные пользователей</div>
+                      <div className="text-sm text-gray-600">Полная очистка системы (необратимо!)</div>
+                    </div>
+                    <button
+                      onClick={() => clearAllData('all')}
+                      className="flex items-center gap-2 bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Удалить всё
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-red-100 rounded-lg border-2 border-red-300">
+                    <div>
+                      <div className="text-gray-900">Перезагрузить ВСЕ устройства</div>
+                      <div className="text-sm text-gray-600">Перезагрузит все смартфоны, планшеты и компьютеры с открытым приложением</div>
+                    </div>
+                    <button
+                      onClick={handleReloadAllDevices}
+                      className="flex items-center gap-2 bg-red-700 text-white px-4 py-2 rounded-lg hover:bg-red-800 transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Перезагрузить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : activeTab === 'analytics' ? (
+            <AdminAnalyticsPanel />
+          ) : activeTab === 'companies' ? (
+            <CompanyManagement />
+          ) : activeTab === 'payment' ? (
+            <PaymentSettings />
+          ) : activeTab === 'history' ? (
+            <PaymentHistoryPanel />
+          ) : activeTab === 'ads' ? (
+            <AdminAdsPanel />
+          ) : activeTab === 'categories' ? (
+            <AdminCategoriesPanel />
+          ) : activeTab === 'notifications' ? (
+            <AdminNotificationsPanel />
+          ) : activeTab === 'discounts' ? (
+            <AdminDiscountsPanel />
+          ) : activeTab === 'referrals' ? (
+            <AdminReferralPanel />
+          ) : (
+            <AdminAdsPanel />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
