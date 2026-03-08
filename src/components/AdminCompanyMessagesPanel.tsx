@@ -268,12 +268,12 @@ export default function AdminCompanyMessagesPanel() {
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Введите текст сообщения для компании... Можно использовать emoji 😊🎉✨"
-            rows={6}
-            maxLength={1000}
+            placeholder="Введите текст сообщения для компании... Можно использовать emoji 😊🎉✨
+
+Без ограничения длины - пишите сколько нужно!"
+            rows={8}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
           />
-          <div className="text-xs text-gray-400 mt-1 text-right">{message.length}/1000</div>
         </div>
 
         {/* Result Message */}

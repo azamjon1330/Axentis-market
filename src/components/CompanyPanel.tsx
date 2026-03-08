@@ -57,15 +57,38 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     };
   }, []);
   
-  // 📨 Загрузка количества непрочитанных сообщений
+  // 📨 Загрузка количества непрочитанных сообщений с звуковым уведомлением
   useEffect(() => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    let previousCount = unreadMessagesCount;
+    
+    // Функция для воспроизведения звука уведомления
+    const playNotificationSound = () => {
+      try {
+        // Создаем аудио с приятным звуком уведомления (используем data URI)
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVqzn77BdGAg+ltryxnMnBSuBzvLZiTYHGWi77eeeTRAMUKfj8LZjHAY4ktfyzHksBSR2x/DdkUAKE1+06eqnVRQKRp/g8r9sIQUxh9Hz04IzBh5uwO/jmUgND1as5++wXRgIPpba8sZzJwUrgc7y2Yk2BxlpvO3nnk0QDFCn4/C2YxwGOJLX8sx5LAUkdsfw3ZFAChNftOnqp1UUCkaf4PK/bCEFMYfR89OCMwYeacDv45lIDQ9XrOjt8FwYBz64gf17i+sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wwvBnrv7/w==');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log('🔇 Звук уведомления заблокирован браузером:', e));
+      } catch (error) {
+        console.error('Error playing notification sound:', error);
+      }
+    };
+    
     const loadUnreadCount = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
         const response = await fetch(`${API_URL}/company-messages/company/${companyId}/count`);
         if (response.ok) {
           const data = await response.json();
-          setUnreadMessagesCount(data.count || 0);
+          const newCount = data.count || 0;
+          
+          // Если есть новые сообщения - воспроизводим звук
+          if (newCount > previousCount && previousCount !== null) {
+            console.log('🔔 Новое сообщение от Axis! Воспроизводим звук...');
+            playNotificationSound();
+          }
+          
+          previousCount = newCount;
+          setUnreadMessagesCount(newCount);
         }
       } catch (error) {
         console.error('Error loading unread messages count:', error);
@@ -73,8 +96,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     };
 
     loadUnreadCount();
-    // Обновляем каждые 30 секунд
-    const interval = setInterval(loadUnreadCount, 30000);
+    // Проверяем каждые 5 секунд для быстрого уведомления
+    const interval = setInterval(loadUnreadCount, 5000);
     return () => clearInterval(interval);
   }, [companyId]);
   
