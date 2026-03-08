@@ -22,8 +22,11 @@ type ExpoPushMessage struct {
 // SendExpoPushNotification - отправить push-уведомление через Expo
 func SendExpoPushNotification(tokens []string, title, body string) (int, error) {
 	if len(tokens) == 0 {
+		log.Printf("⚠️ No push tokens provided")
 		return 0, nil
 	}
+
+	log.Printf("📲 Preparing to send Expo push notifications to %d tokens", len(tokens))
 
 	messages := make([]ExpoPushMessage, 0, len(tokens))
 	for _, token := range tokens {
@@ -37,18 +40,22 @@ func SendExpoPushNotification(tokens []string, title, body string) (int, error) 
 					"type": "admin_message",
 				},
 			})
+			log.Printf("   📱 Token: %s...", token[:min(30, len(token))])
 		}
 	}
 
 	if len(messages) == 0 {
+		log.Printf("⚠️ No valid push tokens after filtering")
 		return 0, nil
 	}
 
 	jsonData, err := json.Marshal(messages)
 	if err != nil {
+		log.Printf("❌ Failed to marshal Expo messages: %v", err)
 		return 0, err
 	}
 
+	log.Printf("📤 Sending %d messages to Expo Push API...", len(messages))
 	resp, err := http.Post(
 		"https://exp.host/--/api/v2/push/send",
 		"application/json",
@@ -60,7 +67,13 @@ func SendExpoPushNotification(tokens []string, title, body string) (int, error) 
 	}
 	defer resp.Body.Close()
 
-	log.Printf("📲 Expo Push response status: %s, sent %d messages", resp.Status, len(messages))
+	// Читаем ответ для логирования
+	var responseBody bytes.Buffer
+	responseBody.ReadFrom(resp.Body)
+	
+	log.Printf("✅ Expo Push response status: %s, sent %d messages", resp.Status, len(messages))
+	log.Printf("📋 Expo Response: %s", responseBody.String()[:min(200, responseBody.Len())])
+	
 	return len(messages), nil
 }
 

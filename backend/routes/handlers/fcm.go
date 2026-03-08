@@ -70,11 +70,16 @@ func SendFCMPushNotification(tokens []string, title, body string) (int, error) {
 	}
 
 	if len(tokens) == 0 {
+		log.Printf("⚠️ No FCM tokens provided")
 		return 0, nil
 	}
 
+	log.Printf("📲 Processing %d push tokens (FCM/Expo detection)", len(tokens))
+
 	ctx := context.Background()
 	successCount := 0
+	fcmCount := 0
+	expoCount := 0
 
 	for _, token := range tokens {
 		if token == "" {
@@ -85,6 +90,7 @@ func SendFCMPushNotification(tokens []string, title, body string) (int, error) {
 		isFCMToken := !isExpoToken(token)
 
 		if isFCMToken {
+			fcmCount++
 			// Отправляем через Firebase Admin SDK
 			message := &messaging.Message{
 				Token: token,
@@ -121,6 +127,8 @@ func SendFCMPushNotification(tokens []string, title, body string) (int, error) {
 			successCount++
 			log.Printf("✅ FCM notification sent: %s (token: %s)", response, token[:min(20, len(token))]+"...")
 		} else {
+			expoCount++
+			log.Printf("📱 Expo token detected: %s...", token[:min(30, len(token))])
 			// Отправляем через Expo Push API
 			_, err := SendExpoPushNotification([]string{token}, title, body)
 			if err == nil {
@@ -129,7 +137,8 @@ func SendFCMPushNotification(tokens []string, title, body string) (int, error) {
 		}
 	}
 
-	log.Printf("📲 Push notifications sent: %d/%d (via Firebase Admin SDK)", successCount, len(tokens))
+	log.Printf("📊 Push notifications summary: %d total, %d FCM, %d Expo, %d successful", 
+		len(tokens), fcmCount, expoCount, successCount)
 	return successCount, nil
 }
 
