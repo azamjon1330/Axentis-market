@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare } from 'lucide-react';
 import { DigitalWarehouse } from './DigitalWarehouse';
 import SalesPanel from './SalesPanel';
 import CompanyOrdersPanel from './CompanyOrdersPanel';
@@ -7,6 +7,7 @@ import AnalyticsPanel from './AnalyticsPanel';
 import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
 import CompanyDiscountsManager from './CompanyDiscountsManager';
+import CompanyInboxPanel from './CompanyInboxPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { useTheme } from '../utils/ThemeContext';
@@ -29,6 +30,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
   
   const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts'>('warehouse');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
+  const [showInbox, setShowInbox] = useState(false); // 📨 Показать входящие сообщения
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0); // 📨 Кол-во непрочитанных
   
   // 📱 Адаптивность
   const { isMobile, isTablet, isDesktop } = useResponsive();
@@ -53,6 +56,27 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
       window.removeEventListener('languageChange', handleLanguageChange as EventListener);
     };
   }, []);
+  
+  // 📨 Загрузка количества непрочитанных сообщений
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+        const response = await fetch(`${API_URL}/company-messages/company/${companyId}/count`);
+        if (response.ok) {
+          const data = await response.json();
+          setUnreadMessagesCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('Error loading unread messages count:', error);
+      }
+    };
+
+    loadUnreadCount();
+    // Обновляем каждые 30 секунд
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [companyId]);
   
   // 🔄 HISTORY API HANDLER
   useEffect(() => {
@@ -294,24 +318,43 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
       <main className={`flex-1 w-full overflow-x-hidden ${isDesktop ? 'lg:ml-56' : ''} ${isMobile || isTablet ? 'ml-0' : ''}`}>
         {/* Header с названием активной панели */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className={`${responsive.container} flex items-center gap-4`}>
-            {/* 📱 Кнопка гамбургера (только на мобильных) */}
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-            >
-              <Menu className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 />
-            </button>
+          <div className={`${responsive.container} flex items-center justify-between gap-4`}>
+            <div className="flex items-center gap-4">
+              {/* 📱 Кнопка гамбургера (только на мобильных) */}
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+              >
+                <Menu className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 />
+              </button>
 
-            <h1 className={`${responsive.heading} font-bold text-gray-800 dark:text-gray-100`}>
-              {activeTab === 'warehouse' && t.inventory}
-              {activeTab === 'sales' && t.salesPanel}
-              {activeTab === 'orders' && t.orders}
-              {activeTab === 'analytics' && t.statistics}
-              {activeTab === 'barcode' && t.searchByBarcode}
-              {activeTab === 'smm' && t.smm}
-              {activeTab === 'discounts' && t.discountsManagement}
-            </h1>
+              <h1 className={`${responsive.heading} font-bold text-gray-800 dark:text-gray-100`}>
+                {activeTab === 'warehouse' && t.inventory}
+                {activeTab === 'sales' && t.salesPanel}
+                {activeTab === 'orders' && t.orders}
+                {activeTab === 'analytics' && t.statistics}
+                {activeTab === 'barcode' && t.searchByBarcode}
+                {activeTab === 'smm' && t.smm}
+                {activeTab === 'discounts' && t.discountsManagement}
+              </h1>
+            </div>
+
+            {/* 📨 Кнопка входящих сообщений */}
+            <button
+              onClick={() => {
+                setShowInbox(true);
+                setUnreadMessagesCount(0); // Сбрасываем счетчик при открытии
+              }}
+              className="relative p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
+              title="Входящие сообщения от Axis"
+            >
+              <MessageSquare className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-purple-600 dark:text-purple-400`} />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                </span>
+              )}
+            </button>
           </div>
         </header>
 
@@ -326,6 +369,14 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'discounts' && <CompanyDiscountsManager companyId={companyId} products={[]} />}
         </div>
       </main>
+
+      {/* 📨 Модальное окно входящих сообщений */}
+      {showInbox && (
+        <CompanyInboxPanel 
+          companyId={companyId} 
+          onClose={() => setShowInbox(false)} 
+        />
+      )}
     </div>
   );
 }

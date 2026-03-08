@@ -8,6 +8,7 @@ import PaymentHistoryPanel from './PaymentHistoryPanel';
 import AdminAdsPanel from './AdminAdsPanel';
 import AdminCategoriesPanel from './AdminCategoriesPanel';
 import AdminNotificationsPanel from './AdminNotificationsPanel';
+import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
 import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
 import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
@@ -19,7 +20,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'discounts' | 'referrals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -391,6 +392,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => handleNavigate('companyMessages')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'companyMessages'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Building2 className="w-5 h-5" />
+              <span className="font-medium">Сообщения компаниям</span>
+            </button>
+
+            <button
               onClick={() => handleNavigate('discounts')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'discounts'
@@ -450,6 +463,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'ads' && 'Управление рекламой'}
               {activeTab === 'categories' && 'Категории товаров'}
               {activeTab === 'notifications' && 'Уведомления'}
+              {activeTab === 'companyMessages' && 'Сообщения компаниям'}
               {activeTab === 'discounts' && 'Модерация скидок'}
               {activeTab === 'referrals' && 'Реферальные агенты'}
             </h1>
@@ -722,6 +736,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <AdminCategoriesPanel />
           ) : activeTab === 'notifications' ? (
             <AdminNotificationsPanel />
+          ) : activeTab === 'companyMessages' ? (
+            <AdminCompanyMessagesPanel />
           ) : activeTab === 'discounts' ? (
             <AdminDiscountsPanel />
           ) : activeTab === 'referrals' ? (

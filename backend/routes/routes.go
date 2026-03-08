@@ -161,6 +161,18 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			notifications.POST("/push-token", handlers.SaveExpoPushToken(db))    // Сохранение Expo Push Token
 		}
 
+		// Company Messages routes (📨 Сообщения компаниям от админа)
+		companyMessages := api.Group("/company-messages")
+		{
+			companyMessages.POST("/send", handlers.SendMessageToCompany(db))                         // Отправить компании
+			companyMessages.POST("/send-all", handlers.SendMessageToAllCompanies(db))                // Отправить всем
+			companyMessages.GET("/companies", handlers.GetAllCompaniesForMessages(db))               // Список компаний
+			companyMessages.GET("/company/:companyId", handlers.GetCompanyMessages(db))              // Сообщения компании
+			companyMessages.GET("/company/:companyId/count", handlers.GetCompanyMessagesCount(db))   // Кол-во непрочитанных
+			companyMessages.PUT("/:id/read", handlers.MarkCompanyMessageAsRead(db))                  // Отметить как прочитано
+			companyMessages.PUT("/company/:companyId/read-all", handlers.MarkAllCompanyMessagesAsRead(db)) // Все прочитано
+		}
+
 		// Expenses routes
 		expenses := api.Group("/expenses")
 		{
