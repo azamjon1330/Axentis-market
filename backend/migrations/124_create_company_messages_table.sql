@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS company_messages (
     is_read BOOLEAN DEFAULT FALSE
 );
 
-CREATE INDEX idx_company_messages_company_id ON company_messages(company_id);
-CREATE INDEX idx_company_messages_created_at ON company_messages(created_at DESC);
-CREATE INDEX idx_company_messages_is_read ON company_messages(is_read);
+CREATE INDEX IF NOT EXISTS idx_company_messages_company_id ON company_messages(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_messages_created_at ON company_messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_company_messages_is_read ON company_messages(is_read);
 
 -- +goose Down
 DROP TABLE IF EXISTS company_messages;

@@ -41,7 +41,8 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
         return;
       }
 
-      const response = await api.auth.loginCompany(phone, password);
+      // 👥 Передаём реферальный код при логине (если указан)
+      const response = await api.auth.loginCompany(phone, password, undefined, referralCode || undefined);
       console.log('✅ Company login successful:', response);
       
       // Передаём данные компании из response.company

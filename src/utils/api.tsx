@@ -138,10 +138,10 @@ export const auth = {
   },
 
   // Company login
-  loginCompany: async (phone: string, password: string, accessKey?: string) => {
+  loginCompany: async (phone: string, password: string, accessKey?: string, referralCode?: string) => {
     const response = await apiCall('/auth/login/company', {
       method: 'POST',
-      body: JSON.stringify({ phone, password, accessKey }),
+      body: JSON.stringify({ phone, password, accessKey, referralCode }),
       requiresAuth: false,
     });
     if (response.token) {

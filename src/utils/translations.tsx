@@ -884,6 +884,29 @@ export interface Translations {
   deliveryAddress: string;
   fromCompany: string;
   toDelivery: string;
+  
+  // Admin Analytics Panel
+  platformAnalytics: string;
+  allCompaniesStats: string;
+  companyStats: string;
+  allCompanies: string;
+  specificCompany: string;
+  selectCompanyPlaceholder: string;
+  refresh: string;
+  generalRevenue: string;
+  netProfit: string;
+  profitFromMarkup: string;
+  productsInDatabase: string;
+  productUnits: string;
+  frozenInStock: string;
+  deliveryRevenueTotal: string;
+  companyAnalytics: string;
+  productAnalytics: string;
+  ordersCount: string;
+  topProducts: string;
+  sold: string;
+  revenue: string;
+  profit: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -1768,6 +1791,29 @@ export const translations: Record<Language, Translations> = {
     deliveryAddress: 'Адрес доставки:',
     fromCompany: 'Откуда (Компания)',
     toDelivery: 'Куда (Доставка)',
+    
+    // Admin Analytics Panel
+    platformAnalytics: 'Аналитика платформы',
+    allCompaniesStats: 'Общая статистика всех компаний',
+    companyStats: 'Статистика компании',
+    allCompanies: 'Все компании',
+    specificCompany: 'Конкретная компания',
+    selectCompanyPlaceholder: 'Выберите компанию...',
+    refresh: 'Обновить',
+    generalRevenue: 'Общая выручка',
+    netProfit: 'Чистая прибыль',
+    profitFromMarkup: 'Прибыль от наценок',
+    productsInDatabase: 'Товаров в базе',
+    productUnits: 'Единиц товаров',
+    frozenInStock: 'Заморожено на складе',
+    deliveryRevenueTotal: 'Доход от доставки',
+    companyAnalytics: 'Аналитика по компаниям',
+    productAnalytics: 'Аналитика товаров',
+    ordersCount: 'Заказов',
+    topProducts: 'Топ товаров',
+    sold: 'Продано',
+    revenue: 'Выручка',
+    profit: 'Прибыль',
   },
   
   uz: {
@@ -2651,6 +2697,29 @@ export const translations: Record<Language, Translations> = {
     deliveryAddress: 'Yetkazib berish manzili:',
     fromCompany: 'Qaerdan (Kompaniya)',
     toDelivery: 'Qayerga (Yetkazib berish)',
+    
+    // Admin Analytics Panel
+    platformAnalytics: 'Platforma analitikasi',
+    allCompaniesStats: 'Barcha kompaniyalarning umumiy statistikasi',
+    companyStats: 'Kompaniya statistikasi',
+    allCompanies: 'Barcha kompaniyalar',
+    specificCompany: 'Aniq kompaniya',
+    selectCompanyPlaceholder: 'Kompaniyani tanlang...',
+    refresh: 'Yangilash',
+    generalRevenue: 'Umumiy daromad',
+    netProfit: 'Sof foyda',
+    profitFromMarkup: 'Ustamadan foyda',
+    productsInDatabase: 'Bazadagi mahsulotlar',
+    productUnits: 'Mahsulot birliklari',
+    frozenInStock: 'Omborda muzlatilgan',
+    deliveryRevenueTotal: 'Yetkazib berishdan daromad',
+    companyAnalytics: 'Kompaniyalar bo\'yicha analitika',
+    productAnalytics: 'Mahsulotlar analitikasi',
+    ordersCount: 'Buyurtmalar',
+    topProducts: 'Top mahsulotlar',
+    sold: 'Sotildi',
+    revenue: 'Daromad',
+    profit: 'Foyda',
   }
 };
 

@@ -125,10 +125,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.POST("/check-unique", handlers.CheckUserUnique(db))
 			users.GET("/count", handlers.GetUsersCount(db))
 			users.GET("/:phone", handlers.GetUserByPhone(db))
-			users.GET("/:phone/cart", handlers.GetUserCart(db))
-			users.POST("/:phone/cart", handlers.SaveUserCart(db))
-			users.GET("/:phone/likes", handlers.GetUserLikes(db))
-			users.POST("/:phone/likes", handlers.SaveUserLikes(db))
+			// Old cart/likes routes removed - use /api/cart and /api/favorites instead
 			users.POST("/:phone/avatar", handlers.UploadUserAvatar(db))
 			users.DELETE("/:phone/avatar", handlers.DeleteUserAvatar(db))
 			users.GET("/:phone/profile", handlers.GetUserProfile(db))
@@ -146,9 +143,9 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			cart.GET("/:phone", handlers.GetUserCart(db))                    // Получить корзину пользователя
 			cart.GET("/:phone/count", handlers.GetCartCount(db))             // Количество товаров в корзине
 			cart.POST("", handlers.AddToCart(db))                            // Добавить товар в корзину
-			cart.PUT("/:id", handlers.UpdateCartItem(db))                    // Обновить количество
-			cart.DELETE("/:id", handlers.RemoveFromCart(db))                 // Удалить товар из корзины
-			cart.DELETE("/:phone/clear", handlers.ClearCart(db))             // Очистить всю корзину
+			cart.PUT("/item/:id", handlers.UpdateCartItem(db))               // Обновить количество
+			cart.DELETE("/item/:id", handlers.RemoveFromCart(db))            // Удалить товар из корзины
+			cart.DELETE("/user/:phone", handlers.ClearCart(db))              // Очистить всю корзину
 		}
 
 		// Favorites routes (❤️ Новый API для избранного с БД)
@@ -160,7 +157,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			favorites.POST("", handlers.AddToFavorites(db))                  // Добавить в избранное
 			favorites.POST("/toggle", handlers.ToggleFavorite(db))           // Переключить статус (toggle)
 			favorites.DELETE("", handlers.RemoveFromFavorites(db))           // Удалить из избранного
-			favorites.DELETE("/:phone/clear", handlers.ClearFavorites(db))   // Очистить все избранное
+			favorites.DELETE("/user/:phone", handlers.ClearFavorites(db))    // Очистить все избранное
 		}
 
 		// Payment Cards routes

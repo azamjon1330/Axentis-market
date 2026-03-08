@@ -237,7 +237,6 @@ func GetAllCompaniesForMessages(db *sql.DB) gin.HandlerFunc {
 		rows, err := db.Query(`
 			SELECT id, name, COALESCE(description, '') as description
 			FROM companies
-			WHERE deleted_at IS NULL
 			ORDER BY name
 			LIMIT 500
 		`)

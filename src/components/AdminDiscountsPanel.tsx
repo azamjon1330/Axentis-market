@@ -263,22 +263,23 @@ const styles: { [key: string]: React.CSSProperties } = {
   companyInfo: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
     marginBottom: '10px',
-    padding: '8px',
-    backgroundColor: '#f9fafb',
+    padding: '6px 10px',
+    backgroundColor: '#3b82f6',
     borderRadius: '6px'
   },
   companyLogo: {
-    width: '24px',
-    height: '24px',
+    width: '20px',
+    height: '20px',
     borderRadius: '50%',
-    objectFit: 'cover' as 'cover'
+    objectFit: 'cover' as 'cover',
+    flexShrink: 0
   },
   companyName: {
     fontSize: '13px',
     fontWeight: '600',
-    color: '#4b5563'
+    color: '#ffffff'
   },
   productName: {
     fontSize: '16px',

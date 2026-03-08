@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -49,131 +48,6 @@ func CheckUserUnique(db *sql.DB) gin.HandlerFunc {
 
 		// User is unique
 		c.JSON(http.StatusOK, gin.H{"unique": true})
-	}
-}
-
-// Get User Cart
-func GetUserCart(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		phone := c.Param("phone")
-
-		var cartStr sql.NullString
-		err := db.QueryRow("SELECT cart::text FROM users WHERE phone = $1", phone).Scan(&cartStr)
-
-		if err == sql.ErrNoRows || !cartStr.Valid || cartStr.String == "" {
-			c.JSON(http.StatusOK, gin.H{})
-			return
-		}
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
-
-		// Parse JSON string and return as object
-		var cart interface{}
-		if err := json.Unmarshal([]byte(cartStr.String), &cart); err != nil {
-			c.JSON(http.StatusOK, gin.H{})
-			return
-		}
-
-		c.JSON(http.StatusOK, cart)
-	}
-}
-
-// Save User Cart
-func SaveUserCart(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		phone := c.Param("phone")
-		var cart interface{}
-
-		if err := c.ShouldBindJSON(&cart); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Convert to JSON string for JSONB column
-		cartJSON, err := json.Marshal(cart)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid cart format"})
-			return
-		}
-
-		_, err = db.Exec(`
-			INSERT INTO users (phone, cart, name)
-			VALUES ($1, $2::jsonb, '')
-			ON CONFLICT (phone) DO UPDATE SET cart = $2::jsonb, updated_at = NOW()
-		`, phone, string(cartJSON))
-
-		if err != nil {
-			log.Println("❌ Error saving cart:", err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save cart", "details": err.Error()})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"success": true})
-	}
-}
-
-// Get User Likes
-func GetUserLikes(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		phone := c.Param("phone")
-
-		var likesStr sql.NullString
-		err := db.QueryRow("SELECT likes::text FROM users WHERE phone = $1", phone).Scan(&likesStr)
-
-		if err == sql.ErrNoRows || !likesStr.Valid || likesStr.String == "" {
-			c.JSON(http.StatusOK, []int{})
-			return
-		}
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-			return
-		}
-
-		// Parse JSON string and return as array
-		var likes []int
-		if err := json.Unmarshal([]byte(likesStr.String), &likes); err != nil {
-			c.JSON(http.StatusOK, []int{})
-			return
-		}
-
-		c.JSON(http.StatusOK, likes)
-	}
-}
-
-// Save User Likes
-func SaveUserLikes(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		phone := c.Param("phone")
-		var likes []int
-
-		if err := c.ShouldBindJSON(&likes); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		// Convert to JSON string for JSONB column
-		likesJSON, err := json.Marshal(likes)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid likes format"})
-			return
-		}
-
-		_, err = db.Exec(`
-			INSERT INTO users (phone, likes, name)
-			VALUES ($1, $2::jsonb, '')
-			ON CONFLICT (phone) DO UPDATE SET likes = $2::jsonb, updated_at = NOW()
-		`, phone, string(likesJSON))
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save likes"})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
 }
 

@@ -334,8 +334,9 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Phone    string `json:"phone" binding:"required"`
-			Password string `json:"password" binding:"required"`
+			Phone        string  `json:"phone" binding:"required"`
+			Password     string  `json:"password" binding:"required"`
+			ReferralCode *string `json:"referralCode,omitempty"` // 👥 Опциональный реферальный код
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -344,18 +345,19 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		}
 
 		var company struct {
-			ID           int64
-			Name         string
-			PasswordHash string
-			Mode         string
-			Status       string
-		IsEnabled    *bool
-	}
+			ID              int64
+			Name            string
+			PasswordHash    string
+			Mode            string
+			Status          string
+			IsEnabled       *bool
+			ReferralAgentID *int64 // 👥 Существующий реферальный агент
+		}
 
-	err := db.QueryRow(`
-		SELECT id, name, password_hash, mode, status, is_enabled
-		FROM companies WHERE phone = $1
-	`, req.Phone).Scan(&company.ID, &company.Name, &company.PasswordHash, &company.Mode, &company.Status, &company.IsEnabled)
+		err := db.QueryRow(`
+			SELECT id, name, password_hash, mode, status, is_enabled, referral_agent_id
+			FROM companies WHERE phone = $1
+		`, req.Phone).Scan(&company.ID, &company.Name, &company.PasswordHash, &company.Mode, &company.Status, &company.IsEnabled, &company.ReferralAgentID)
 		// Проверяем пароль - сначала plain text (для простых паролей), потом bcrypt hash
 		passwordValid := false
 		log.Printf("🔐 Login attempt - Phone: %s, Input: %s, DB Hash: %s", 
@@ -381,6 +383,41 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			log.Printf("🚫 Company %d is disabled", company.ID)
 			c.JSON(http.StatusForbidden, gin.H{"error": "Company account is disabled. Please contact administrator."})
 			return
+		}
+
+		// 👥 РЕФЕРАЛЬНАЯ СИСТЕМА: Обработка реферального кода при первом логине
+		if req.ReferralCode != nil && *req.ReferralCode != "" && company.ReferralAgentID == nil {
+			log.Printf("👥 Processing referral code for company %d: %s", company.ID, *req.ReferralCode)
+			
+			// Проверяем существование реферального агента по коду
+			var agentID int64
+			err := db.QueryRow(`
+				SELECT id FROM referral_agents 
+				WHERE unique_code = $1 AND is_active = true
+			`, *req.ReferralCode).Scan(&agentID)
+			
+			if err == nil {
+				// Код валиден - сохраняем связь
+				_, err = db.Exec(`
+					UPDATE companies 
+					SET referral_agent_id = $1, 
+						referral_code = $2,
+						trial_started_at = COALESCE(trial_started_at, NOW()),
+						trial_end_date = COALESCE(trial_end_date, NOW() + INTERVAL '1 month')
+					WHERE id = $3
+				`, agentID, *req.ReferralCode, company.ID)
+				
+				if err != nil {
+					log.Printf("⚠️ Failed to save referral link: %v", err)
+				} else {
+					log.Printf("✅ Company %d linked to referral agent %d", company.ID, agentID)
+					company.ReferralAgentID = &agentID
+				}
+			} else {
+				log.Printf("⚠️ Invalid referral code: %s (error: %v)", *req.ReferralCode, err)
+			}
+		} else if req.ReferralCode != nil && *req.ReferralCode != "" && company.ReferralAgentID != nil {
+			log.Printf("ℹ️ Company %d already has referral agent %d, ignoring new code", company.ID, *company.ReferralAgentID)
 		}
 
 		// Generate JWT token
