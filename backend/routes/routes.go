@@ -140,6 +140,29 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.GET("/:phone/default-delivery-address", handlers.GetUserDefaultDeliveryAddress(db)) // 📍 Адрес доставки по умолчанию
 		}
 
+		// Cart routes (🛒 Новый API для корзины с БД)
+		cart := api.Group("/cart")
+		{
+			cart.GET("/:phone", handlers.GetUserCart(db))                    // Получить корзину пользователя
+			cart.GET("/:phone/count", handlers.GetCartCount(db))             // Количество товаров в корзине
+			cart.POST("", handlers.AddToCart(db))                            // Добавить товар в корзину
+			cart.PUT("/:id", handlers.UpdateCartItem(db))                    // Обновить количество
+			cart.DELETE("/:id", handlers.RemoveFromCart(db))                 // Удалить товар из корзины
+			cart.DELETE("/:phone/clear", handlers.ClearCart(db))             // Очистить всю корзину
+		}
+
+		// Favorites routes (❤️ Новый API для избранного с БД)
+		favorites := api.Group("/favorites")
+		{
+			favorites.GET("/:phone", handlers.GetUserFavorites(db))          // Получить избранное пользователя
+			favorites.GET("/:phone/count", handlers.GetFavoritesCount(db))   // Количество избранных
+			favorites.GET("/check", handlers.CheckFavoriteStatus(db))        // Проверить статус (query: phone, product_id)
+			favorites.POST("", handlers.AddToFavorites(db))                  // Добавить в избранное
+			favorites.POST("/toggle", handlers.ToggleFavorite(db))           // Переключить статус (toggle)
+			favorites.DELETE("", handlers.RemoveFromFavorites(db))           // Удалить из избранного
+			favorites.DELETE("/:phone/clear", handlers.ClearFavorites(db))   // Очистить все избранное
+		}
+
 		// Payment Cards routes
 		paymentCards := api.Group("/payment-cards")
 		{
