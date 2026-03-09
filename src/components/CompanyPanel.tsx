@@ -378,6 +378,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'discounts' && t.discountsManagement}
               </h1>
             </div>
+          </div>
         </header>
 
         {/* Контент панелей */}
