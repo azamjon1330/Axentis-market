@@ -794,11 +794,6 @@ export default function CompanyManagement() {
                   )}
                 </div>
               </div>
-                  >
-                    {showAccessKeys[company.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
 
               {/* Кнопки сохранения/отмены при редактировании */}
               {editingCompany === company.id && (

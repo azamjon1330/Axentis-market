@@ -1810,10 +1810,6 @@ export const translations: Record<Language, Translations> = {
     companyAnalytics: 'Аналитика по компаниям',
     productAnalytics: 'Аналитика товаров',
     ordersCount: 'Заказов',
-    topProducts: 'Топ товаров',
-    sold: 'Продано',
-    revenue: 'Выручка',
-    profit: 'Прибыль',
   },
   
   uz: {
@@ -2716,10 +2712,6 @@ export const translations: Record<Language, Translations> = {
     companyAnalytics: 'Kompaniyalar bo\'yicha analitika',
     productAnalytics: 'Mahsulotlar analitikasi',
     ordersCount: 'Buyurtmalar',
-    topProducts: 'Top mahsulotlar',
-    sold: 'Sotildi',
-    revenue: 'Daromad',
-    profit: 'Foyda',
   }
 };
 
