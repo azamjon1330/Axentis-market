@@ -277,6 +277,13 @@ export default function ProductCard({
                       objectFit: 'contain'
                     }}
                     loading="lazy"
+                    onError={(e) => {
+                      console.error(`Ошибка загрузки изображения товара ${product.id}:`, image.url);
+                      const target = e.target as HTMLImageElement;
+                      // Fallback на серую заглушку с иконкой
+                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjxnIG9wYWNpdHk9IjAuMyI+PHBhdGggZD0iTTYwIDYwaDgwdjgwSDYweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjQiLz48Y2lyY2xlIGN4PSI4NSIgY3k9Ijg1IiByPSI4IiBmaWxsPSIjOTk5Ii8+PHBhdGggZD0iTTYwIDEzMGwyMC0yNSAyMCAyMCAzMC0zNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjQiLz48L2c+PHRleHQgeD0iNTAlIiB5PSIxNzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtZmFtaWx5PSJBcmlhbCI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
+                      target.onerror = null; // Предотвращаем бесконечный цикл
+                    }}
                   />
                 );
               })}

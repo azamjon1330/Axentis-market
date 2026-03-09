@@ -55,12 +55,32 @@ export default function CompanyManagement() {
 
   const handleCopyToClipboard = async (text: string, fieldName: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      // 📍 Проверяем наличие Clipboard API
+      if (!navigator.clipboard) {
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (!successful) {
+          throw new Error('execCommand failed');
+        }
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      
       setCopiedField(fieldName);
       setTimeout(() => setCopiedField(null), 2000);
+      console.log(`✅ Скопировано: ${text}`);
     } catch (err) {
-      console.error('Failed to copy:', err);
-      alert('Не удалось скопировать');
+      console.error('Ошибка копирования:', err);
+      // Показываем более информативное сообщение
+      alert(`Не удалось скопировать. \n\nКлюч доступа: ${text}\n\nСкопируйте вручную.`);
     }
   };
 
@@ -722,13 +742,13 @@ export default function CompanyManagement() {
               </div>
 
               {/* Ключ доступа */}
-              <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-                <Key className="w-5 h-5 text-gray-600" />
+              <div className="flex items-center gap-3 bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border-2 border-purple-200">
+                <Key className="w-5 h-5 text-purple-600" />
                 <div className="flex-1">
-                  <p className="text-xs text-gray-500">Ключ доступа (30 символов)</p>
+                  <p className="text-xs text-gray-600 font-medium mb-1">🔑 Ключ доступа (30 символов)</p>
                   {editingCompany === company.id ? (
                     <input
-                      type={showAccessKeys[company.id] ? 'text' : 'password'}
+                      type="text"
                       value={editedData[company.id]?.accessKey || company.accessKey}
                       onChange={(e) => {
                         const value = e.target.value.slice(0, 30);
@@ -737,27 +757,43 @@ export default function CompanyManagement() {
                           [company.id]: { ...editedData[company.id], accessKey: value }
                         });
                       }}
-                      className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500 font-mono text-sm"
+                      className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm select-all"
                       maxLength={30}
+                      style={{ userSelect: 'text' }}
                     />
                   ) : (
-                    <p className="font-medium font-mono text-sm break-all">
-                      {showAccessKeys[company.id] ? company.accessKey : '••••••••••••••••••••••••••••••'}
-                    </p>
+                    <code 
+                      className="block font-mono text-sm break-all bg-white px-3 py-2 rounded border border-purple-200 select-all cursor-pointer hover:bg-purple-50 transition-colors"
+                      onClick={() => handleCopyToClipboard(company.accessKey, `key-${company.id}`)}
+                      title="Нажмите для копирования"
+                      style={{ userSelect: 'text' }}
+                    >
+                      {company.accessKey}
+                    </code>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {editingCompany !== company.id && (
                     <button
                       onClick={() => handleCopyToClipboard(company.accessKey, `key-${company.id}`)}
-                      className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1"
+                      className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-xs flex items-center gap-1.5 font-medium shadow-sm"
+                      title="Копировать ключ"
                     >
-                      {copiedField === `key-${company.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      {copiedField === `key-${company.id}` ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>✓</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Копия</span>
+                        </>
+                      )}
                     </button>
                   )}
-                  <button
-                    onClick={() => toggleAccessKeyVisibility(company.id)}
-                    className="text-gray-600 hover:text-gray-800 p-1"
+                </div>
+              </div>
                   >
                     {showAccessKeys[company.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>

@@ -59,7 +59,11 @@ func SendMessageToCompany(db *sql.DB) gin.HandlerFunc {
 
 		if err != nil {
 			log.Printf("❌ Failed to save message to company %d: %v", input.CompanyID, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send message"})
+			log.Printf("👀 Check if 'company_messages' table exists in database")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to send message",
+				"details": err.Error(),
+			})
 			return
 		}
 
@@ -120,6 +124,7 @@ func SendMessageToAllCompanies(db *sql.DB) gin.HandlerFunc {
 
 			if err != nil {
 				log.Printf("⚠️ Failed to save message to company %d: %v", companyID, err)
+				log.Printf("👀 SQL Error details: %T", err)
 			} else {
 				sentCount++
 			}

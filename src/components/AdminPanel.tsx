@@ -120,12 +120,32 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
   const handleCopyToClipboard = async (text: string, fieldName: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      // 📍 Проверяем наличие Clipboard API
+      if (!navigator.clipboard) {
+        // Fallback для старых браузеров
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (!successful) {
+          throw new Error('execCommand failed');
+        }
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      
       setCopiedField(fieldName);
       setTimeout(() => setCopiedField(null), 2000);
+      console.log(`✅ Скопировано: ${text}`);
     } catch (err) {
-      console.error('Failed to copy:', err);
-      alert('Не удалось скопировать');
+      console.error('Ошибка копирования:', err);
+      // Показываем более информативное сообщение
+      alert(`Не удалось скопировать. \n\nКлюч доступа: ${text}\n\nСкопируйте вручную.`);
     }
   };
 
@@ -584,44 +604,46 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
                   {/* Access Key */}
                   <div>
                     <label className="block text-sm text-gray-600 mb-2">
-                      Ключ доступа (30 символов - буквы и цифры)
+                      🔑 Ключ доступа (30 символов)
                     </label>
                     <div className="relative">
                       <input
-                        type={showAccessKey ? 'text' : 'password'}
+                        type="text"
                         value={companyData.access_key}
                         onChange={(e) => {
                           const value = e.target.value.slice(0, 30);
                           setCompanyData({ ...companyData, access_key: value });
                         }}
-                        className="w-full px-4 py-2 pr-32 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm"
+                        className="w-full px-4 py-2 pr-24 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm select-all"
                         placeholder="123456789012345678901234567890"
                         maxLength={30}
+                        readOnly={false}
+                        style={{ userSelect: 'text' }}
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleCopyToClipboard(companyData.access_key, 'access_key')}
-                          className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1"
+                          className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs flex items-center gap-1 font-medium"
                           disabled={!companyData.access_key}
+                          title="Копировать ключ"
                         >
                           {copiedField === 'access_key' ? (
-                            <Check className="w-3 h-3" />
+                            <>
+                              <Check className="w-3 h-3" />
+                              <span>✅</span>
+                            </>
                           ) : (
-                            <Copy className="w-3 h-3" />
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Копия</span>
+                            </>
                           )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setShowAccessKey(!showAccessKey)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          {showAccessKey ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1 break-all">
-                      💡 Текущий: {companyData.access_key || 'не установлен'} ({companyData.access_key.length}/30 символов)
+                    <p className="text-xs text-gray-500 mt-1 break-all select-text">
+                      💡 Текущий: <code className="bg-gray-100 px-2 py-0.5 rounded select-all" onClick={() => handleCopyToClipboard(companyData.access_key, 'access_key')}>{companyData.access_key || 'не установлен'}</code> ({companyData.access_key.length}/30 символов)
                     </p>
                   </div>
 

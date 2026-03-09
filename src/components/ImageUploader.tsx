@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, X, Image as ImageIcon, Loader } from 'lucide-react';
+import { X, Image as ImageIcon, Loader } from 'lucide-react';
 import api from '../utils/api';
 
 interface ImageUploaderProps {
@@ -7,6 +7,85 @@ interface ImageUploaderProps {
   images: string[]; // Массив путей к файлам из бэкенда
   onImagesChange: () => void;
 }
+
+// 🎯 НАСТРОЙКА СЖАТИЯ: Измените это значение для другого целевого размера
+// Примеры: 1.0 (1 МБ), 1.5 (1.5 МБ), 2.0 (2 МБ), 3.0 (3 МБ)
+const TARGET_SIZE_MB = 1.5;
+
+// 🔧 Функция сжатия изображения до целевого размера
+const compressImage = async (file: File, maxSizeMB: number = TARGET_SIZE_MB): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Уменьшаем размер изображения, если оно слишком большое
+        const maxDimension = 2048;
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height / width) * maxDimension;
+            width = maxDimension;
+          } else {
+            width = (width / height) * maxDimension;
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Пробуем разные уровни качества для достижения целевого размера
+        let quality = 0.9;
+        const tryCompress = () => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to compress image'));
+                return;
+              }
+              
+              const compressedSizeMB = blob.size / 1024 / 1024;
+              
+              // Если размер подходит или качество уже минимальное
+              if (compressedSizeMB <= maxSizeMB || quality <= 0.5) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                console.log(`✅ Изображение сжато: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${compressedSizeMB.toFixed(2)}MB`);
+                resolve(compressedFile);
+              } else {
+                // Уменьшаем качество и пробуем снова
+                quality -= 0.1;
+                tryCompress();
+              }
+            },
+            'image/jpeg',
+            quality
+          );
+        };
+        
+        tryCompress();
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+  });
+};
 
 export default function ImageUploader({ productId, images, onImagesChange }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
@@ -28,11 +107,6 @@ export default function ImageUploader({ productId, images, onImagesChange }: Ima
     
     // Validate all files
     for (const file of filesToUpload) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError(`Файл "${file.name}" слишком большой. Максимум 5MB`);
-        return;
-      }
-
       if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type)) {
         setError(`Файл "${file.name}" неподдерживаемый формат. Только JPEG, PNG и WebP`);
         return;
@@ -44,15 +118,31 @@ export default function ImageUploader({ productId, images, onImagesChange }: Ima
 
     try {
       // ⚠️ ВАЖНО: Загружаем файлы ПОСЛЕДОВАТЕЛЬНО для надежности
-      // Но убираем искусственную задержку для скорости
       for (let i = 0; i < filesToUpload.length; i++) {
         const file = filesToUpload[i];
+        const originalSizeMB = file.size / 1024 / 1024;
+        
         // Показываем прогресс
+        setError(`Обработка ${i + 1} из ${filesToUpload.length}... (${originalSizeMB.toFixed(1)}MB)`);
+        
+        // 🔧 Сжимаем изображение, если оно больше целевого размера
+        let fileToUpload = file;
+        if (originalSizeMB > TARGET_SIZE_MB) {
+          setError(`Сжатие ${i + 1} из ${filesToUpload.length}... (${originalSizeMB.toFixed(1)}MB → ${TARGET_SIZE_MB}MB)`);
+          try {
+            fileToUpload = await compressImage(file, TARGET_SIZE_MB);
+          } catch (compressError) {
+            console.error('Ошибка сжатия:', compressError);
+            setError(`Не удалось сжать "${file.name}". Попробуйте другое изображение.`);
+            continue;
+          }
+        }
+        
         setError(`Загрузка ${i + 1} из ${filesToUpload.length}...`);
         
         // Create FileList-like object for single file
         const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(file);
+        dataTransfer.items.add(fileToUpload);
         await api.products.uploadImages(productId.toString(), dataTransfer.files);
       }
       
@@ -97,6 +187,9 @@ export default function ImageUploader({ productId, images, onImagesChange }: Ima
                 alt={`Product ${index + 1}`}
                 className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
                 onError={(e) => {
+                  console.error(`Ошибка загрузки изображения: ${imagePath}`);
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
                   // Fallback для битых ссылок
                   e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2Y3ZjdmNyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gaW1hZ2U8L3RleHQ+PC9zdmc+';
                 }}

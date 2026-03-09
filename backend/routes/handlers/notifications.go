@@ -359,8 +359,7 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 					VALUES ($1, 'admin_message', $2, $3)
 				`, userPhone, input.Title, input.Message)
 				if err != nil {
-					log.Printf("⚠️ Failed to save notification to %s: %v", userPhone, err)
-				} else {
+					log.Printf("⚠️ Failed to save notification to %s: %v", userPhone, err)				log.Printf("👀 SQL Error details: %T", err)				} else {
 					sentCount++
 					if pushToken != "" {
 						pushTokens = append(pushTokens, pushToken)
