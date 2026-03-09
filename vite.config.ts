@@ -57,15 +57,16 @@
     },
     server: {
       port: 5173,
+      host: '0.0.0.0',
       open: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:3000',
           changeOrigin: true,
           secure: false,
         },
         '/socket.io': {
-          target: 'http://localhost:3000',
+          target: process.env.VITE_BACKEND_URL || 'http://localhost:3000',
           changeOrigin: true,
           ws: true,
         },

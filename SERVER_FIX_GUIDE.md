@@ -32,6 +32,7 @@ docker-compose up -d --build
 ```bash
 cat > .env.local << EOF
 VITE_API_URL=http://109.123.253.238:3000/api
+VITE_BACKEND_URL=http://109.123.253.238:3000
 VITE_SOCKET_URL=http://109.123.253.238:3000
 EOF
 ```
@@ -39,6 +40,7 @@ EOF
 Затем перезапустите frontend:
 
 ```bash
+# Остановите текущий процесс (Ctrl+C)
 npm run dev
 ```
 
