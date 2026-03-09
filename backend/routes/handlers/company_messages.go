@@ -101,7 +101,7 @@ func SendMessageToAllCompanies(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Получаем все компании
-		rows, err := db.Query(`SELECT id FROM companies WHERE deleted_at IS NULL`)
+		rows, err := db.Query(`SELECT id FROM companies`)
 		if err != nil {
 			log.Printf("❌ Error fetching companies: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch companies"})

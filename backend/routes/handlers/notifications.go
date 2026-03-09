@@ -326,7 +326,7 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 			// Отправить всем пользователям из всех источников
 			rows, err := db.Query(`
 				WITH all_users AS (
-					SELECT phone, COALESCE(expo_push_token, '') as push_token
+					SELECT phone, '' as push_token
 					FROM users 
 					WHERE phone IS NOT NULL AND phone != ''
 					
@@ -377,9 +377,8 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Получаем push token пользователя
-			var pushToken string
-			db.QueryRow(`SELECT COALESCE(expo_push_token, '') FROM users WHERE phone = $1`, input.Phone).Scan(&pushToken)
+			// Push token временно не используется (пока нет колонки expo_push_token)
+			pushToken := ""
 
 			_, err := db.Exec(`
 				INSERT INTO notifications (user_phone, type, title, message)
