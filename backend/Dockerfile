@@ -9,11 +9,11 @@ RUN apk add --no-cache git
 # Copy go mod files
 COPY go.mod ./
 
-# Download dependencies first (better caching)
-RUN go mod download
-
-# Copy source code
+# Copy source to generate go.sum
 COPY . .
+
+# Generate go.sum and download dependencies
+RUN go mod tidy && go mod download
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
