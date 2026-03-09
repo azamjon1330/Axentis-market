@@ -753,6 +753,7 @@ function AppContent() {
           {currentPage === 'companyLogin' && (
             <CompanyLogin 
               onLogin={handleCompanyLogin}
+              onSwitchToReferralAgent={() => setCurrentPage('referralAgent')}
             />
           )}
           {currentPage === 'companyKey' && (

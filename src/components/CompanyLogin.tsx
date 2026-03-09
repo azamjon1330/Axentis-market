@@ -5,9 +5,10 @@ import { getCurrentLanguage, useTranslation, type Language } from '../utils/tran
 
 interface CompanyLoginProps {
   onLogin: (companyData: any) => void;
+  onSwitchToReferralAgent?: () => void;
 }
 
-export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
+export default function CompanyLogin({ onLogin, onSwitchToReferralAgent }: CompanyLoginProps) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState(''); // 👥 Реферальный код (опционально)
@@ -142,6 +143,20 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
               {loading ? t.loading : t.loginButton}
             </button>
           </form>
+
+          {/* 👥 Кнопка входа для реферального агента */}
+          {onSwitchToReferralAgent && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={onSwitchToReferralAgent}
+                className="w-full bg-blue-50 text-blue-600 py-2.5 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <Ticket className="w-5 h-5" />
+                Вход для реферального агента
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
