@@ -30,8 +30,8 @@ RUN mkdir -p /app/uploads
 COPY --from=builder /app/main .
 COPY --from=builder /app/.env .
 
-# Copy Firebase Admin SDK credentials
-COPY --from=builder /app/firebase-admin-sdk.json .
+# Copy Firebase Admin SDK credentials (optional - файл может отсутствовать)
+# COPY --from=builder /app/firebase-admin-sdk.json .
 
 # Copy migrations directory
 COPY --from=builder /app/migrations ./migrations

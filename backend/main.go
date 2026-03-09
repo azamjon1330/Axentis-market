@@ -33,8 +33,11 @@ func main() {
 		log.Fatal("Failed to run migrations:", err)
 	}
 
-	// Initialize Firebase Admin SDK
-	handlers.InitFirebase()
+	// Initialize Firebase Admin SDK (опционально - работает с Expo fallback)
+	_, err = handlers.InitFirebase()
+	if err != nil {
+		log.Printf("⚠️ Firebase not initialized: %v (будет использоваться Expo Push API)", err)
+	}
 
 	// Setup Gin router
 	if cfg.GinMode == "release" {
