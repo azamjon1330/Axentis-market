@@ -49,25 +49,28 @@ func SendMessageToCompany(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Сохраняем сообщение в базу
-		var messageID int64
-		err := db.QueryRow(`
-			INSERT INTO company_messages (company_id, title, message, sender_name)
-			VALUES ($1, $2, $3, 'Axis')
-			RETURNING id
-		`, input.CompanyID, input.Title, input.Message).Scan(&messageID)
+log.Printf("📤 Attempting to send message to company ID: %d", input.CompanyID)
 
-		if err != nil {
-			log.Printf("❌ Failed to save message to company %d: %v", input.CompanyID, err)
-			log.Printf("👀 Check if 'company_messages' table exists in database")
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to send message",
-				"details": err.Error(),
-			})
-			return
-		}
+	// Сохраняем сообщение в базу
+	var messageID int64
+	err := db.QueryRow(`
+		INSERT INTO company_messages (company_id, title, message, sender_name)
+		VALUES ($1, $2, $3, 'Axis')
+		RETURNING id
+	`, input.CompanyID, input.Title, input.Message).Scan(&messageID)
 
-		log.Printf("📨 Message sent to company %d: %s", input.CompanyID, input.Title)
+	if err != nil {
+		log.Printf("❌ Failed to save message to company %d: %v", input.CompanyID, err)
+		log.Printf("👀 Check if 'company_messages' table exists in database")
+		log.Printf("👀 SQL Error details: %T", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to send message",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	log.Printf("✅ Message successfully sent to company %d (message_id: %d): %s", input.CompanyID, messageID, input.Title)
 
 		c.JSON(http.StatusOK, gin.H{
 			"success":    true,
@@ -110,6 +113,7 @@ func SendMessageToAllCompanies(db *sql.DB) gin.HandlerFunc {
 		defer rows.Close()
 
 		sentCount := 0
+		companyIDs := []int64{}
 		for rows.Next() {
 			var companyID int64
 			if err := rows.Scan(&companyID); err != nil {
@@ -127,10 +131,13 @@ func SendMessageToAllCompanies(db *sql.DB) gin.HandlerFunc {
 				log.Printf("👀 SQL Error details: %T", err)
 			} else {
 				sentCount++
+				companyIDs = append(companyIDs, companyID)
+				log.Printf("📧 Message saved for company ID: %d", companyID)
 			}
 		}
 
 		log.Printf("📢 Message sent to ALL companies (%d recipients): %s", sentCount, input.Title)
+		log.Printf("🎯 Company IDs that received the message: %v", companyIDs)
 
 		c.JSON(http.StatusOK, gin.H{
 			"success":   true,
@@ -148,6 +155,8 @@ func GetCompanyMessages(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Company ID is required"})
 			return
 		}
+
+		log.Printf("📬 Fetching messages for company ID: %s", companyIDStr)
 
 		rows, err := db.Query(`
 			SELECT id, company_id, title, message, sender_name, created_at, is_read
@@ -169,11 +178,13 @@ func GetCompanyMessages(db *sql.DB) gin.HandlerFunc {
 			var msg CompanyMessage
 			if err := rows.Scan(&msg.ID, &msg.CompanyID, &msg.Title, &msg.Message, 
 				&msg.SenderName, &msg.CreatedAt, &msg.IsRead); err != nil {
+				log.Printf("⚠️ Error scanning message: %v", err)
 				continue
 			}
 			messages = append(messages, msg)
 		}
 
+		log.Printf("✅ Found %d messages for company %s", len(messages), companyIDStr)
 		c.JSON(http.StatusOK, messages)
 	}
 }

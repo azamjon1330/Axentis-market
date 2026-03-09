@@ -320,7 +320,8 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 		}
 
 		var sentCount int
-		var pushTokens []string
+	var pushTokens []string
+	var userPhones []string
 
 		if input.SendToAll {
 			// Отправить всем пользователям из всех источников
@@ -363,13 +364,11 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 				log.Printf("👀 SQL Error details: %T", err)
 			} else {
 					sentCount++
-					if pushToken != "" {
-						pushTokens = append(pushTokens, pushToken)
-					}
-				}
-			}
+				userPhones = append(userPhones, userPhone)
+				log.Printf("📧 Notification saved for user: %s", userPhone)
 
 			log.Printf("📢 Admin notification sent to ALL users (%d recipients): %s", sentCount, input.Title)
+		log.Printf("🎯 User phones that received notification: %v", userPhones)
 		} else {
 			// Отправить конкретному пользователю
 			if input.Phone == "" {
