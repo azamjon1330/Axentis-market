@@ -360,15 +360,17 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 					VALUES ($1, 'admin_message', $2, $3)
 				`, userPhone, input.Title, input.Message)
 				if err != nil {
-				log.Printf("⚠️ Failed to save notification to %s: %v", userPhone, err)
-				log.Printf("👀 SQL Error details: %T", err)
-			} else {
+					log.Printf("⚠️ Failed to save notification to %s: %v", userPhone, err)
+					log.Printf("👀 SQL Error details: %T", err)
+				} else {
 					sentCount++
-				userPhones = append(userPhones, userPhone)
-				log.Printf("📧 Notification saved for user: %s", userPhone)
+					userPhones = append(userPhones, userPhone)
+					log.Printf("📧 Notification saved for user: %s", userPhone)
+				}
+			}
 
 			log.Printf("📢 Admin notification sent to ALL users (%d recipients): %s", sentCount, input.Title)
-		log.Printf("🎯 User phones that received notification: %v", userPhones)
+			log.Printf("🎯 User phones that received notification: %v", userPhones)
 		} else {
 			// Отправить конкретному пользователю
 			if input.Phone == "" {
