@@ -51,11 +51,27 @@ func SendMessageToCompany(db *sql.DB) gin.HandlerFunc {
 
 log.Printf("📤 Attempting to send message to company ID: %d", input.CompanyID)
 
+	// ✅ ПРОВЕРКА: Существует ли компания с таким ID
+	var companyExists bool
+	err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM companies WHERE id = $1)`, input.CompanyID).Scan(&companyExists)
+	if err != nil {
+		log.Printf("❌ Error checking company existence: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	
+	if !companyExists {
+		log.Printf("⚠️ Company with ID %d does not exist!", input.CompanyID)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Company not found",
+			"details": "Компания с таким ID не существует в базе данных",
+		})
+		return
+	}
+
 	// Сохраняем сообщение в базу
 	var messageID int64
-	err := db.QueryRow(`
-		INSERT INTO company_messages (company_id, title, message, sender_name)
-		VALUES ($1, $2, $3, 'Axis')
+	err = db.QueryRow(`
 		RETURNING id
 	`, input.CompanyID, input.Title, input.Message).Scan(&messageID)
 

@@ -44,6 +44,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.Default()
+	
+	// Set max multipart memory for image uploads (20MB)
+	router.MaxMultipartMemory = 20 << 20 // 20MB
 
 	// Setup routes
 	routes.Setup(router, db, cfg)

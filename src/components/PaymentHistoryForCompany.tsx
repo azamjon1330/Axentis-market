@@ -380,9 +380,9 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">{t.all}</option>
-                <option value="paid">✅ Оплачено</option>
-                <option value="pending">⏳ Ожидает</option>
-                <option value="error">❌ Ошибка</option>
+                <option value="paid">{t.paidStatus}</option>
+                <option value="pending">{t.pendingStatus}</option>
+                <option value="error">{t.errorStatus}</option>
               </select>
             </div>
 
@@ -394,8 +394,8 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">{t.allMethods}</option>
-                <option value="card">💳 Пластиковые карты</option>
-                <option value="cash">💵 Наличные</option>
+                <option value="card">{t.plasticCards}</option>
+                <option value="cash">{t.cashPayment}</option>
               </select>
             </div>
 

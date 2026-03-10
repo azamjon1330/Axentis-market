@@ -617,7 +617,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       // 📅 НЕДЕЛЯ = 7 ДНЕЙ (РЕАЛЬНЫЕ ДАННЫЕ)
       const currentData = groupOrdersByTime(currentOrders, 'day', 7);
       const previousData = groupOrdersByTime(previousOrders, 'day', 7);
-      const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      const days = t.daysOfWeek;
       
       for (let day = 0; day < 7; day++) {
         dataPoints.push({
@@ -633,7 +633,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       
       for (let week = 1; week <= 4; week++) {
         dataPoints.push({
-          period: `Нед ${week}`,
+          period: `${t.weekLabel} ${week}`,
           current: currentData[week - 1],
           previous: previousData[week - 1],
         });
@@ -677,7 +677,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           
           for (let day = 1; day <= days; day++) {
             dataPoints.push({
-              period: `День ${day}`,
+              period: `${t.dayLabel} ${day}`,
               current: currentData[day - 1],
               previous: previousData[day - 1],
             });
@@ -690,7 +690,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           
           for (let week = 1; week <= weeks; week++) {
             dataPoints.push({
-              period: `Нед ${week}`,
+              period: `${t.weekLabel} ${week}`,
               current: currentData[week - 1],
               previous: previousData[week - 1],
             });
@@ -703,7 +703,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           
           for (let month = 1; month <= months; month++) {
             dataPoints.push({
-              period: `Мес ${month}`,
+              period: `${t.monthLabel} ${month}`,
               current: currentData[month - 1],
               previous: previousData[month - 1],
             });
@@ -894,7 +894,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
 
               {/* 2️⃣ Столбчатая диаграмма - Прибыль, Затраты, Итоговый баланс */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">📊 Сравнение</h4>
+                <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">📊 {t.comparison}</h4>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={(() => {
@@ -959,7 +959,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h4 className="text-lg font-semibold text-gray-700">
-                      📈 Динамика роста
+                      📈 {t.growthDynamics}
                     </h4>
                     {financialTimePeriod !== 'all' && (
                       <p className="text-xs text-gray-500 mt-1">
@@ -999,7 +999,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                 </div>
                 {financialTimePeriod === 'all' ? (
                   <div className="flex items-center justify-center h-[300px] text-gray-500">
-                    Выберите конкретный период для аналитики
+                    {t.selectSpecificPeriod}
                   </div>
                 ) : (
                   <div 

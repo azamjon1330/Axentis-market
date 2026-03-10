@@ -274,22 +274,6 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             <span className={`font-medium ${responsive.small}`}>{t.discountsManagement}</span>
           </button>
 
-          {/* 📨 Сообщения от Axis - В SIDEBAR */}
-          <button
-            onClick={() => {
-              setShowInbox(true);
-              setUnreadMessagesCount(0);
-            }}
-            className={`relative w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50 ${unreadMessagesCount > 0 ? 'animate-pulse' : ''}`}
-          >
-            <MessageSquare className={`${responsive.iconSmall} ${unreadMessagesCount > 0 ? 'fill-purple-100 dark:fill-purple-900' : ''}`} />
-            <span className={`font-medium ${responsive.small}`}>Сообщения Axis</span>
-            {unreadMessagesCount > 0 && (
-              <span className="ml-auto bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-gray-800 animate-bounce">
-                {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
-              </span>
-            )}
-          </button>
         </nav>
 
         {/* Кнопка выхода внизу - АДАПТИВНО */}
@@ -378,6 +362,27 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'discounts' && t.discountsManagement}
               </h1>
             </div>
+            
+            {/* 📨 Иконка сообщений Axis (перенесена из sidebar) */}
+            <button
+              onClick={() => {
+                setShowInbox(true);
+                setUnreadMessagesCount(0);
+              }}
+              className="relative p-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-300 group"
+              title="Сообщения Axis"
+            >
+              <MessageSquare 
+                className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition ${
+                  unreadMessagesCount > 0 ? 'fill-purple-100 dark:fill-purple-900 animate-pulse' : ''
+                }`} 
+              />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-gray-800 animate-bounce">
+                  {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                </span>
+              )}
+            </button>
           </div>
         </header>
 

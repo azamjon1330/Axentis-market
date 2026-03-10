@@ -877,6 +877,22 @@ export interface Translations {
   periodYearAgo: string;
   periodPrevious: string;
   
+  // Analytics - Additional translations
+  daysOfWeek: string[];
+  weekLabel: string;
+  dayLabel: string;
+  monthLabel: string;
+  growthDynamics: string;
+  selectSpecificPeriod: string;
+  
+  // Payment methods and statuses
+  plasticCards: string;
+  cashPayment: string;
+  paidStatus: string;
+  pendingStatus: string;
+  errorStatus: string;
+  checksCodesPayment: string;
+  
   // Company Orders Panel
   invalidDeliveryCoords: string;
   mapOpenError: string;
@@ -1784,6 +1800,22 @@ export const translations: Record<Language, Translations> = {
     periodYearAgo: 'Год назад',
     periodPrevious: 'Предыдущий период',
     
+    // Analytics - Additional translations
+    daysOfWeek: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    weekLabel: 'Нед',
+    dayLabel: 'День',
+    monthLabel: 'Мес',
+    growthDynamics: 'Динамика роста',
+    selectSpecificPeriod: 'Выберите конкретный период для аналитики',
+    
+    // Payment methods and statuses
+    plasticCards: '💳 Пластиковые карты',
+    cashPayment: '💵 Наличные',
+    paidStatus: '✅ Оплачено',
+    pendingStatus: '⏳ Ожидает',
+    errorStatus: '❌ Ошибка',
+    checksCodesPayment: 'Чеки/Коды',
+    
     // Company Orders Panel
     invalidDeliveryCoords: 'Неверный формат координат доставки',
     mapOpenError: 'Ошибка при открытии карты',
@@ -2685,6 +2717,22 @@ export const translations: Record<Language, Translations> = {
     periodMonthAgo: 'Bir oy oldin',
     periodYearAgo: 'Bir yil oldin',
     periodPrevious: 'Oldingi davr',
+    
+    // Analytics - Additional translations
+    daysOfWeek: ['Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan', 'Yak'],
+    weekLabel: 'Hafta',
+    dayLabel: 'Kun',
+    monthLabel: 'Oy',
+    growthDynamics: 'O\'sish dinamikasi',
+    selectSpecificPeriod: 'Analitika uchun muayyan davrni tanlang',
+    
+    // Payment methods and statuses
+    plasticCards: '💳 Plastik kartalar',
+    cashPayment: '💵 Naqd pul',
+    paidStatus: '✅ To\'langan',
+    pendingStatus: '⏳ Kutilmoqda',
+    errorStatus: '❌ Xato',
+    checksCodesPayment: 'Cheklar/Kodlar',
     
     // Company Orders Panel
     invalidDeliveryCoords: 'Yetkazib berish koordinatalari noto\'g\'ri',
