@@ -12,6 +12,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Use Docker-specific .env if exists, otherwise use default .env
+RUN if [ -f .env.docker ]; then cp .env.docker .env; fi
+
 # Build arguments for environment variables
 ARG VITE_API_URL=/api
 ARG VITE_SOCKET_URL=
