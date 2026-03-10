@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Search, Star, BadgeCheck, UserPlus, UserCheck, Eye, TrendingUp, MapPin, Package, Heart, ShoppingCart } from 'lucide-react';
-import { ImageWithFallback } from './figma/ImageWithFallback';
-import api, { getImageUrl } from '../utils/api';
+import { ArrowLeft, Search, Star, BadgeCheck, TrendingUp, Package, Heart } from 'lucide-react';
+import { getImageUrl } from '../utils/api';
 // TODO: Company rating/subscriptions not yet in new API
 // import { rateCompany } from '../utils/api-old-supabase.tsx.backup';
 
 import { useCompanyProfile, useCompanyProducts } from '../utils/cache';
-import ProductCardSimple from './ProductCardSimple';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { LinkifiedText } from './LinkifiedText'; // 🆕 Компонент для ссылок
 
 interface Product {
@@ -155,12 +153,12 @@ export default function CompanyProfilePage({
   customerId
 }: CompanyProfilePageProps) {
   const { data: profileData, isLoading: profileLoading } = useCompanyProfile(companyId);
-  const { data: cachedProducts = [], isLoading: productsLoading } = useCompanyProducts(companyId);
+  const { data: cachedProducts = [] } = useCompanyProducts(companyId);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribersCount, setSubscribersCount] = useState(0);
-  const [profileViews, setProfileViews] = useState(0);
+  // const [profileViews, setProfileViews] = useState(0); // Not used - backend endpoints not implemented
   const [selectedCategory, setSelectedCategory] = useState<string>('Все');
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -168,7 +166,7 @@ export default function CompanyProfilePage({
   const company = profileData?.company;
   const loading = profileLoading;
 
-  const categories = ['Все', ...Array.from(new Set(cachedProducts.map((p: Product) => p.category).filter(Boolean)))];
+  const categories: string[] = ['Все', ...Array.from(new Set(cachedProducts.map((p: Product) => p.category).filter(Boolean))) as string[]];
 
   useEffect(() => {
     if (customerId) {
@@ -193,75 +191,76 @@ export default function CompanyProfilePage({
     return basePrice;
   };
 
-  const loadUserRating = async () => {
-    if (!customerId) return;
-    try {
-      const response = await fetch(
-        `/api/companies/${companyId}/my-rating?customer_id=${customerId}`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const data = await response.json();
-      if (data.success && data.rating > 0) {
-        setSelectedRating(data.rating);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки оценки:', error);
-    }
-  };
+  // ⚠️ Временно отключено - backend endpoint'ы не реализованы
+  // const loadUserRating = async () => {
+  //   if (!customerId) return;
+  //   try {
+  //     const response = await fetch(
+  //       `/api/companies/${companyId}/my-rating?customer_id=${customerId}`,
+  //       { headers: { 'Content-Type': 'application/json' } }
+  //     );
+  //     const data = await response.json();
+  //     if (data.success && data.rating > 0) {
+  //       setSelectedRating(data.rating);
+  //     }
+  //   } catch (error) {
+  //     console.error('Ошибка загрузки оценки:', error);
+  //   }
+  // };
 
-  const loadSubscriptionStatus = async () => {
-    if (!customerId) return;
-    try {
-      const response = await fetch(
-        `/api/companies/${companyId}/subscription?customer_id=${customerId}`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const data = await response.json();
-      if (data.success) {
-        setIsSubscribed(data.isSubscribed);
-        setSubscribersCount(data.subscribersCount);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки подписки:', error);
-    }
-  };
+  // const loadSubscriptionStatus = async () => {
+  //   if (!customerId) return;
+  //   try {
+  //     const response = await fetch(
+  //       `/api/companies/${companyId}/subscription?customer_id=${customerId}`,
+  //       { headers: { 'Content-Type': 'application/json' } }
+  //     );
+  //     const data = await response.json();
+  //     if (data.success) {
+  //       setIsSubscribed(data.isSubscribed);
+  //       setSubscribersCount(data.subscribersCount);
+  //     }
+  //   } catch (error) {
+  //     console.error('Ошибка загрузки подписки:', error);
+  //   }
+  // };
 
-  const loadProfileViews = async () => {
-    try {
-      const response = await fetch(
-        `/api/companies/${companyId}/profile-views`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const data = await response.json();
-      if (data.success) {
-        setProfileViews(data.views);
-      }
-    } catch (error) {
-      console.error('Ошибка загрузки просмотров:', error);
-    }
-  };
+  // const loadProfileViews = async () => {
+  //   try {
+  //     const response = await fetch(
+  //       `/api/companies/${companyId}/profile-views`,
+  //       { headers: { 'Content-Type': 'application/json' } }
+  //     );
+  //     const data = await response.json();
+  //     if (data.success) {
+  //       setProfileViews(data.views);
+  //     }
+  //   } catch (error) {
+  //     console.error('Ошибка загрузки просмотров:', error);
+  //   }
+  // };
 
-  const incrementProfileViews = async () => {
-    if (!customerId) return;
-    try {
-      const response = await fetch(
-        `/api/companies/${companyId}/profile-view`,
-        {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ customer_id: customerId })
-        }
-      );
-      const data = await response.json();
-      if (data.success) {
-        setProfileViews(data.views);
-      }
-    } catch (error) {
-      console.error('Ошибка при увеличении просмотров профиля:', error);
-    }
-  };
+  // const incrementProfileViews = async () => {
+  //   if (!customerId) return;
+  //   try {
+  //     const response = await fetch(
+  //       `/api/companies/${companyId}/profile-view`,
+  //       {
+  //         method: 'POST',
+  //         headers: { 
+  //           'Content-Type': 'application/json',
+  //         },
+  //         body: JSON.stringify({ customer_id: customerId })
+  //       }
+  //     );
+  //     const data = await response.json();
+  //     if (data.success) {
+  //       setProfileViews(data.views);
+  //     }
+  //   } catch (error) {
+  //     console.error('Ошибка при увеличении просмотров профиля:', error);
+  //   }
+  // };
 
   const handleSubscribe = async () => {
     if (!customerId) {
@@ -275,7 +274,6 @@ export default function CompanyProfilePage({
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ customer_id: customerId, action })
@@ -300,7 +298,8 @@ export default function CompanyProfilePage({
       return;
     }
     try {
-      await rateCompany(companyId, customerId, rating);
+      // ⚠️ Временно отключено - backend endpoint не реализован
+      // await rateCompany(companyId, customerId, rating);
       setSelectedRating(rating);
       toast.success('Спасибо за вашу оценку');
     } catch (error) {
@@ -309,14 +308,14 @@ export default function CompanyProfilePage({
     }
   };
 
-  const handleOpenMap = () => {
-    if (company?.latitude && company?.longitude) {
-      const url = `https://www.google.com/maps?q=${company.latitude},${company.longitude}`;
-      window.open(url, '_blank');
-    } else {
-      toast.error('Локация компании не указана');
-    }
-  };
+  // const handleOpenMap = () => {
+  //   if (company?.latitude && company?.longitude) {
+  //     const url = `https://www.google.com/maps?q=${company.latitude},${company.longitude}`;
+  //     window.open(url, '_blank');
+  //   } else {
+  //     toast.error('Локация компании не указана');
+  //   }
+  // };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
@@ -346,7 +345,6 @@ export default function CompanyProfilePage({
   const averageRating = company.rating || 0;
   const totalRatings = company.total_ratings || 0;
 
-  const themeColor = '#C0BCBC';
   const textColor = isNight ? 'text-white' : 'text-black';
   const bgColor = isNight ? 'bg-[#1a0b16]' : 'bg-[#F5F5F5]';
   const cardBg = isNight ? 'bg-[#2d1222]' : 'bg-white';
@@ -463,7 +461,7 @@ export default function CompanyProfilePage({
             {/* Статистика */}
             <div className={`grid grid-cols-3 gap-4 pt-4 border-t ${isNight ? 'border-gray-800' : 'border-gray-200'}`}>
               <div className="text-center">
-                <p className={`text-xl font-bold ${textColor}`}>{profileViews}</p>
+                <p className={`text-xl font-bold ${textColor}`}>{0}</p>
                 <p className={`text-xs ${secondaryText} mt-1`}>Ko'rishlar</p>
               </div>
               <div className="text-center">
@@ -529,7 +527,7 @@ export default function CompanyProfilePage({
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                {topProducts.map((product) => (
+                {topProducts.map((product: Product) => (
                   <ProductCardWithScroll
                     key={product.id}
                     product={product}
@@ -562,7 +560,7 @@ export default function CompanyProfilePage({
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product: Product) => (
                   <ProductCardWithScroll
                     key={product.id}
                     product={product}

@@ -13,12 +13,23 @@ export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/a
 
 /**
  * Преобразует путь к изображению в полный URL
+ * Поддерживает как Docker/nginx режим (/api), так и локальную разработку (http://localhost:3000/api)
  */
 export function getImageUrl(path: string | undefined | null): string | null {
   if (!path) return null;
   if (path.startsWith('http')) return path;
+  
+  // Remove /api from the base URL to get the server root
   const baseUrl = API_BASE.replace('/api', '');
-  return `${baseUrl}/${path}`;
+  
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  
+  // If baseUrl is empty (Docker/nginx mode), just return the normalized path
+  if (!baseUrl) return normalizedPath;
+  
+  // For absolute URLs (local dev), combine baseUrl with path
+  return `${baseUrl}${normalizedPath}`;
 }
 
 // ============================================================================
