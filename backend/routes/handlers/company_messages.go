@@ -72,6 +72,8 @@ log.Printf("📤 Attempting to send message to company ID: %d", input.CompanyID)
 	// Сохраняем сообщение в базу
 	var messageID int64
 	err = db.QueryRow(`
+		INSERT INTO company_messages (company_id, title, message, sender_name)
+		VALUES ($1, $2, $3, 'Axis')
 		RETURNING id
 	`, input.CompanyID, input.Title, input.Message).Scan(&messageID)
 
