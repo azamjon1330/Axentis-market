@@ -3,7 +3,6 @@ package handlers
 import (
 	"azaton-backend/config"
 	"database/sql"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
