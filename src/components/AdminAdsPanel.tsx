@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Megaphone, Check, X, Clock, Eye, Building2, Calendar, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 
 interface Advertisement {
   id: string;
@@ -252,17 +252,11 @@ export default function AdminAdsPanel() {
                 <div className="md:w-1/3 lg:w-1/4 bg-gray-100">
                   {ad.image_url ? (
                     <img
-                      src={
-                        ad.image_url.startsWith('http') 
-                          ? ad.image_url 
-                          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${ad.image_url}`
-                      }
+                      src={getImageUrl(ad.image_url) || ''}
                       alt={ad.caption || 'Реклама'}
                       className="w-full h-full object-cover min-h-[200px]"
                       onError={(e) => {
-                        const fullUrl = ad.image_url.startsWith('http') 
-                          ? ad.image_url 
-                          : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${ad.image_url}`;
+                        const fullUrl = getImageUrl(ad.image_url) || ad.image_url;
                         console.error('❌ Failed to load image:', ad.image_url);
                         console.error('❌ Full URL:', fullUrl);
                         (e.target as HTMLImageElement).style.display = 'none';

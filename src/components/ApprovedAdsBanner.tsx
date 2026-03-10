@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 
 interface Advertisement {
   id: string;
@@ -104,10 +104,7 @@ export default function ApprovedAdsBanner({ onCompanyClick, onProductClick }: Ap
               {ad.ad_type === 'product' && ad.product_image ? (
                 // Для рекламы товара - показываем фото товара
                 <img
-                  src={ad.product_image.startsWith('http') 
-                    ? ad.product_image 
-                    : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${ad.product_image.startsWith('/') ? '' : '/'}${ad.product_image}`
-                  }
+                  src={getImageUrl(ad.product_image) || ''}
                   alt={ad.product_name || ad.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -117,10 +114,7 @@ export default function ApprovedAdsBanner({ onCompanyClick, onProductClick }: Ap
               ) : ad.image_url ? (
                 // Для рекламы компании или если указан image_url
                 <img
-                  src={ad.image_url.startsWith('http') 
-                    ? ad.image_url 
-                    : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${ad.image_url.startsWith('/') ? '' : '/'}${ad.image_url}`
-                  }
+                  src={getImageUrl(ad.image_url) || ''}
                   alt={ad.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {

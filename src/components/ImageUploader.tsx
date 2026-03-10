@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Image as ImageIcon, Loader } from 'lucide-react';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 
 interface ImageUploaderProps {
   productId: number;
@@ -183,7 +183,7 @@ export default function ImageUploader({ productId, images, onImagesChange }: Ima
           {images.map((imagePath, index) => (
             <div key={index} className="relative group">
               <img
-                src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${imagePath}`}
+                src={getImageUrl(imagePath) || ''}
                 alt={`Product ${index + 1}`}
                 className="w-full h-24 object-cover rounded-lg border-2 border-gray-200"
                 onError={(e) => {
