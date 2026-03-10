@@ -38,7 +38,7 @@ services:
       DB_SSLMODE: disable
       JWT_SECRET: your_very_strong_jwt_secret_key_here_change_in_production
       JWT_EXPIRATION: 168h
-      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://192.168.1.5:3000
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000,http://192.168.1.5:3000,http://109.123.253.238:5173,http://109.123.253.238:3000,http://109.123.253.238
     ports:
       - "3000:3000"
     volumes:

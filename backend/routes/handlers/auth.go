@@ -3,7 +3,9 @@ package handlers
 import (
 	"azaton-backend/config"
 	"database/sql"
+	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -11,6 +13,16 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// generateAccessKey создает 30-значный ключ доступа из цифр
+func generateAccessKey() string {
+	const chars = "0123456789"
+	key := make([]byte, 30)
+	for i := range key {
+		key[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(key)
+}
 
 // Register User
 func RegisterUser(db *sql.DB) gin.HandlerFunc {
@@ -235,6 +247,14 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		// 🔑 Генерируем access_key если не передан
+		accessKey := req.AccessKey
+		if accessKey == "" {
+			// Генерируем 30-значный ключ из цифр
+			accessKey = generateAccessKey()
+			log.Printf("🔑 Generated access_key for company: %s", accessKey)
+		}
+
 		// 🆕 Проверяем реферальный код если указан
 		var referralAgentID *int64
 		if req.ReferralCode != "" {
@@ -266,7 +286,7 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, true)
 			RETURNING id
 		`, req.Name, req.Phone, string(hashedPassword), req.Mode, req.Description, 
-		   req.AccessKey, req.ReferralCode, referralAgentID).Scan(&companyID)
+		   accessKey, req.ReferralCode, referralAgentID).Scan(&companyID)
 
 		if err != nil {
 			log.Println("❌ Error creating company:", err.Error())
