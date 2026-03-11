@@ -434,13 +434,10 @@ func GetCompanyStats(db *sql.DB) gin.HandlerFunc {
 		// Получаем статистику компании включая затраты
 		err := db.QueryRow(`
 			SELECT 
-				COALESCE(view_count, 0),
-				COALESCE(employee_expenses, 0),
-				COALESCE(electricity_expenses, 0),
-				COALESCE(purchase_costs, 0)
+				COALESCE(view_count, 0)
 			FROM companies 
 			WHERE id = $1
-		`, companyID).Scan(&stats.Views, &stats.EmployeeExpenses, &stats.ElectricityExpenses, &stats.PurchaseCosts)
+		`, companyID).Scan(&stats.Views)
 
 		if err != nil {
 			log.Printf("❌ GetCompanyStats: Failed to get company data: %v", err)
@@ -599,12 +596,9 @@ func UpdateCompanyExpenses(db *sql.DB) gin.HandlerFunc {
 
 		_, err := db.Exec(`
 			UPDATE companies 
-			SET employee_expenses = $1, 
-			    electricity_expenses = $2, 
-			    purchase_costs = $3,
-			    updated_at = NOW()
-			WHERE id = $4
-		`, req.EmployeeExpenses, req.ElectricityExpenses, req.PurchaseCosts, companyID)
+			SET updated_at = NOW()
+			WHERE id = $1
+		`, companyID)
 
 		if err != nil {
 			log.Printf("❌ UpdateCompanyExpenses: Failed to update expenses: %v", err)
