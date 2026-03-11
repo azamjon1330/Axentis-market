@@ -1014,7 +1014,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     {/* Поле описания */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {t.productDescription} (опционально)
+                        {t.productDescription} ({t.optional})
                       </label>
                       <textarea
                         placeholder={t.descriptionPlaceholder}
@@ -1029,7 +1029,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                       {/* 🎨 Цвет */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">{t.productColor} (опционально)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">{t.productColor} ({t.optional})</label>
                         <div className="flex flex-wrap gap-2 mb-2">
                           {['Красный','Синий','Зелёный','Жёлтый','Чёрный','Белый','Серый','Коричневый','Розовый','Фиолетовый','Оранжевый','Бежевый'].map(c => (
                             <button
@@ -1050,7 +1050,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       </div>
                       {/* 📐 Размер */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">{t.productSize} (опционально)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">{t.productSize} ({t.optional})</label>
                         <input
                           type="text"
                           placeholder={t.sizePlaceholder}
@@ -1061,7 +1061,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       </div>
                       {/* 🏢 Бренд/Производитель */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">🏢 Бренд/Производитель (опционально)</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">{t.productBrand} ({t.optional})</label>
                         <input
                           type="text"
                           placeholder={t.brandPlaceholder}

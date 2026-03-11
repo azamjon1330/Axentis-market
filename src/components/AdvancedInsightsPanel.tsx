@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, Package } from 'lucide-react';
+import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
 interface Product {
   id: number;
@@ -28,6 +29,15 @@ interface AdvancedInsightsPanelProps {
 }
 
 export default function AdvancedInsightsPanel({ products, customerOrders, salesHistory }: AdvancedInsightsPanelProps) {
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  const t = useTranslation(language);
+
+  useEffect(() => {
+    const handleStorage = () => setLanguage(getCurrentLanguage());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   const [isOpen, setIsOpen] = useState(false);
   const [topProducts, setTopProducts] = useState<Array<{ name: string; totalSold: number; revenue: number }>>([]);
   const [lowStockProducts, setLowStockProducts] = useState<Array<{ name: string; quantity: number; price: number; threshold: number }>>([]);
@@ -273,7 +283,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
+    return new Intl.NumberFormat('uz-UZ').format(price) + ' ' + t.currency;
   };
 
   return (
@@ -290,14 +300,14 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
         <div className="flex items-center gap-3">
           <TrendingUp className="w-6 h-6" />
           <span className="text-xl font-bold">
-            📊 Расширенная аналитика
+            📊 {t.advancedInsights}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {!isOpen && (
             <span className="text-sm opacity-90">
-              {topProducts.length > 0 ? `${topProducts.length} TOP товаров` : ''}
-              {lowStockProducts.length > 0 ? ` • ${lowStockProducts.length} товаров с низким остатком` : ''}
+              {topProducts.length > 0 ? `${topProducts.length} TOP` : ''}
+              {lowStockProducts.length > 0 ? ` • ${lowStockProducts.length} ${t.lowStockProducts}` : ''}
             </span>
           )}
           {isOpen ? (
@@ -317,7 +327,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5" />
-                  <h3 className="text-lg font-bold">🏆 TOP 20 товаров</h3>
+                  <h3 className="text-lg font-bold">🏆 {t.top20products}</h3>
                 </div>
               </div>
               
@@ -332,7 +342,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         : 'bg-purple-400 text-white hover:bg-purple-300'
                     }`}
                   >
-                    📦 Лидеры продаж
+                    📦 {t.salesLeaders}
                   </button>
                   <button
                     onClick={() => setRankingMode('revenue')}
@@ -342,7 +352,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         : 'bg-purple-400 text-white hover:bg-purple-300'
                     }`}
                   >
-                    💰 Самые прибыльные
+                    💰 {t.mostProfitable}
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -354,7 +364,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         : 'bg-purple-400 text-white hover:bg-purple-300'
                     }`}
                   >
-                    💎 Самые дорогие
+                    💎 {t.expensive}
                   </button>
                   <button
                     onClick={() => setRankingMode('cheap')}
@@ -364,7 +374,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         : 'bg-purple-400 text-white hover:bg-purple-300'
                     }`}
                   >
-                    💵 Самые дешёвые
+                    💵 {t.cheap}
                   </button>
                   <button
                     onClick={() => setRankingMode('leastSold')}
@@ -374,7 +384,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         : 'bg-purple-400 text-white hover:bg-purple-300'
                     }`}
                   >
-                    🐌 Хуже продаются
+                    🐌 {t.leastSold}
                   </button>
                 </div>
               </div>
@@ -383,7 +393,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
               {topProducts.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                  <p>Пока нет продаж</p>
+                  <p>{t.noSalesYet}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -405,9 +415,9 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                           <div className="font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-600">
                             {rankingMode === 'quantity' ? (
-                              <>Выручка: {formatPrice(product.revenue)}</>
+                              <>{t.revenue}: {formatPrice(product.revenue)}</>
                             ) : (
-                              <>Продано: {product.totalSold} шт</>
+                              <>{t.productsSold}: {product.totalSold} {t.pcs}</>
                             )}
                           </div>
                         </div>
@@ -415,13 +425,13 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                       <div className="text-right">
                         <div className="text-lg font-bold text-purple-600">
                           {rankingMode === 'quantity' ? (
-                            <>{product.totalSold} шт</>
+                            <>{product.totalSold} {t.pcs}</>
                           ) : (
                             <>{formatPrice(product.revenue)}</>
                           )}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {rankingMode === 'quantity' ? 'продано' : 'выручка'}
+                          {rankingMode === 'quantity' ? t.productsSold : t.revenue}
                         </div>
                       </div>
                     </div>
@@ -436,17 +446,17 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
             <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5" />
-                <h3 className="text-lg font-bold">⚠️ Товары с низким остатком</h3>
+                <h3 className="text-lg font-bold">⚠️ {t.lowStockProducts}</h3>
               </div>
               <p className="text-sm text-orange-100 mt-1">
-                Дешевые: ≤20 шт • Дорогие: ≤10 шт
+                {t.lowStockDescription}
               </p>
             </div>
             <div className="p-4">
               {lowStockProducts.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Package className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                  <p>Все товары в наличии</p>
+                  <p>{t.allInStockMessage}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -468,7 +478,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                         <div className="flex-1">
                           <div className="font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-600">
-                            Цена: {formatPrice(product.price)} • Порог: {product.threshold} шт
+                            {t.price}: {formatPrice(product.price)} • {t.threshold}: {product.threshold} {t.pcs}
                           </div>
                         </div>
                         <div className="text-right ml-4">
@@ -479,7 +489,7 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
                           }`}>
                             {product.quantity}
                           </div>
-                          <div className="text-xs text-gray-500">осталось</div>
+                          <div className="text-xs text-gray-500">{t.remaining}</div>
                         </div>
                       </div>
                     );

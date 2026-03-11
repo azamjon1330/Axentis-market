@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Star, Upload, Video, Megaphone, MapPin, Package, TrendingUp, X, Navigation, Users, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import MapLocationPicker from './MapLocationPicker';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -117,9 +117,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
       // Строим полный URL для логотипа
       const logoUrl = data.logoUrl || '';
       console.log('🖼️ Logo URL from API:', logoUrl);
-      const fullLogoUrl = logoUrl && !logoUrl.startsWith('http') 
-        ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${logoUrl}` 
-        : logoUrl;
+      const fullLogoUrl = getImageUrl(logoUrl) || '';
       console.log('🖼️ Full Logo URL:', fullLogoUrl);
       
       setProfile({
@@ -130,8 +128,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         latitude: 0,
         longitude: 0,
         description: data.description || '',
-        rating: 0,
-        total_ratings: 0,
+        rating: data.averageRating || 0,
+        total_ratings: data.ratingCount || 0,
         total_products: statsData.total_products || 0,
         total_sales: statsData.total_sales || 0,
         logo_image: fullLogoUrl
@@ -623,14 +621,28 @@ function MediaCard({ item, companyId: _companyId, companyName: _companyName, onR
   };
 
   // Формируем полный URL для изображения
-  const imageUrl = item.url?.startsWith('http') 
-    ? item.url 
-    : `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${item.url}`;
+  const imageUrl = item.url ? (getImageUrl(item.url) || null) : null;
 
   return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       <div className="relative aspect-video bg-gray-100">
-        <img src={imageUrl} alt={item.title} className="w-full h-full object-cover" />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={item.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+            <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p className="text-xs">Нет изображения</p>
+          </div>
+        )}
         {item.type === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="bg-black/50 rounded-full p-4">

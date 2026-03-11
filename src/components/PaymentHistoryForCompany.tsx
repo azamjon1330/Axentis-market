@@ -401,7 +401,7 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
 
             {/* 📅 Фильтр по конкретному дню */}
             <div>
-              <label className="block text-sm mb-2">📅 Выбрать конкретный день</label>
+              <label className="block text-sm mb-2">{t.selectSpecificDay}</label>
               <div className="flex gap-2">
                 <input
                   type="date"
@@ -419,7 +419,7 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                💡 Выберите дату для фильтрации продаж за конкретный день
+                💡 {t.selectSpecificDayHint}
               </p>
             </div>
           </div>
@@ -431,22 +431,22 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
         {filteredPayments.length === 0 ? (
           <div className="text-center py-12">
             <CreditCard className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500">Платежи не найдены</p>
+            <p className="text-gray-500">{t.noPaymentsFound}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Дата</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Клиент</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Товары</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">🔒 Карта</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Сумма</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Прибыль</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Метод</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Статус</th>
-                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">Действия</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.orderDate}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.customer}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.products}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">🔒 {t.card}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.orderTotal}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.profit}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.methodHeader}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.status}</th>
+                  <th className="px-6 py-3 text-left text-xs uppercase tracking-wider text-gray-500">{t.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -457,7 +457,7 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm">
-                        <div>{payment.userName || 'Гость'}</div>
+                        <div>{payment.userName || t.guest}</div>
                         <div className="text-gray-500">+998 {payment.userPhone}</div>
                       </div>
                     </td>
@@ -472,7 +472,7 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                             ))}
                             {payment.items.length > 2 && (
                               <div className="text-gray-500 text-xs">
-                                + ещё {payment.items.length - 2} товаров
+                                + {t.of} {payment.items.length - 2} {t.products}
                               </div>
                             )}
                           </div>
@@ -506,7 +506,7 @@ export default function PaymentHistoryForCompany({ companyId }: PaymentHistoryFo
                         onClick={() => setSelectedPayment(payment)}
                         className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                       >
-                        Детали
+                        {t.detailsBtn}
                       </button>
                     </td>
                   </tr>

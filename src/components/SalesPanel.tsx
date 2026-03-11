@@ -188,7 +188,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
+    return new Intl.NumberFormat('uz-UZ').format(price) + ' ' + t.currency;
   };
 
   const getPriceWithMarkup = (product: Product) => {
@@ -399,7 +399,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
             className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="w-5 h-5" />
-            В продажу ({selectedForSale.size})
+            {t.putOnSale} ({selectedForSale.size})
           </button>
           <button
             onClick={async () => {
@@ -441,7 +441,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
             className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             <X className="w-5 h-5" />
-            Убрать из продажи ({selectedForSale.size})
+            {t.removeFromSale} ({selectedForSale.size})
           </button>
           <button
             onClick={handleSelectAll}
@@ -455,12 +455,12 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
             {selectedForSale.size === products.length && products.length > 0 ? (
               <>
                 <CheckSquare className="w-5 h-5" />
-                ✓ Отменить всё
+                ✓ {t.deselectAll}
               </>
             ) : (
               <>
                 <Square className="w-5 h-5" />
-                Выбрать всё
+                {t.selectAll}
               </>
             )}
           </button>
@@ -660,7 +660,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                     <div className="text-blue-600 mb-1">{formatPrice(product.price)}</div>
                   )}
                   <div className="text-sm text-gray-600">
-                    В наличии: <span className="font-medium">{product.quantity} шт.</span>
+                    {t.inStock}: <span className="font-medium">{product.quantity} {t.pcs}</span>
                   </div>
                 </div>
               </div>
@@ -693,11 +693,11 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                         <div className="text-sm text-gray-600">
                           {product.markupPercent && product.markupPercent > 0 ? (
                             <>
-                              Цена: <span className="line-through text-gray-400">{formatPrice(product.price)}</span> → <span className="text-blue-600">{formatPrice(getPriceWithMarkup(product))}</span> <span className="text-orange-600">+{product.markupPercent}%</span> | В наличии: {product.quantity} шт.
+                              {t.price}: <span className="line-through text-gray-400">{formatPrice(product.price)}</span> → <span className="text-blue-600">{formatPrice(getPriceWithMarkup(product))}</span> <span className="text-orange-600">+{product.markupPercent}%</span> | {t.inStock}: {product.quantity} {t.pcs}
                             </>
                           ) : (
                             <>
-                              Цена: {formatPrice(product.price)} | В наличии: {product.quantity} шт.
+                              {t.price}: {formatPrice(product.price)} | {t.inStock}: {product.quantity} {t.pcs}
                             </>
                           )}
                         </div>
@@ -820,7 +820,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                   <div>
                     <div className="text-sm text-gray-600 mb-1">{t.inStock}</div>
                     <div className="text-2xl font-bold text-green-600">
-                      {selectedProduct.quantity} шт.
+                      {selectedProduct.quantity} {t.pcs}
                     </div>
                   </div>
                 </div>
@@ -924,7 +924,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                       )}
                       <div className="pt-3 border-t border-gray-200">
                         <div className="text-xs text-gray-500">
-                          Товаров в наличии: {products.reduce((sum, p) => sum + p.quantity, 0)} шт. ({products.filter(p => p.quantity > 0).length} видов)
+                          {t.productsAvailable}: {products.reduce((sum, p) => sum + p.quantity, 0)} {t.pcs} ({products.filter(p => p.quantity > 0).length} {t.category})
                         </div>
                       </div>
 

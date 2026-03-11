@@ -923,6 +923,22 @@ export interface Translations {
   sold: string;
   revenue: string;
   profit: string;
+
+  // Advanced Insights Panel
+  leastSold: string;
+  remaining: string;
+  threshold: string;
+  top20products: string;
+  lowStockDescription: string;
+  allInStockMessage: string;
+
+  // Payment History date filter
+  selectSpecificDay: string;
+  selectSpecificDayHint: string;
+
+  // Table headers (short)
+  methodHeader: string;
+  detailsBtn: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -1842,6 +1858,22 @@ export const translations: Record<Language, Translations> = {
     companyAnalytics: 'Аналитика по компаниям',
     productAnalytics: 'Аналитика товаров',
     ordersCount: 'Заказов',
+
+    // Advanced Insights Panel
+    leastSold: 'Хуже продаются',
+    remaining: 'осталось',
+    threshold: 'Порог',
+    top20products: 'TOP 20 товаров',
+    lowStockDescription: 'Дешёвые: ≤20 шт • Дорогие: ≤10 шт',
+    allInStockMessage: 'Все товары в наличии',
+
+    // Payment History date filter
+    selectSpecificDay: '📅 Выбрать конкретный день',
+    selectSpecificDayHint: 'Выберите дату для фильтрации продаж за конкретный день',
+
+    // Table headers (short)
+    methodHeader: 'Метод',
+    detailsBtn: 'Детали',
   },
   
   uz: {
@@ -2760,6 +2792,22 @@ export const translations: Record<Language, Translations> = {
     companyAnalytics: 'Kompaniyalar bo\'yicha analitika',
     productAnalytics: 'Mahsulotlar analitikasi',
     ordersCount: 'Buyurtmalar',
+
+    // Advanced Insights Panel
+    leastSold: 'Kam sotiladi',
+    remaining: 'qoldi',
+    threshold: 'Chegara',
+    top20products: 'TOP 20 mahsulot',
+    lowStockDescription: 'Arzonlar: ≤20 ta • Qimmatlar: ≤10 ta',
+    allInStockMessage: 'Barcha tovarlar mavjud',
+
+    // Payment History date filter
+    selectSpecificDay: '📅 Muayyan kunni tanlash',
+    selectSpecificDayHint: 'Muayyan kun uchun sotuvlarni filtrlash uchun sanani tanlang',
+
+    // Table headers (short)
+    methodHeader: 'Usul',
+    detailsBtn: 'Batafsil',
   }
 };
 

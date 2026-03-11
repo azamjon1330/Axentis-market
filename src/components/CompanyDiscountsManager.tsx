@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CompanyDiscountsPanel from './CompanyDiscountsPanel';
 import CompanyAggressiveDiscountsPanel from './CompanyAggressiveDiscountsPanel';
+import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
 interface CompanyDiscountsManagerProps {
   companyId: number;
@@ -9,6 +10,14 @@ interface CompanyDiscountsManagerProps {
 
 export default function CompanyDiscountsManager({ companyId, products = [] }: CompanyDiscountsManagerProps) {
   const [activeTab, setActiveTab] = useState<'regular' | 'aggressive'>('regular');
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  const t = useTranslation(language);
+
+  useEffect(() => {
+    const handleStorage = () => setLanguage(getCurrentLanguage());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   return (
     <div className="discounts-panel-container" style={{ width: '100%', height: '100%' }}>
@@ -36,7 +45,7 @@ export default function CompanyDiscountsManager({ companyId, products = [] }: Co
           }}
           onClick={() => setActiveTab('regular')}
         >
-          🏷️ Обычные скидки
+          🏷️ {t.regularDiscounts}
         </button>
         <button
           className={`discounts-tab ${activeTab === 'aggressive' ? 'discounts-tab-active' : 'discounts-tab-inactive'}`}
@@ -55,7 +64,7 @@ export default function CompanyDiscountsManager({ companyId, products = [] }: Co
           }}
           onClick={() => setActiveTab('aggressive')}
         >
-          🔥 Жёсткие скидки
+          🔥 {t.aggressiveDiscounts}
         </button>
       </div>
 
