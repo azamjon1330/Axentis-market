@@ -277,15 +277,18 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   const searchTimeoutRef = useRef<number | null>(null);
 
-  // Корзина сохраняется через backend API при checkout
-  // useEffect(() => {
-  //   if (userPhone && Object.keys(cart).length >= 0) {
-  //     console.log('💾 [Cart Sync] Syncing cart to backend...');
-  //     saveUserCart(userPhone, cart).catch(error => {
-  //       console.error('❌ [Cart Sync] Failed:', error);
-  //     });
-  //   }
-  // }, [cart, userPhone]);
+  // Корзина синхронизируется с backend при каждом изменении (с дебаунсингом)
+  useEffect(() => {
+    if (userPhone) {
+      const timeoutId = setTimeout(() => {
+        console.log('💾 [Cart Sync] Syncing cart to backend...');
+        saveUserCart(userPhone, cart).catch(error => {
+          console.error('❌ [Cart Sync] Failed:', error);
+        });
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [cart, userPhone]);
 
   useEffect(() => {
     localStorage.setItem('myOrders', JSON.stringify(myOrders));
@@ -296,8 +299,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       onLikesChange(likedProductIds);
     }
     
-    // Лайки сохраняются через backend API
-    if (userPhone && likedProductIds.length > 0) {
+    // Лайки сохраняются через backend API (включая пустой массив — удаление последнего лайка)
+    if (userPhone && likedProductIds) {
       const timeoutId = setTimeout(() => {
         console.log('💾 [Likes Sync] Saving likes to backend...');
         saveUserLikes(userPhone, likedProductIds).catch(error => {
