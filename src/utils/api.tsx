@@ -658,32 +658,51 @@ export const users = {
   // Get liked products
   getLikes: async (phone?: string) => {
     if (phone) {
-      return apiCall(`/users/${phone}/likes`, { requiresAuth: false });
+      const items = await apiCall(`/favorites/${phone}`, { requiresAuth: false });
+      if (!Array.isArray(items)) return [];
+      return items.map((item: any) => Number(item.product_id));
     }
     return apiCall('/users/likes');
   },
 
-  // Save user likes
+  // Save user likes (clear existing then re-add all)
   saveLikes: async (phone: string, likes: number[]) => {
-    return apiCall(`/users/${phone}/likes`, {
-      method: 'POST',
-      body: JSON.stringify(likes),
-      requiresAuth: false,
-    });
+    await apiCall(`/favorites/user/${phone}`, { method: 'DELETE', requiresAuth: false });
+    if (likes.length > 0) {
+      await Promise.all(likes.map(productId =>
+        apiCall('/favorites', {
+          method: 'POST',
+          body: JSON.stringify({ user_phone: phone, product_id: productId }),
+          requiresAuth: false,
+        }).catch((err) => console.warn(`⚠️ Failed to re-add favorite ${productId}:`, err))
+      ));
+    }
   },
 
   // Get user cart
   getCart: async (phone: string) => {
-    return apiCall(`/users/${phone}/cart`, { requiresAuth: false });
+    const items = await apiCall(`/cart/${phone}`, { requiresAuth: false });
+    if (!Array.isArray(items)) return {};
+    const cart: { [key: number]: number } = {};
+    items.forEach((item: any) => {
+      cart[Number(item.product_id)] = item.quantity;
+    });
+    return cart;
   },
 
-  // Save user cart
+  // Save user cart (clear existing then re-add all)
   saveCart: async (phone: string, cart: any) => {
-    return apiCall(`/users/${phone}/cart`, {
-      method: 'POST',
-      body: JSON.stringify(cart),
-      requiresAuth: false,
-    });
+    await apiCall(`/cart/user/${phone}`, { method: 'DELETE', requiresAuth: false });
+    const entries = Object.entries(cart);
+    if (entries.length > 0) {
+      await Promise.all(entries.map(([productId, quantity]) =>
+        apiCall('/cart', {
+          method: 'POST',
+          body: JSON.stringify({ user_phone: phone, product_id: Number(productId), quantity: Number(quantity) }),
+          requiresAuth: false,
+        }).catch((err) => console.warn(`⚠️ Failed to re-add cart item ${productId}:`, err))
+      ));
+    }
   },
 
   // Get user receipts
