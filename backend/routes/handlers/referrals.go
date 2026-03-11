@@ -502,11 +502,15 @@ func GetAgentFinancialAnalytics(db *sql.DB) gin.HandlerFunc {
 				c.phone,
 				c.is_enabled,
 				COALESCE(c.trial_end_date > CURRENT_TIMESTAMP, false) AS is_trial_active,
-				COALESCE(SUM(s.total), 0) AS total_sales
+				COALESCE(
+					(SELECT SUM(total_amount) FROM sales WHERE company_id = c.id),
+					0
+				) + COALESCE(
+					(SELECT SUM(total_amount) FROM orders WHERE company_id = c.id AND status = 'completed'),
+					0
+				) AS total_sales
 			FROM companies c
-			LEFT JOIN sales s ON s.company_id = c.id
 			WHERE c.referral_agent_id = $1
-			GROUP BY c.id, c.name, c.phone, c.is_enabled, c.trial_end_date
 			ORDER BY total_sales DESC
 		`, agentID)
 

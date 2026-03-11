@@ -58,6 +58,7 @@ function AppContent() {
   });
   const [userType, setUserType] = useState<UserType>(null);
   const [pendingUser, setPendingUser] = useState<any>(null);
+  const [currentReferralAgent, setCurrentReferralAgent] = useState<any>(null);
   const [currentCompany, setCurrentCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
@@ -293,6 +294,17 @@ function AppContent() {
             navigateTo('company', true);
             setLoading(false);
             console.log('✅ [App] Company session restored successfully!');
+            return;
+          } else if (session.userType === 'referralAgent' && session.agentData) {
+            console.log('👥 [App] Restoring referral agent session...');
+            setCurrentReferralAgent(session.agentData);
+            
+            // ⏱️ Ждем минимальное время загрузки
+            await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
+            
+            navigateTo('referralAgent', true);
+            setLoading(false);
+            console.log('✅ [App] Referral agent session restored successfully!');
             return;
           } else {
             console.log('⚠️ [App] Invalid session data, clearing...');
@@ -611,6 +623,22 @@ function AppContent() {
   const handleCompanyLogin = async (companyData: any) => {
     try {
       console.log('🔐 Company login with data:', companyData);
+      
+      // 👥 Проверка на реферального агента
+      if (companyData?.isReferralAgent && companyData?.agent) {
+        console.log('👥 Referral agent detected, redirecting to agent panel...');
+        setCurrentReferralAgent(companyData.agent);
+        navigateTo('referralAgent', true);
+        
+        // Сохраняем сессию агента
+        localStorage.setItem('userSession', JSON.stringify({
+          userType: 'referralAgent',
+          agentData: companyData.agent
+        }));
+        console.log('💾 Referral agent session saved');
+        return true;
+      }
+      
       console.log('🔍 CompanyData details:', {
         id: companyData?.id,
         name: companyData?.name,
@@ -706,6 +734,7 @@ function AppContent() {
     setUserType(null);
     setPendingUser(null);
     setCurrentCompany(null);
+    setCurrentReferralAgent(null);
     setCurrentPage('companyLogin'); // 🔒 Возвращаемся к панели входа для компаний
     setCustomerRegistrationMode('public'); // 🔒 Устанавливаем режим по умолчанию
     setPrivateCompanyId(null); // 🔒 Сбрасываем ID компании
@@ -753,7 +782,6 @@ function AppContent() {
           {currentPage === 'companyLogin' && (
             <CompanyLogin 
               onLogin={handleCompanyLogin}
-              onSwitchToReferralAgent={() => setCurrentPage('referralAgent')}
             />
           )}
           {currentPage === 'companyKey' && (
@@ -832,7 +860,7 @@ function AppContent() {
             <AdminPanel onLogout={handleLogout} />
           )}
           {currentPage === 'referralAgent' && (
-            <ReferralAgentPanel />
+            <ReferralAgentPanel agentData={currentReferralAgent} onLogout={handleLogout} />
           )}
           {currentPage === 'company' && currentCompany && (
             <CompanyPanel 

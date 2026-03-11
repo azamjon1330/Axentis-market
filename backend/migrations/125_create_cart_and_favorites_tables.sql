@@ -1,4 +1,3 @@
--- +goose Up
 -- Таблица для корзины покупателей
 CREATE TABLE IF NOT EXISTS cart_items (
     id SERIAL PRIMARY KEY,
@@ -28,7 +27,3 @@ CREATE TABLE IF NOT EXISTS user_favorites (
 CREATE INDEX IF NOT EXISTS idx_favorites_user ON user_favorites(user_phone);
 CREATE INDEX IF NOT EXISTS idx_favorites_product ON user_favorites(product_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_added_at ON user_favorites(added_at DESC);
-
--- +goose Down
-DROP TABLE IF EXISTS user_favorites;
-DROP TABLE IF EXISTS cart_items;

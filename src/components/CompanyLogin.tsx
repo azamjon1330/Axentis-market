@@ -5,10 +5,9 @@ import { getCurrentLanguage, useTranslation, type Language } from '../utils/tran
 
 interface CompanyLoginProps {
   onLogin: (companyData: any) => void;
-  onSwitchToReferralAgent?: () => void;
 }
 
-export default function CompanyLogin({ onLogin, onSwitchToReferralAgent }: CompanyLoginProps) {
+export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState(''); // 👥 Реферальный код (опционально)
@@ -29,7 +28,7 @@ export default function CompanyLogin({ onLogin, onSwitchToReferralAgent }: Compa
 
     setLoading(true);
     try {
-      // 🔐 Проверка админа ПЕРВЫМ ДЕЛОМ
+      // 🔐 1. Проверка админа ПЕРВЫМ ДЕЛОМ
       if (phone === '914751330' && password === '15051') {
         console.log('✅ Admin login detected');
         setLoading(false);
@@ -42,18 +41,34 @@ export default function CompanyLogin({ onLogin, onSwitchToReferralAgent }: Compa
         return;
       }
 
-      // 👥 Передаём реферальный код при логине (если указан)
-      const response = await api.auth.loginCompany(phone, password, undefined, referralCode || undefined);
-      console.log('✅ Company login successful:', response);
-      
-      // Передаём данные компании из response.company
-      if (response.company) {
-        onLogin(response.company);
-      } else {
-        throw new Error('Company data not found in response');
+      // 🏢 2. Пробуем войти как компания
+      try {
+        const response = await api.auth.loginCompany(phone, password, undefined, referralCode || undefined);
+        console.log('✅ Company login successful:', response);
+        if (response.company) {
+          onLogin(response.company);
+          return;
+        }
+      } catch (companyErr) {
+        console.log('ℹ️ Company login failed, trying referral agent...');
       }
+
+      // 👥 3. Пробуем войти как реферальный агент
+      try {
+        const result = await api.referrals.loginAgent(phone, password);
+        if (result.token && result.agent) {
+          console.log('✅ Referral agent login detected');
+          onLogin({ isReferralAgent: true, agent: result.agent });
+          return;
+        }
+      } catch (agentErr) {
+        console.log('ℹ️ Referral agent login failed too.');
+      }
+
+      // ❌ Ни один тип пользователя не подошёл
+      setError(t.invalidPhoneOrPassword);
     } catch (err) {
-      console.error('❌ Company login error:', err);
+      console.error('❌ Login error:', err);
       setError(err instanceof Error ? err.message : t.invalidPhoneOrPassword);
     } finally {
       setLoading(false);
@@ -144,19 +159,7 @@ export default function CompanyLogin({ onLogin, onSwitchToReferralAgent }: Compa
             </button>
           </form>
 
-          {/* 👥 Кнопка входа для реферального агента */}
-          {onSwitchToReferralAgent && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={onSwitchToReferralAgent}
-                className="w-full bg-blue-50 text-blue-600 py-2.5 rounded-lg hover:bg-blue-100 transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <Ticket className="w-5 h-5" />
-                Вход для реферального агента
-              </button>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

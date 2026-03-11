@@ -289,7 +289,15 @@ func runMigrationFiles(db *sql.DB, dir string) error {
 			return fmt.Errorf("failed to read migration file %s: %w", fileName, err)
 		}
 
-		_, err = db.Exec(string(content))
+		// Strip goose Down section to prevent DROP TABLE from executing
+		sqlContent := string(content)
+		if idx := strings.Index(sqlContent, "-- +goose Down"); idx != -1 {
+			sqlContent = sqlContent[:idx]
+		}
+		// Also strip goose Up marker (it's just a comment, but be explicit)
+		sqlContent = strings.ReplaceAll(sqlContent, "-- +goose Up", "")
+
+		_, err = db.Exec(sqlContent)
 		if err != nil {
 			return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
 		}

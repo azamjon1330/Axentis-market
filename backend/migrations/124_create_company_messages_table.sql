@@ -13,5 +13,3 @@ CREATE INDEX IF NOT EXISTS idx_company_messages_company_id ON company_messages(c
 CREATE INDEX IF NOT EXISTS idx_company_messages_created_at ON company_messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_company_messages_is_read ON company_messages(is_read);
 
--- +goose Down
-DROP TABLE IF EXISTS company_messages;
