@@ -1,4 +1,4 @@
-import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes } from '../utils/api';
+import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -814,7 +814,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         color: product.hasColorOptions 
           ? (selectedColors[productId] || 'Любой') 
           : null, 
-        image_url: product.images && product.images.length > 0 ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${product.images[0]}` : null,
+        image_url: product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null,
         company_id: product.company_id // Добавляем company_id для определения владельца заказа
       });
     }
@@ -1028,7 +1028,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         markupAmount: markupAmount, 
         quantity,
         selectedColor: selectedColors[productId],
-        image: product.images && product.images.length > 0 ? `${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${product.images[0]}` : undefined
+        image: product.images && product.images.length > 0 ? (getImageUrl(product.images[0]) || undefined) : undefined
       };
     }).filter(Boolean) as any[];
 
@@ -1367,7 +1367,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                               {/* Image Thumbnail */}
                               <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                                 {product.images && product.images.length > 0 ? (
-                                  <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${product.images[0]}`} className="w-full h-full object-cover" />
+                                  <img src={getImageUrl(product.images[0]) || ''} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Нет фото</div>
                                 )}

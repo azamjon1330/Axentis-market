@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, MapPin, Package, Star, Heart, UserPlus, UserCheck, Users, TrendingUp, Navigation } from 'lucide-react';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 // TODO: Company rating/subscriptions not yet in new API
 const rateCompany = async (data: any) => ({ success: true });
 
@@ -209,7 +209,7 @@ export default function CompanyProfile({ companyId, customerId, onClose, onProdu
           <div className="absolute top-4 left-4 w-16 h-16 rounded-full bg-white border-4 border-white shadow-lg overflow-hidden">
             {company.logoUrl ? (
               <img 
-                src={`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}${company.logoUrl}`} 
+                src={getImageUrl(company.logoUrl) || ''} 
                 alt={company.name} 
                 className="w-full h-full object-cover" 
                 onError={(e) => {

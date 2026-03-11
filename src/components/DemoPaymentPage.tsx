@@ -170,7 +170,7 @@ export default function DemoPaymentPage({
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
-                'Content-Type': 'application/json'
+     
               },
               body: JSON.stringify({
                 quantity: newQuantity
@@ -213,7 +213,7 @@ export default function DemoPaymentPage({
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Content-Type': 'application/json'
+         
             },
             body: JSON.stringify({
               userId: userPhone,
@@ -240,7 +240,7 @@ export default function DemoPaymentPage({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Content-Type': 'application/json'
+     
           },
           body: JSON.stringify({
             orderId,

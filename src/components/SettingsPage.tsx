@@ -2,7 +2,7 @@ import { User, LogOut, ArrowLeft, Heart, List, MessageCircle, X, Camera, Star, S
 import BottomNavigation from './BottomNavigation';
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 // TODO: User reviews, stats, subscriptions not yet in new API
 const getUserReviews = async (phone: string) => [];
 const getUserStats = async (phone: string) => ({ likesCount: 0, ordersCount: 0, reviewsCount: 0 });
@@ -92,7 +92,7 @@ export default function SettingsPage({
     try {
       const response = await api.get(`/users/${userPhone}/profile`);
       if (response.data.avatar_url) {
-        setProfilePhoto(`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${response.data.avatar_url}`);
+        setProfilePhoto(getImageUrl(response.data.avatar_url) || '');
       }
     } catch (error) {
       console.error('Error loading profile photo:', error);
@@ -123,7 +123,7 @@ export default function SettingsPage({
         });
 
         if (response.data.success && response.data.avatar_url) {
-          setProfilePhoto(`${import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:3000'}/${response.data.avatar_url}`);
+          setProfilePhoto(getImageUrl(response.data.avatar_url) || '');
           alert('Фото профиля обновлено!');
         }
       } catch (error) {

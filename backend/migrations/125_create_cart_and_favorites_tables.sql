@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS cart_items (
     user_phone VARCHAR(20) NOT NULL,
     product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    selected_color VARCHAR(50),
-    selected_size VARCHAR(50),
+    selected_color VARCHAR(50) NOT NULL DEFAULT '',
+    selected_size VARCHAR(50) NOT NULL DEFAULT '',
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_phone, product_id, selected_color, selected_size)

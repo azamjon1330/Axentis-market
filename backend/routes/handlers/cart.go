@@ -115,17 +115,35 @@ func AddToCart(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Добавляем или обновляем корзину
+		colorVal := input.SelectedColor
+		sizeVal := input.SelectedSize
+
+		// Проверяем — есть ли уже такой товар в корзине
+		var existingID int
+		checkErr := db.QueryRow(`
+			SELECT id FROM cart_items 
+			WHERE user_phone = $1 AND product_id = $2 
+			AND COALESCE(selected_color, '') = $3 
+			AND COALESCE(selected_size, '') = $4
+		`, input.UserPhone, input.ProductID, colorVal, sizeVal).Scan(&existingID)
+
 		var itemID int
-		err = db.QueryRow(`
-			INSERT INTO cart_items (user_phone, product_id, quantity, selected_color, selected_size)
-			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''))
-			ON CONFLICT (user_phone, product_id, selected_color, selected_size)
-			DO UPDATE SET 
-				quantity = cart_items.quantity + EXCLUDED.quantity,
-				updated_at = CURRENT_TIMESTAMP
-			RETURNING id
-		`, input.UserPhone, input.ProductID, input.Quantity, input.SelectedColor, input.SelectedSize).Scan(&itemID)
+		if checkErr == sql.ErrNoRows {
+			// Вставляем новый товар
+			err = db.QueryRow(`
+				INSERT INTO cart_items (user_phone, product_id, quantity, selected_color, selected_size)
+				VALUES ($1, $2, $3, $4, $5)
+				RETURNING id
+			`, input.UserPhone, input.ProductID, input.Quantity, colorVal, sizeVal).Scan(&itemID)
+		} else if checkErr == nil {
+			// Обновляем количество существующего
+			err = db.QueryRow(`
+				UPDATE cart_items SET quantity = quantity + $1, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $2 RETURNING id
+			`, input.Quantity, existingID).Scan(&itemID)
+		} else {
+			err = checkErr
+		}
 
 		if err != nil {
 			log.Printf("❌ Error adding to cart: %v", err)
