@@ -21,7 +21,7 @@ import PrivateCompanyAccess from './components/PrivateCompanyAccess'; // 🔒 П
 import UserModeSelector from './components/UserModeSelector'; // 🆕 НОВЫЙ: Выбор между Public/Private
 import UserAuthPage from './components/UserAuthPage'; // 🆕 НОВЫЙ: Объединенная страница входа/регистрации
 import PWAInstallPrompt from './components/PWAInstallPrompt'; // 🚀 PWA: Install Prompt
-import api from './utils/api';
+import api, { getUserCart, saveUserCart } from './utils/api';
 import { subscribeToReload } from './utils/reloadBroadcast';
 
 type UserType = 'customer' | 'admin' | 'company' | null;
@@ -245,7 +245,7 @@ function AppContent() {
               setPrivateCompanyId(session.userData.companyId);
             }
             
-            // Load user likes from backend API when restoring customer session
+            // Load user likes AND cart from backend API when restoring customer session
             if (session.userData?.phone) {
               console.log('🔄 [App] Loading user likes from backend...');
               try {
@@ -260,6 +260,20 @@ function AppContent() {
               } catch (error) {
                 console.error('❌ [App] Failed to load user likes:', error);
                 setLikedProductIds([]);
+              }
+
+              console.log('🔄 [App] Loading user cart from backend...');
+              try {
+                const savedCart = await getUserCart(session.userData.phone);
+                if (savedCart && Object.keys(savedCart).length > 0) {
+                  console.log('✅ [App] Cart loaded from backend:', Object.keys(savedCart).length, 'items');
+                  setCart(savedCart);
+                } else {
+                  console.log('ℹ️ [App] No cart found for user');
+                  setCart({});
+                }
+              } catch (error) {
+                console.error('❌ [App] Failed to load cart:', error);
               }
             }
             
@@ -500,7 +514,7 @@ function AppContent() {
         });
       }
       
-      // Load user likes from backend API
+      // Load user likes AND cart from backend API
       console.log('🔄 Loading user likes from backend for phone:', userData.phone);
       try {
         const savedLikes = await api.users.getLikes(userData.phone);
@@ -514,6 +528,18 @@ function AppContent() {
       } catch (error) {
         console.error('❌ Failed to load user likes:', error);
         setLikedProductIds([]);
+      }
+
+      try {
+        const savedCart = await getUserCart(userData.phone);
+        if (savedCart && Object.keys(savedCart).length > 0) {
+          console.log('✅ Cart loaded from backend:', Object.keys(savedCart).length, 'items');
+          setCart(savedCart);
+        } else {
+          setCart({});
+        }
+      } catch (error) {
+        console.error('❌ Failed to load cart:', error);
       }
       
       setUserType('customer');

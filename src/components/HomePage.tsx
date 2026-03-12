@@ -344,13 +344,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const loadUserData = async () => {
       if (userPhone) {
         try {
-          console.log('🔄 [Cart Sync] Loading cart from backend for:', userPhone);
-          const savedCart = await getUserCart(userPhone);
-          // Only initialize cart from backend if not already loaded (prevents overwriting local changes on re-mount)
-          if (savedCart && Object.keys(savedCart).length > 0 && Object.keys(cart).length === 0) {
-            console.log('✅ [Cart Sync] Cart loaded from backend:', Object.keys(savedCart).length, 'items');
-            setCart(savedCart);
-          }
+          // Cart is now loaded once at App level (initializeApp). Skip re-loading here to avoid race conditions.
+          console.log('ℹ️ [Cart Sync] Cart managed at App level, skipping re-load from backend.');
           
           // 📦 Заказы загружаются из localStorage
           const savedOrdersLocal = localStorage.getItem('myOrders');
