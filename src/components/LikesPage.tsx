@@ -79,7 +79,7 @@ export default function LikesPage({
   }, []);
   
   useEffect(() => {
-    if (userPhone && likedProductIds && likedProductIds.length > 0) {
+    if (userPhone && likedProductIds) {
       const timeoutId = setTimeout(() => {
         api.users.saveLikes(userPhone, likedProductIds).catch(error => {
           console.error('Failed to sync likes to Supabase:', error);
