@@ -277,66 +277,33 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   const searchTimeoutRef = useRef<number | null>(null);
 
-  // Refs to hold latest cart/likes data for flush-on-unmount
-  const cartSyncLatestRef = useRef<{ cart: { [key: number]: number }; phone: string } | null>(null);
-  const cartSyncDirtyRef = useRef(false);
-  const likesSyncLatestRef = useRef<{ likes: number[]; phone: string } | null>(null);
-  const likesSyncDirtyRef = useRef(false);
+  // Background sync to backend (fire-and-forget, non-blocking, debounced)
+  // localStorage is the source of truth — these calls only back up to server
+  const cartSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const likesSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Корзина синхронизируется с backend при каждом изменении (с дебаунсингом)
   useEffect(() => {
-    if (userPhone) {
-      cartSyncLatestRef.current = { cart, phone: userPhone };
-      cartSyncDirtyRef.current = true;
-      const timeoutId = setTimeout(() => {
-        cartSyncDirtyRef.current = false;
-        console.log('💾 [Cart Sync] Syncing cart to backend...');
-        saveUserCart(userPhone, cart).catch(error => {
-          console.error('❌ [Cart Sync] Failed:', error);
-        });
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
+    if (!userPhone) return;
+    if (cartSyncTimerRef.current) clearTimeout(cartSyncTimerRef.current);
+    cartSyncTimerRef.current = setTimeout(() => {
+      saveUserCart(userPhone, cart).catch(() => {});
+    }, 1500);
+    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
   }, [cart, userPhone]);
 
-  // Flush pending cart/likes saves when component unmounts (prevents data loss on navigation)
   useEffect(() => {
-    return () => {
-      if (cartSyncDirtyRef.current && cartSyncLatestRef.current) {
-        cartSyncDirtyRef.current = false;
-        saveUserCart(cartSyncLatestRef.current.phone, cartSyncLatestRef.current.cart).catch(() => {});
-      }
-      if (likesSyncDirtyRef.current && likesSyncLatestRef.current) {
-        likesSyncDirtyRef.current = false;
-        saveUserLikes(likesSyncLatestRef.current.phone, likesSyncLatestRef.current.likes).catch(() => {});
-      }
-    };
-  }, []);
+    if (onLikesChange) onLikesChange(likedProductIds);
+    if (!userPhone) return;
+    if (likesSyncTimerRef.current) clearTimeout(likesSyncTimerRef.current);
+    likesSyncTimerRef.current = setTimeout(() => {
+      saveUserLikes(userPhone, likedProductIds).catch(() => {});
+    }, 1500);
+    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
+  }, [likedProductIds, userPhone, onLikesChange]);
 
   useEffect(() => {
     localStorage.setItem('myOrders', JSON.stringify(myOrders));
   }, [myOrders]);
-
-  useEffect(() => {
-    if (onLikesChange) {
-      onLikesChange(likedProductIds);
-    }
-    
-    // Лайки сохраняются через backend API (включая пустой массив — удаление последнего лайка)
-    if (userPhone && likedProductIds) {
-      likesSyncLatestRef.current = { likes: likedProductIds, phone: userPhone };
-      likesSyncDirtyRef.current = true;
-      const timeoutId = setTimeout(() => {
-        likesSyncDirtyRef.current = false;
-        console.log('💾 [Likes Sync] Saving likes to backend...');
-        saveUserLikes(userPhone, likedProductIds).catch(error => {
-          console.error('❌ [Likes Sync] Failed:', error);
-        });
-      }, 500); 
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [likedProductIds, userPhone, onLikesChange]);
 
   const { shouldRefresh: ordersRefreshTrigger } = useCustomerOrdersRealtime(userPhone);
   

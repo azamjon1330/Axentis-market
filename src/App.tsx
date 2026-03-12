@@ -69,11 +69,21 @@ function AppContent() {
   // 🔒 НОВЫЙ: Режим регистрации покупателя (публичный/приватный)
   const [customerRegistrationMode, setCustomerRegistrationMode] = useState<'public' | 'private'>('public'); // 🎯 По умолчанию public режим
   
-  // Likes state
-  const [likedProductIds, setLikedProductIds] = useState<number[]>([]);
+// Likes state — localStorage is source of truth (instant, no race conditions)
+  const [likedProductIds, setLikedProductIds] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem('userLikes');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   
-  // Cart state for passing to LikesPage
-  const [cart, setCart] = useState<{ [key: number]: number }>({});
+  // Cart state — localStorage is source of truth (instant, no race conditions)
+  const [cart, setCart] = useState<{ [key: number]: number }>(() => {
+    try {
+      const saved = localStorage.getItem('userCart');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   
   // 🎨 Selected colors for products (shared between HomePage and LikesPage)
   const [selectedColors, setSelectedColors] = useState<{ [key: number]: string }>(() => {
@@ -91,11 +101,9 @@ function AppContent() {
       localStorage.setItem('selectedColors', JSON.stringify(selectedColors));
     } catch (error) {
       console.error('❌ Error saving selected colors:', error);
-      // Если ошибка - очищаем старые данные
       if (error instanceof DOMException && error.name === 'QuotaExceededError') {
         console.log('🗑️ localStorage full, clearing old cache...');
         try {
-          // Очищаем только кэш, но не пользовательские данные
           const keys = Object.keys(localStorage);
           keys.forEach(key => {
             if (key.startsWith('v2_') || key.startsWith('cache_')) {
@@ -108,6 +116,24 @@ function AppContent() {
       }
     }
   }, [selectedColors]);
+
+  // 🛒 Persist cart to localStorage instantly on every change (source of truth)
+  useEffect(() => {
+    try {
+      localStorage.setItem('userCart', JSON.stringify(cart));
+    } catch (e) {
+      console.error('❌ Error saving cart to localStorage:', e);
+    }
+  }, [cart]);
+
+  // ❤️ Persist likes to localStorage instantly on every change (source of truth)
+  useEffect(() => {
+    try {
+      localStorage.setItem('userLikes', JSON.stringify(likedProductIds));
+    } catch (e) {
+      console.error('❌ Error saving likes to localStorage:', e);
+    }
+  }, [likedProductIds]);
 
   // 🔄 HISTORY API HANDLER FOR APP LEVEL
   useEffect(() => {
@@ -245,35 +271,39 @@ function AppContent() {
               setPrivateCompanyId(session.userData.companyId);
             }
             
-            // Load user likes AND cart from backend API when restoring customer session
+            // Load user likes AND cart from backend API when restoring customer session,
+            // BUT only if localStorage is empty (i.e. first install / data cleared).
+            // localStorage is the source of truth — it is already loaded in useState initializer.
             if (session.userData?.phone) {
-              console.log('🔄 [App] Loading user likes from backend...');
-              try {
-                const savedLikes = await api.users.getLikes(session.userData.phone);
-                if (savedLikes && savedLikes.length > 0) {
-                  console.log('✅ [App] User likes loaded:', savedLikes.length, 'products');
-                  setLikedProductIds(savedLikes);
-                } else {
-                  console.log('ℹ️ [App] No likes found for user');
-                  setLikedProductIds([]);
+              const localLikes = (() => { try { const s = localStorage.getItem('userLikes'); return s ? JSON.parse(s) : null; } catch { return null; } })();
+              const localCart  = (() => { try { const s = localStorage.getItem('userCart');  return s ? JSON.parse(s) : null; } catch { return null; } })();
+
+              if (!localLikes || localLikes.length === 0) {
+                console.log('🔄 [App] localStorage likes empty — loading from backend once...');
+                try {
+                  const savedLikes = await api.users.getLikes(session.userData.phone);
+                  if (Array.isArray(savedLikes) && savedLikes.length > 0) {
+                    setLikedProductIds(savedLikes);
+                  }
+                } catch (error) {
+                  console.error('❌ [App] Failed to load likes from backend:', error);
                 }
-              } catch (error) {
-                console.error('❌ [App] Failed to load user likes:', error);
-                setLikedProductIds([]);
+              } else {
+                console.log('✅ [App] Likes loaded from localStorage (', localLikes.length, 'items)');
               }
 
-              console.log('🔄 [App] Loading user cart from backend...');
-              try {
-                const savedCart = await getUserCart(session.userData.phone);
-                if (savedCart && Object.keys(savedCart).length > 0) {
-                  console.log('✅ [App] Cart loaded from backend:', Object.keys(savedCart).length, 'items');
-                  setCart(savedCart);
-                } else {
-                  console.log('ℹ️ [App] No cart found for user');
-                  setCart({});
+              if (!localCart || Object.keys(localCart).length === 0) {
+                console.log('🔄 [App] localStorage cart empty — loading from backend once...');
+                try {
+                  const savedCart = await getUserCart(session.userData.phone);
+                  if (savedCart && Object.keys(savedCart).length > 0) {
+                    setCart(savedCart);
+                  }
+                } catch (error) {
+                  console.error('❌ [App] Failed to load cart from backend:', error);
                 }
-              } catch (error) {
-                console.error('❌ [App] Failed to load cart:', error);
+              } else {
+                console.log('✅ [App] Cart loaded from localStorage (', Object.keys(localCart).length, 'items)');
               }
             }
             
@@ -514,32 +544,32 @@ function AppContent() {
         });
       }
       
-      // Load user likes AND cart from backend API
-      console.log('🔄 Loading user likes from backend for phone:', userData.phone);
-      try {
-        const savedLikes = await api.users.getLikes(userData.phone);
-        if (savedLikes && savedLikes.length > 0) {
-          console.log('✅ User likes loaded:', savedLikes.length, 'products');
-          setLikedProductIds(savedLikes);
-        } else {
-          console.log('ℹ️ No likes found for user');
-          setLikedProductIds([]);
+      // Load user likes AND cart from backend, but only if localStorage has no data yet
+      const localLikesLogin = (() => { try { const s = localStorage.getItem('userLikes'); return s ? JSON.parse(s) : null; } catch { return null; } })();
+      const localCartLogin  = (() => { try { const s = localStorage.getItem('userCart');  return s ? JSON.parse(s) : null; } catch { return null; } })();
+
+      if (!localLikesLogin || localLikesLogin.length === 0) {
+        console.log('🔄 Loading user likes from backend for phone:', userData.phone);
+        try {
+          const savedLikes = await api.users.getLikes(userData.phone);
+          if (Array.isArray(savedLikes) && savedLikes.length > 0) {
+            setLikedProductIds(savedLikes);
+          }
+        } catch (error) {
+          console.error('❌ Failed to load user likes:', error);
         }
-      } catch (error) {
-        console.error('❌ Failed to load user likes:', error);
-        setLikedProductIds([]);
       }
 
-      try {
-        const savedCart = await getUserCart(userData.phone);
-        if (savedCart && Object.keys(savedCart).length > 0) {
-          console.log('✅ Cart loaded from backend:', Object.keys(savedCart).length, 'items');
-          setCart(savedCart);
-        } else {
-          setCart({});
+      if (!localCartLogin || Object.keys(localCartLogin).length === 0) {
+        console.log('🔄 Loading user cart from backend for phone:', userData.phone);
+        try {
+          const savedCart = await getUserCart(userData.phone);
+          if (savedCart && Object.keys(savedCart).length > 0) {
+            setCart(savedCart);
+          }
+        } catch (error) {
+          console.error('❌ Failed to load cart:', error);
         }
-      } catch (error) {
-        console.error('❌ Failed to load cart:', error);
       }
       
       setUserType('customer');
@@ -761,13 +791,16 @@ function AppContent() {
     setPendingUser(null);
     setCurrentCompany(null);
     setCurrentReferralAgent(null);
-    setCurrentPage('companyLogin'); // 🔒 Возвращаемся к панели входа для компаний
-    setCustomerRegistrationMode('public'); // 🔒 Устанавливаем режим по умолчанию
-    setPrivateCompanyId(null); // 🔒 Сбрасываем ID компании
+    setCurrentPage('companyLogin');
+    setCustomerRegistrationMode('public');
+    setPrivateCompanyId(null);
     localStorage.removeItem('userSession');
+    // Clear user-specific cart and likes from localStorage on logout
+    localStorage.removeItem('userCart');
+    localStorage.removeItem('userLikes');
+    setCart({});
+    setLikedProductIds([]);
     console.log('💾 Session cleared');
-    
-    // Обновляем history state
     window.history.pushState({ page: 'companyLogin' }, '', '#companyLogin');
   };
 

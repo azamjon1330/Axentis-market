@@ -62,10 +62,10 @@ export default function LikesPage({
     return (localStorage.getItem('displayMode') as DisplayMode) || 'day';
   });
 
-  // Refs to flush pending likes sync on unmount (prevents data loss on navigation)
-  const likesSyncLatestRef = useRef<{ likes: number[]; phone: string } | null>(null);
-  const likesSyncDirtyRef = useRef(false);
-  
+  // Background sync to backend (fire-and-forget, non-blocking)
+  // localStorage in App.tsx is already the source of truth
+  const likesSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     loadProducts();
     const interval = setInterval(loadProducts, 5000);
@@ -83,28 +83,13 @@ export default function LikesPage({
   }, []);
   
   useEffect(() => {
-    if (userPhone && likedProductIds) {
-      likesSyncLatestRef.current = { likes: likedProductIds, phone: userPhone };
-      likesSyncDirtyRef.current = true;
-      const timeoutId = setTimeout(() => {
-        likesSyncDirtyRef.current = false;
-        api.users.saveLikes(userPhone, likedProductIds).catch(error => {
-          console.error('Failed to sync likes to Supabase:', error);
-        });
-      }, 500);
-      return () => clearTimeout(timeoutId);
-    }
+    if (!userPhone) return;
+    if (likesSyncTimerRef.current) clearTimeout(likesSyncTimerRef.current);
+    likesSyncTimerRef.current = setTimeout(() => {
+      api.users.saveLikes(userPhone, likedProductIds).catch(() => {});
+    }, 1500);
+    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
   }, [likedProductIds, userPhone]);
-
-  // Flush likes to backend when component unmounts (prevents data loss on navigation)
-  useEffect(() => {
-    return () => {
-      if (likesSyncDirtyRef.current && likesSyncLatestRef.current) {
-        likesSyncDirtyRef.current = false;
-        api.users.saveLikes(likesSyncLatestRef.current.phone, likesSyncLatestRef.current.likes).catch(() => {});
-      }
-    };
-  }, []);
 
   const loadProducts = async () => {
     try {
