@@ -684,6 +684,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const currentInCart = cart[productId] || 0;
     if (currentInCart >= product.quantity) return;
     const newQty = currentInCart + 1;
+    console.log(`🛒 [addToCart] productId=${productId}, currentQty=${currentInCart}, newQty=${newQty}`);
     // 1. Update UI instantly
     setCart(prev => ({ ...prev, [productId]: newQty }));
     if (!selectedColors[productId]) {
@@ -691,13 +692,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
     // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
-      api.users.setCartQty(userPhone, productId, newQty).catch(() => {});
+      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty})`);
+      api.users.setCartQty(userPhone, productId, newQty)
+        .then(() => console.log(`✅ [addToCart] API call successful`))
+        .catch((err) => console.error(`❌ [addToCart] API call failed:`, err));
     }
   };
 
   const removeFromCart = (productId: number) => {
     const currentInCart = cart[productId] || 0;
     const newQty = currentInCart - 1;
+    console.log(`🛒 [removeFromCart] productId=${productId}, currentQty=${currentInCart}, newQty=${newQty}, userPhone=${userPhone}`);
     // 1. Update UI instantly
     const newCart = { ...cart };
     if (newQty <= 0) {
@@ -708,7 +713,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     setCart(newCart);
     // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      api.users.setCartQty(userPhone, productId, Math.max(0, newQty)).catch(() => {});
+      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)})`);
+      api.users.setCartQty(userPhone, productId, Math.max(0, newQty))
+        .then(() => console.log(`✅ [removeFromCart] API call successful`))
+        .catch((err) => console.error(`❌ [removeFromCart] API call failed:`, err));
+    } else {
+      console.warn(`⚠️ [removeFromCart] No userPhone — API call skipped`);
     }
   };
 

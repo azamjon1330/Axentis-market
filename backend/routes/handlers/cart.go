@@ -240,7 +240,7 @@ func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 		}
 
 		if input.Quantity <= 0 {
-			// quantity=0 → удаляем
+			// quantity=0 → удаляем все варианты этого товара (любой color/size)
 			result, err := db.Exec(
 				"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
 				input.UserPhone, input.ProductID,
@@ -255,38 +255,19 @@ func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Upsert: обновить если есть, вставить если нет
+		// Upsert с учётом UNIQUE(user_phone, product_id, selected_color, selected_size)
+		// Используем пустые строки для color/size (дефолт)
 		_, err := db.Exec(`
-			INSERT INTO cart_items (user_phone, product_id, quantity)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (user_phone, product_id)
+			INSERT INTO cart_items (user_phone, product_id, quantity, selected_color, selected_size)
+			VALUES ($1, $2, $3, '', '')
+			ON CONFLICT (user_phone, product_id, selected_color, selected_size)
 			DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP
 		`, input.UserPhone, input.ProductID, input.Quantity)
 
 		if err != nil {
-			// Fallback: попробуем UPDATE + INSERT отдельно
-			res, updateErr := db.Exec(
-				"UPDATE cart_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_phone = $2 AND product_id = $3",
-				input.Quantity, input.UserPhone, input.ProductID,
-			)
-			if updateErr != nil {
-				log.Printf("❌ SetCartItemQty error: %v", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set cart item quantity"})
-				return
-			}
-			rowsUpdated, _ := res.RowsAffected()
-			if rowsUpdated == 0 {
-				// Не было строки — вставляем
-				_, insertErr := db.Exec(
-					"INSERT INTO cart_items (user_phone, product_id, quantity) VALUES ($1, $2, $3)",
-					input.UserPhone, input.ProductID, input.Quantity,
-				)
-				if insertErr != nil {
-					log.Printf("❌ SetCartItemQty insert error: %v", insertErr)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert cart item"})
-					return
-				}
-			}
+			log.Printf("❌ SetCartItemQty error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set cart item quantity"})
+			return
 		}
 
 		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d", input.UserPhone, input.ProductID, input.Quantity)
