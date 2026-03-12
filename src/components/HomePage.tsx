@@ -700,49 +700,51 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const addToCart = (productId: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
-
     const currentInCart = cart[productId] || 0;
-    if (currentInCart < product.quantity) {
-      setCart(prev => ({
-        ...prev,
-        [productId]: currentInCart + 1
-      }));
-      
-      if (!selectedColors[productId]) {
-        setSelectedColors(prev => ({
-          ...prev,
-          [productId]: 'юбй'
-        }));
-      }
+    if (currentInCart >= product.quantity) return;
+    const newQty = currentInCart + 1;
+    // 1. Update UI instantly
+    setCart(prev => ({ ...prev, [productId]: newQty }));
+    if (!selectedColors[productId]) {
+      setSelectedColors(prev => ({ ...prev, [productId]: 'юбй' }));
+    }
+    // 2. Sync to backend immediately (fire-and-forget)
+    if (userPhone) {
+      saveUserCart(userPhone, { ...cart, [productId]: newQty }).catch(() => {});
     }
   };
 
   const removeFromCart = (productId: number) => {
     const currentInCart = cart[productId] || 0;
+    // 1. Update UI instantly
+    const newCart = { ...cart };
     if (currentInCart <= 1) {
-      const newCart = { ...cart };
       delete newCart[productId];
-      setCart(newCart);
     } else {
-      setCart(prev => ({
-        ...prev,
-        [productId]: currentInCart - 1
-      }));
+      newCart[productId] = currentInCart - 1;
+    }
+    setCart(newCart);
+    // 2. Sync to backend immediately (fire-and-forget)
+    if (userPhone) {
+      saveUserCart(userPhone, newCart).catch(() => {});
     }
   };
 
   const updateCartQuantity = (productId: number, quantity: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
-
     const validQuantity = Math.max(0, Math.min(quantity, product.quantity));
-    
+    // 1. Update UI instantly
+    const newCart = { ...cart };
     if (validQuantity === 0) {
-      const newCart = { ...cart };
       delete newCart[productId];
-      setCart(newCart);
     } else {
-      setCart({ ...cart, [productId]: validQuantity });
+      newCart[productId] = validQuantity;
+    }
+    setCart(newCart);
+    // 2. Sync to backend immediately (fire-and-forget)
+    if (userPhone) {
+      saveUserCart(userPhone, newCart).catch(() => {});
     }
   };
 
@@ -951,17 +953,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const toggleLike = (productId: number) => {
     if (isTogglingLike || !setLikedProductIds) return;
     setIsTogglingLike(true);
-
-    setLikedProductIds(prev => {
-      if (prev.includes(productId)) {
-        return prev.filter(id => id !== productId);
-      } else {
-        return [...prev, productId];
-      }
-    });
-
     const wasLiked = likedProductIds.includes(productId);
-    setLikeAnimation({ productId: productId, isLiked: !wasLiked });
+    // 1. Update UI instantly
+    const newLikes = wasLiked
+      ? likedProductIds.filter(id => id !== productId)
+      : [...likedProductIds, productId];
+    setLikedProductIds(newLikes);
+    // 2. Sync to backend immediately (fire-and-forget)
+    if (userPhone) {
+      saveUserLikes(userPhone, newLikes).catch(() => {});
+    }
+    setLikeAnimation({ productId, isLiked: !wasLiked });
     setTimeout(() => {
       setLikeAnimation(null);
       setIsTogglingLike(false);

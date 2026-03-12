@@ -82,14 +82,7 @@ export default function LikesPage({
     };
   }, []);
   
-  useEffect(() => {
-    if (!userPhone) return;
-    if (likesSyncTimerRef.current) clearTimeout(likesSyncTimerRef.current);
-    likesSyncTimerRef.current = setTimeout(() => {
-      api.users.saveLikes(userPhone, likedProductIds).catch(() => {});
-    }, 1500);
-    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
-  }, [likedProductIds, userPhone]);
+  // Backend sync is called immediately in each action handler — no debounce needed here
 
   const loadProducts = async () => {
     try {
@@ -250,7 +243,9 @@ export default function LikesPage({
                 onToggleLike={(productId) => {
                   if (!isTogglingLike) {
                     setIsTogglingLike(true);
-                    setLikedProductIds(prev => prev.filter(id => id !== productId));
+                    const newLikes = likedProductIds.filter(id => id !== productId);
+                    setLikedProductIds(newLikes);
+                    if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
                     setTimeout(() => setIsTogglingLike(false), 500);
                   }
                 }}
@@ -267,7 +262,9 @@ export default function LikesPage({
                   // ✅ ДВОЙНОЙ КЛИК - удаляем из избранного
                   if (!isTogglingLike) {
                     setIsTogglingLike(true);
-                    setLikedProductIds(prev => prev.filter(id => id !== product.id));
+                    const newLikes = likedProductIds.filter(id => id !== product.id);
+                    setLikedProductIds(newLikes);
+                    if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
                     setLikeAnimation(product.id);
                     setTimeout(() => {
                       setLikeAnimation(null);
@@ -361,11 +358,11 @@ export default function LikesPage({
           onToggleLike={(productId) => {
             if (!isTogglingLike) {
               setIsTogglingLike(true);
-              if (likedProductIds.includes(productId)) {
-                setLikedProductIds(prev => prev.filter(id => id !== productId));
-              } else {
-                setLikedProductIds(prev => [...prev, productId]);
-              }
+              const newLikes = likedProductIds.includes(productId)
+                ? likedProductIds.filter(id => id !== productId)
+                : [...likedProductIds, productId];
+              setLikedProductIds(newLikes);
+              if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
               setTimeout(() => setIsTogglingLike(false), 500);
             }
           }}
