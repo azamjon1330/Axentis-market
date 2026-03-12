@@ -33,20 +33,20 @@ ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 RUN echo "=== Starting build ===" && npm run build && echo "=== Build completed ==="
 
 # List dist contents for debugging
-RUN echo "=== Checking dist folder ===" && \
+RUN echo "=== Checking build folder ===" && \
     ls -la /app/ && \
-    if [ -d "/app/dist" ]; then \
-      echo "dist folder exists, contents:" && ls -la /app/dist/; \
+    if [ -d "/app/build" ]; then \
+      echo "build folder exists, contents:" && ls -la /app/build/; \
     else \
-      echo "ERROR: dist folder does not exist!"; \
+      echo "ERROR: build folder does not exist!"; \
       exit 1; \
     fi
 
 # Runtime stage with Nginx
 FROM nginx:alpine
 
-# Copy built files to nginx (Vite creates 'dist' folder, not 'build')
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copy built files to nginx (vite.config.ts has outDir: 'build')
+COPY --from=builder /app/build /usr/share/nginx/html
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
