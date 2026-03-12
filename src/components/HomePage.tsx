@@ -689,25 +689,26 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     if (!selectedColors[productId]) {
       setSelectedColors(prev => ({ ...prev, [productId]: 'юбй' }));
     }
-    // 2. Sync to backend immediately (fire-and-forget)
+    // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
-      saveUserCart(userPhone, { ...cart, [productId]: newQty }).catch(() => {});
+      api.users.setCartQty(userPhone, productId, newQty).catch(() => {});
     }
   };
 
   const removeFromCart = (productId: number) => {
     const currentInCart = cart[productId] || 0;
+    const newQty = currentInCart - 1;
     // 1. Update UI instantly
     const newCart = { ...cart };
-    if (currentInCart <= 1) {
+    if (newQty <= 0) {
       delete newCart[productId];
     } else {
-      newCart[productId] = currentInCart - 1;
+      newCart[productId] = newQty;
     }
     setCart(newCart);
-    // 2. Sync to backend immediately (fire-and-forget)
+    // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      saveUserCart(userPhone, newCart).catch(() => {});
+      api.users.setCartQty(userPhone, productId, Math.max(0, newQty)).catch(() => {});
     }
   };
 
@@ -723,9 +724,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       newCart[productId] = validQuantity;
     }
     setCart(newCart);
-    // 2. Sync to backend immediately (fire-and-forget)
+    // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      saveUserCart(userPhone, newCart).catch(() => {});
+      api.users.setCartQty(userPhone, productId, validQuantity).catch(() => {});
     }
   };
 
@@ -940,9 +941,13 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       ? likedProductIds.filter(id => id !== productId)
       : [...likedProductIds, productId];
     setLikedProductIds(newLikes);
-    // 2. Sync to backend immediately (fire-and-forget)
+    // 2. Single direct API call — no full-array sync, no GET needed
     if (userPhone) {
-      saveUserLikes(userPhone, newLikes).catch(() => {});
+      if (wasLiked) {
+        api.users.removeLike(userPhone, productId).catch(() => {});
+      } else {
+        api.users.addLike(userPhone, productId).catch(() => {});
+      }
     }
     setLikeAnimation({ productId, isLiked: !wasLiked });
     setTimeout(() => {

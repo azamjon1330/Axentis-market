@@ -225,6 +225,103 @@ func RemoveFromCart(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// SetCartItemQuantity - установить точное количество товара (upsert). Если quantity=0 — удаляет.
+// Тело: { user_phone, product_id, quantity }
+func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var input struct {
+			UserPhone string `json:"user_phone"`
+			ProductID int64  `json:"product_id"`
+			Quantity  int    `json:"quantity"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone, product_id and quantity are required"})
+			return
+		}
+
+		if input.Quantity <= 0 {
+			// quantity=0 → удаляем
+			result, err := db.Exec(
+				"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
+				input.UserPhone, input.ProductID,
+			)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove cart item"})
+				return
+			}
+			rows, _ := result.RowsAffected()
+			log.Printf("✅ SetCartItemQty=0 (DELETE) user=%s product=%d removed=%d", input.UserPhone, input.ProductID, rows)
+			c.JSON(http.StatusOK, gin.H{"success": true, "action": "deleted"})
+			return
+		}
+
+		// Upsert: обновить если есть, вставить если нет
+		_, err := db.Exec(`
+			INSERT INTO cart_items (user_phone, product_id, quantity)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (user_phone, product_id)
+			DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP
+		`, input.UserPhone, input.ProductID, input.Quantity)
+
+		if err != nil {
+			// Fallback: попробуем UPDATE + INSERT отдельно
+			res, updateErr := db.Exec(
+				"UPDATE cart_items SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE user_phone = $2 AND product_id = $3",
+				input.Quantity, input.UserPhone, input.ProductID,
+			)
+			if updateErr != nil {
+				log.Printf("❌ SetCartItemQty error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to set cart item quantity"})
+				return
+			}
+			rowsUpdated, _ := res.RowsAffected()
+			if rowsUpdated == 0 {
+				// Не было строки — вставляем
+				_, insertErr := db.Exec(
+					"INSERT INTO cart_items (user_phone, product_id, quantity) VALUES ($1, $2, $3)",
+					input.UserPhone, input.ProductID, input.Quantity,
+				)
+				if insertErr != nil {
+					log.Printf("❌ SetCartItemQty insert error: %v", insertErr)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert cart item"})
+					return
+				}
+			}
+		}
+
+		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d", input.UserPhone, input.ProductID, input.Quantity)
+		c.JSON(http.StatusOK, gin.H{"success": true, "action": "upserted", "quantity": input.Quantity})
+	}
+}
+
+// RemoveCartItemByProduct - удалить товар из корзины по user_phone + product_id (без необходимости знать DB row id)
+func RemoveCartItemByProduct(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var input struct {
+			UserPhone string `json:"user_phone"`
+			ProductID int64  `json:"product_id"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone and product_id are required"})
+			return
+		}
+
+		result, err := db.Exec(
+			"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
+			input.UserPhone, input.ProductID,
+		)
+		if err != nil {
+			log.Printf("❌ Error removing cart item by product: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove cart item"})
+			return
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		log.Printf("✅ Removed cart item for %s product %d (%d rows)", input.UserPhone, input.ProductID, rowsAffected)
+		c.JSON(http.StatusOK, gin.H{"success": true, "removed": rowsAffected})
+	}
+}
+
 // ClearCart - очистить всю корзину пользователя
 func ClearCart(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -245,7 +245,7 @@ export default function LikesPage({
                     setIsTogglingLike(true);
                     const newLikes = likedProductIds.filter(id => id !== productId);
                     setLikedProductIds(newLikes);
-                    if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
+                    if (userPhone) { api.users.removeLike(userPhone, productId).catch(() => {}); }
                     setTimeout(() => setIsTogglingLike(false), 500);
                   }
                 }}
@@ -264,7 +264,7 @@ export default function LikesPage({
                     setIsTogglingLike(true);
                     const newLikes = likedProductIds.filter(id => id !== product.id);
                     setLikedProductIds(newLikes);
-                    if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
+                    if (userPhone) { api.users.removeLike(userPhone, product.id).catch(() => {}); }
                     setLikeAnimation(product.id);
                     setTimeout(() => {
                       setLikeAnimation(null);
@@ -358,11 +358,15 @@ export default function LikesPage({
           onToggleLike={(productId) => {
             if (!isTogglingLike) {
               setIsTogglingLike(true);
-              const newLikes = likedProductIds.includes(productId)
+              const wasLiked = likedProductIds.includes(productId);
+              const newLikes = wasLiked
                 ? likedProductIds.filter(id => id !== productId)
                 : [...likedProductIds, productId];
               setLikedProductIds(newLikes);
-              if (userPhone) { api.users.saveLikes(userPhone, newLikes).catch(() => {}); }
+              if (userPhone) {
+                if (wasLiked) { api.users.removeLike(userPhone, productId).catch(() => {}); }
+                else { api.users.addLike(userPhone, productId).catch(() => {}); }
+              }
               setTimeout(() => setIsTogglingLike(false), 500);
             }
           }}

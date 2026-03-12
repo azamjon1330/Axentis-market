@@ -142,9 +142,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			cart.GET("/:phone", handlers.GetUserCart(db))                    // Получить корзину пользователя
 			cart.GET("/:phone/count", handlers.GetCartCount(db))             // Количество товаров в корзине
-			cart.POST("", handlers.AddToCart(db))                            // Добавить товар в корзину
-			cart.PUT("/item/:id", handlers.UpdateCartItem(db))               // Обновить количество
-			cart.DELETE("/item/:id", handlers.RemoveFromCart(db))            // Удалить товар из корзины
+			cart.POST("", handlers.AddToCart(db))                            // Добавить товар в корзину (quantity += N)
+			cart.POST("/set", handlers.SetCartItemQuantity(db))              // Установить точное количество (upsert, 0=удалить)
+			cart.PUT("/item/:id", handlers.UpdateCartItem(db))               // Обновить количество (по DB id)
+			cart.DELETE("/item/:id", handlers.RemoveFromCart(db))            // Удалить товар из корзины (по DB id)
+			cart.DELETE("/item", handlers.RemoveCartItemByProduct(db))       // Удалить товар из корзины (по phone+product_id)
 			cart.DELETE("/user/:phone", handlers.ClearCart(db))              // Очистить всю корзину
 		}
 

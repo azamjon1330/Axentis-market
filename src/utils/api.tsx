@@ -665,8 +665,9 @@ export const users = {
     return apiCall('/users/likes');
   },
 
-  // Sync likes: diff-based — only add missing, remove extra. No DELETE-all.
+  // Sync likes: diff-based — only add missing, remove extra. No GET needed for individual ops.
   saveLikes: async (phone: string, likes: number[]) => {
+    // NOTE: this is used for bulk restores only. For individual toggle use toggleLike/removeLike.
     // Get current state from backend
     let current: number[] = [];
     try {
@@ -697,6 +698,24 @@ export const users = {
     ]);
   },
 
+  // Direct like toggle — single API call, no GET needed
+  addLike: async (phone: string, productId: number) => {
+    return apiCall('/favorites/toggle', {
+      method: 'POST',
+      body: JSON.stringify({ user_phone: phone, product_id: productId }),
+      requiresAuth: false,
+    });
+  },
+
+  // Direct like remove — single API call, no GET needed
+  removeLike: async (phone: string, productId: number) => {
+    return apiCall('/favorites', {
+      method: 'DELETE',
+      body: JSON.stringify({ user_phone: phone, product_id: productId }),
+      requiresAuth: false,
+    });
+  },
+
   // Get user cart
   getCart: async (phone: string) => {
     const items = await apiCall(`/cart/${phone}`, { requiresAuth: false });
@@ -708,9 +727,10 @@ export const users = {
     return cart;
   },
 
-  // Sync cart: diff-based — add new items, update changed quantities, remove deleted. No DELETE-all.
+  // Sync cart — direct per-item calls, no GET, no race condition.
   saveCart: async (phone: string, cart: any) => {
-    // Get current state from backend
+    // NOTE: this is used for bulk restores only. For individual actions use setCartQty/removeCartItem.
+    // Get current state from backend once for bulk sync
     let currentItems: Array<{ id: number; product_id: number; quantity: number }> = [];
     try {
       const items = await apiCall(`/cart/${phone}`, { requiresAuth: false });
@@ -729,7 +749,6 @@ export const users = {
 
     const ops: Promise<any>[] = [];
 
-    // Items to remove (in backend but not in desired cart)
     for (const cur of currentItems) {
       if (!(cur.product_id in desiredMap)) {
         ops.push(
@@ -738,7 +757,6 @@ export const users = {
       }
     }
 
-    // Items to update or add
     for (const [pidStr, qty] of desiredEntries) {
       const pid = Number(pidStr);
       const existing = currentItems.find(c => c.product_id === pid);
@@ -752,7 +770,6 @@ export const users = {
             }).catch(() => {})
           );
         }
-        // same quantity — no-op
       } else {
         ops.push(
           apiCall('/cart', {
@@ -765,6 +782,24 @@ export const users = {
     }
 
     await Promise.all(ops);
+  },
+
+  // Set exact quantity for a cart item (upsert). quantity=0 removes the item. Single API call, no GET.
+  setCartQty: async (phone: string, productId: number, quantity: number) => {
+    return apiCall('/cart/set', {
+      method: 'POST',
+      body: JSON.stringify({ user_phone: phone, product_id: productId, quantity }),
+      requiresAuth: false,
+    });
+  },
+
+  // Remove a specific item from cart by product_id. Single API call, no GET.
+  removeCartItem: async (phone: string, productId: number) => {
+    return apiCall('/cart/item', {
+      method: 'DELETE',
+      body: JSON.stringify({ user_phone: phone, product_id: productId }),
+      requiresAuth: false,
+    });
   },
 
   // Get user receipts
