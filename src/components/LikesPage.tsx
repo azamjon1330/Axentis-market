@@ -61,6 +61,10 @@ export default function LikesPage({
   const [displayMode, setDisplayMode] = useState<DisplayMode>(() => {
     return (localStorage.getItem('displayMode') as DisplayMode) || 'day';
   });
+
+  // Refs to flush pending likes sync on unmount (prevents data loss on navigation)
+  const likesSyncLatestRef = useRef<{ likes: number[]; phone: string } | null>(null);
+  const likesSyncDirtyRef = useRef(false);
   
   useEffect(() => {
     loadProducts();
@@ -80,7 +84,10 @@ export default function LikesPage({
   
   useEffect(() => {
     if (userPhone && likedProductIds) {
+      likesSyncLatestRef.current = { likes: likedProductIds, phone: userPhone };
+      likesSyncDirtyRef.current = true;
       const timeoutId = setTimeout(() => {
+        likesSyncDirtyRef.current = false;
         api.users.saveLikes(userPhone, likedProductIds).catch(error => {
           console.error('Failed to sync likes to Supabase:', error);
         });
@@ -88,6 +95,16 @@ export default function LikesPage({
       return () => clearTimeout(timeoutId);
     }
   }, [likedProductIds, userPhone]);
+
+  // Flush likes to backend when component unmounts (prevents data loss on navigation)
+  useEffect(() => {
+    return () => {
+      if (likesSyncDirtyRef.current && likesSyncLatestRef.current) {
+        likesSyncDirtyRef.current = false;
+        api.users.saveLikes(likesSyncLatestRef.current.phone, likesSyncLatestRef.current.likes).catch(() => {});
+      }
+    };
+  }, []);
 
   const loadProducts = async () => {
     try {
