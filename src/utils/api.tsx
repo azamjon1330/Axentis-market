@@ -665,18 +665,36 @@ export const users = {
     return apiCall('/users/likes');
   },
 
-  // Save user likes (clear existing then re-add all)
+  // Sync likes: diff-based — only add missing, remove extra. No DELETE-all.
   saveLikes: async (phone: string, likes: number[]) => {
-    await apiCall(`/favorites/user/${phone}`, { method: 'DELETE', requiresAuth: false });
-    if (likes.length > 0) {
-      await Promise.all(likes.map(productId =>
-        apiCall('/favorites', {
+    // Get current state from backend
+    let current: number[] = [];
+    try {
+      const items = await apiCall(`/favorites/${phone}`, { requiresAuth: false });
+      if (Array.isArray(items)) {
+        current = items.map((item: any) => Number(item.product_id));
+      }
+    } catch (_) {}
+
+    const toAdd = likes.filter(id => !current.includes(id));
+    const toRemove = current.filter(id => !likes.includes(id));
+
+    await Promise.all([
+      ...toAdd.map(productId =>
+        apiCall('/favorites/toggle', {
           method: 'POST',
           body: JSON.stringify({ user_phone: phone, product_id: productId }),
           requiresAuth: false,
-        }).catch((err) => console.warn(`⚠️ Failed to re-add favorite ${productId}:`, err))
-      ));
-    }
+        }).catch(() => {})
+      ),
+      ...toRemove.map(productId =>
+        apiCall('/favorites', {
+          method: 'DELETE',
+          body: JSON.stringify({ user_phone: phone, product_id: productId }),
+          requiresAuth: false,
+        }).catch(() => {})
+      ),
+    ]);
   },
 
   // Get user cart
@@ -690,19 +708,63 @@ export const users = {
     return cart;
   },
 
-  // Save user cart (clear existing then re-add all)
+  // Sync cart: diff-based — add new items, update changed quantities, remove deleted. No DELETE-all.
   saveCart: async (phone: string, cart: any) => {
-    await apiCall(`/cart/user/${phone}`, { method: 'DELETE', requiresAuth: false });
-    const entries = Object.entries(cart);
-    if (entries.length > 0) {
-      await Promise.all(entries.map(([productId, quantity]) =>
-        apiCall('/cart', {
-          method: 'POST',
-          body: JSON.stringify({ user_phone: phone, product_id: Number(productId), quantity: Number(quantity) }),
-          requiresAuth: false,
-        }).catch((err) => console.warn(`⚠️ Failed to re-add cart item ${productId}:`, err))
-      ));
+    // Get current state from backend
+    let currentItems: Array<{ id: number; product_id: number; quantity: number }> = [];
+    try {
+      const items = await apiCall(`/cart/${phone}`, { requiresAuth: false });
+      if (Array.isArray(items)) {
+        currentItems = items.map((item: any) => ({
+          id: Number(item.id),
+          product_id: Number(item.product_id),
+          quantity: item.quantity,
+        }));
+      }
+    } catch (_) {}
+
+    const desiredEntries = Object.entries(cart) as [string, number][];
+    const desiredMap: { [productId: number]: number } = {};
+    desiredEntries.forEach(([pid, qty]) => { desiredMap[Number(pid)] = Number(qty); });
+
+    const ops: Promise<any>[] = [];
+
+    // Items to remove (in backend but not in desired cart)
+    for (const cur of currentItems) {
+      if (!(cur.product_id in desiredMap)) {
+        ops.push(
+          apiCall(`/cart/item/${cur.id}`, { method: 'DELETE', requiresAuth: false }).catch(() => {})
+        );
+      }
     }
+
+    // Items to update or add
+    for (const [pidStr, qty] of desiredEntries) {
+      const pid = Number(pidStr);
+      const existing = currentItems.find(c => c.product_id === pid);
+      if (existing) {
+        if (existing.quantity !== qty) {
+          ops.push(
+            apiCall(`/cart/item/${existing.id}`, {
+              method: 'PUT',
+              body: JSON.stringify({ quantity: qty }),
+              requiresAuth: false,
+            }).catch(() => {})
+          );
+        }
+        // same quantity — no-op
+      } else {
+        ops.push(
+          apiCall('/cart', {
+            method: 'POST',
+            body: JSON.stringify({ user_phone: phone, product_id: pid, quantity: qty }),
+            requiresAuth: false,
+          }).catch(() => {})
+        );
+      }
+    }
+
+    await Promise.all(ops);
   },
 
   // Get user receipts
