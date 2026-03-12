@@ -107,9 +107,6 @@ function AppContent() {
     }
   }, [selectedColors]);
 
-  // Cart and likes are stored only in the database — no localStorage persistence
-  }, [likedProductIds]);
-
   // 🔄 HISTORY API HANDLER FOR APP LEVEL
   useEffect(() => {
     // Initial State
