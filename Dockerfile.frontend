@@ -9,8 +9,14 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
+# Debug: show installed packages
+RUN echo "=== npm list ===" && npm list --depth=0 || true
+
 # Copy source code
 COPY . .
+
+# Debug: show copied files
+RUN echo "=== Files in /app ===" && ls -la /app/
 
 # Use Docker-specific .env if exists, otherwise use default .env
 RUN if [ -f .env.docker ]; then cp .env.docker .env; fi
@@ -24,7 +30,17 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 
 # Build the application
-RUN npm run build
+RUN echo "=== Starting build ===" && npm run build && echo "=== Build completed ==="
+
+# List dist contents for debugging
+RUN echo "=== Checking dist folder ===" && \
+    ls -la /app/ && \
+    if [ -d "/app/dist" ]; then \
+      echo "dist folder exists, contents:" && ls -la /app/dist/; \
+    else \
+      echo "ERROR: dist folder does not exist!"; \
+      exit 1; \
+    fi
 
 # Runtime stage with Nginx
 FROM nginx:alpine
