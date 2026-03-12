@@ -277,29 +277,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   const searchTimeoutRef = useRef<number | null>(null);
 
-  // Background sync to backend (fire-and-forget, non-blocking, debounced)
-  // localStorage is the source of truth — these calls only back up to server
-  const cartSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const likesSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!userPhone) return;
-    if (cartSyncTimerRef.current) clearTimeout(cartSyncTimerRef.current);
-    cartSyncTimerRef.current = setTimeout(() => {
-      saveUserCart(userPhone, cart).catch(() => {});
-    }, 1500);
-    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
-  }, [cart, userPhone]);
-
+  // onLikesChange notifier (no debounce needed — each action calls backend directly)
   useEffect(() => {
     if (onLikesChange) onLikesChange(likedProductIds);
-    if (!userPhone) return;
-    if (likesSyncTimerRef.current) clearTimeout(likesSyncTimerRef.current);
-    likesSyncTimerRef.current = setTimeout(() => {
-      saveUserLikes(userPhone, likedProductIds).catch(() => {});
-    }, 1500);
-    // No cleanup clearTimeout — we WANT the save to fire even if component unmounts
-  }, [likedProductIds, userPhone, onLikesChange]);
+  }, [likedProductIds, onLikesChange]);
 
   useEffect(() => {
     localStorage.setItem('myOrders', JSON.stringify(myOrders));

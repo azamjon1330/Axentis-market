@@ -69,21 +69,11 @@ function AppContent() {
   // 🔒 НОВЫЙ: Режим регистрации покупателя (публичный/приватный)
   const [customerRegistrationMode, setCustomerRegistrationMode] = useState<'public' | 'private'>('public'); // 🎯 По умолчанию public режим
   
-// Likes state — localStorage is source of truth (instant, no race conditions)
-  const [likedProductIds, setLikedProductIds] = useState<number[]>(() => {
-    try {
-      const saved = localStorage.getItem('userLikes');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+// Likes state — loaded from backend on login/session restore
+  const [likedProductIds, setLikedProductIds] = useState<number[]>([]);
   
-  // Cart state — localStorage is source of truth (instant, no race conditions)
-  const [cart, setCart] = useState<{ [key: number]: number }>(() => {
-    try {
-      const saved = localStorage.getItem('userCart');
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  // Cart state — loaded from backend on login/session restore
+  const [cart, setCart] = useState<{ [key: number]: number }>({});
   
   // 🎨 Selected colors for products (shared between HomePage and LikesPage)
   const [selectedColors, setSelectedColors] = useState<{ [key: number]: string }>(() => {
@@ -117,22 +107,7 @@ function AppContent() {
     }
   }, [selectedColors]);
 
-  // 🛒 Persist cart to localStorage instantly on every change (source of truth)
-  useEffect(() => {
-    try {
-      localStorage.setItem('userCart', JSON.stringify(cart));
-    } catch (e) {
-      console.error('❌ Error saving cart to localStorage:', e);
-    }
-  }, [cart]);
-
-  // ❤️ Persist likes to localStorage instantly on every change (source of truth)
-  useEffect(() => {
-    try {
-      localStorage.setItem('userLikes', JSON.stringify(likedProductIds));
-    } catch (e) {
-      console.error('❌ Error saving likes to localStorage:', e);
-    }
+  // Cart and likes are stored only in the database — no localStorage persistence
   }, [likedProductIds]);
 
   // 🔄 HISTORY API HANDLER FOR APP LEVEL
@@ -275,39 +250,19 @@ function AppContent() {
             // BUT only if localStorage is empty (i.e. first install / data cleared).
             // localStorage is the source of truth — it is already loaded in useState initializer.
             if (session.userData?.phone) {
-              const localLikes = (() => { try { const s = localStorage.getItem('userLikes'); return s ? JSON.parse(s) : null; } catch { return null; } })();
-              const localCart  = (() => { try { const s = localStorage.getItem('userCart');  return s ? JSON.parse(s) : null; } catch { return null; } })();
-
-              if (localLikes === null) {
-                // Key doesn't exist at all — first install, load from backend
-                console.log('🔄 [App] localStorage likes missing — loading from backend once...');
-                try {
-                  const savedLikes = await api.users.getLikes(session.userData.phone);
-                  if (Array.isArray(savedLikes) && savedLikes.length > 0) {
-                    setLikedProductIds(savedLikes);
-                  }
-                } catch (error) {
-                  console.error('❌ [App] Failed to load likes from backend:', error);
-                }
-              } else {
-                // localStorage has data (even empty array = user cleared everything) — trust it
-                console.log('✅ [App] Likes loaded from localStorage (', localLikes.length, 'items)');
+              // Always load cart and likes from backend (database is the only source of truth)
+              console.log('🔄 [App] Loading likes and cart from backend...');
+              try {
+                const savedLikes = await api.users.getLikes(session.userData.phone);
+                setLikedProductIds(Array.isArray(savedLikes) ? savedLikes : []);
+              } catch (error) {
+                console.error('❌ [App] Failed to load likes:', error);
               }
-
-              if (localCart === null) {
-                // Key doesn't exist at all — first install, load from backend
-                console.log('🔄 [App] localStorage cart missing — loading from backend once...');
-                try {
-                  const savedCart = await getUserCart(session.userData.phone);
-                  if (savedCart && Object.keys(savedCart).length > 0) {
-                    setCart(savedCart);
-                  }
-                } catch (error) {
-                  console.error('❌ [App] Failed to load cart from backend:', error);
-                }
-              } else {
-                // localStorage has data (even empty object = user cleared cart) — trust it
-                console.log('✅ [App] Cart loaded from localStorage (', Object.keys(localCart).length, 'items)');
+              try {
+                const savedCart = await getUserCart(session.userData.phone);
+                setCart(savedCart && typeof savedCart === 'object' ? savedCart : {});
+              } catch (error) {
+                console.error('❌ [App] Failed to load cart:', error);
               }
             }
             
@@ -548,32 +503,19 @@ function AppContent() {
         });
       }
       
-      // Load user likes AND cart from backend, but only if localStorage has no data yet
-      const localLikesLogin = (() => { try { const s = localStorage.getItem('userLikes'); return s ? JSON.parse(s) : null; } catch { return null; } })();
-      const localCartLogin  = (() => { try { const s = localStorage.getItem('userCart');  return s ? JSON.parse(s) : null; } catch { return null; } })();
-
-      if (!localLikesLogin || localLikesLogin.length === 0) {
-        console.log('🔄 Loading user likes from backend for phone:', userData.phone);
-        try {
-          const savedLikes = await api.users.getLikes(userData.phone);
-          if (Array.isArray(savedLikes) && savedLikes.length > 0) {
-            setLikedProductIds(savedLikes);
-          }
-        } catch (error) {
-          console.error('❌ Failed to load user likes:', error);
-        }
+      // Always load likes and cart from backend (database is the only source of truth)
+      console.log('🔄 Loading likes and cart from backend for phone:', userData.phone);
+      try {
+        const savedLikes = await api.users.getLikes(userData.phone);
+        setLikedProductIds(Array.isArray(savedLikes) ? savedLikes : []);
+      } catch (error) {
+        console.error('❌ Failed to load user likes:', error);
       }
-
-      if (!localCartLogin || Object.keys(localCartLogin).length === 0) {
-        console.log('🔄 Loading user cart from backend for phone:', userData.phone);
-        try {
-          const savedCart = await getUserCart(userData.phone);
-          if (savedCart && Object.keys(savedCart).length > 0) {
-            setCart(savedCart);
-          }
-        } catch (error) {
-          console.error('❌ Failed to load cart:', error);
-        }
+      try {
+        const savedCart = await getUserCart(userData.phone);
+        setCart(savedCart && typeof savedCart === 'object' ? savedCart : {});
+      } catch (error) {
+        console.error('❌ Failed to load cart:', error);
       }
       
       setUserType('customer');
