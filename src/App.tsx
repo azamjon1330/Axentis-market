@@ -278,8 +278,9 @@ function AppContent() {
               const localLikes = (() => { try { const s = localStorage.getItem('userLikes'); return s ? JSON.parse(s) : null; } catch { return null; } })();
               const localCart  = (() => { try { const s = localStorage.getItem('userCart');  return s ? JSON.parse(s) : null; } catch { return null; } })();
 
-              if (!localLikes || localLikes.length === 0) {
-                console.log('🔄 [App] localStorage likes empty — loading from backend once...');
+              if (localLikes === null) {
+                // Key doesn't exist at all — first install, load from backend
+                console.log('🔄 [App] localStorage likes missing — loading from backend once...');
                 try {
                   const savedLikes = await api.users.getLikes(session.userData.phone);
                   if (Array.isArray(savedLikes) && savedLikes.length > 0) {
@@ -289,11 +290,13 @@ function AppContent() {
                   console.error('❌ [App] Failed to load likes from backend:', error);
                 }
               } else {
+                // localStorage has data (even empty array = user cleared everything) — trust it
                 console.log('✅ [App] Likes loaded from localStorage (', localLikes.length, 'items)');
               }
 
-              if (!localCart || Object.keys(localCart).length === 0) {
-                console.log('🔄 [App] localStorage cart empty — loading from backend once...');
+              if (localCart === null) {
+                // Key doesn't exist at all — first install, load from backend
+                console.log('🔄 [App] localStorage cart missing — loading from backend once...');
                 try {
                   const savedCart = await getUserCart(session.userData.phone);
                   if (savedCart && Object.keys(savedCart).length > 0) {
@@ -303,6 +306,7 @@ function AppContent() {
                   console.error('❌ [App] Failed to load cart from backend:', error);
                 }
               } else {
+                // localStorage has data (even empty object = user cleared cart) — trust it
                 console.log('✅ [App] Cart loaded from localStorage (', Object.keys(localCart).length, 'items)');
               }
             }
