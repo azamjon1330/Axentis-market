@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS product_purchases (
 );
 
 -- Индексы для быстрого поиска
-CREATE INDEX idx_product_purchases_company_id ON product_purchases(company_id);
-CREATE INDEX idx_product_purchases_product_id ON product_purchases(product_id);
-CREATE INDEX idx_product_purchases_purchase_date ON product_purchases(purchase_date);
-CREATE INDEX idx_product_purchases_created_at ON product_purchases(created_at);
+CREATE INDEX IF NOT EXISTS idx_product_purchases_company_id ON product_purchases(company_id);
+CREATE INDEX IF NOT EXISTS idx_product_purchases_product_id ON product_purchases(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_purchases_purchase_date ON product_purchases(purchase_date);
+CREATE INDEX IF NOT EXISTS idx_product_purchases_created_at ON product_purchases(created_at);
 
 -- Комментарии к таблице
 COMMENT ON TABLE product_purchases IS 'История закупок товаров компанией';
