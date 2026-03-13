@@ -26,6 +26,13 @@ func CreateProductPurchase(db *sql.DB) gin.HandlerFunc {
 
 		companyID := c.GetInt64("companyId") // From JWT middleware
 		
+		// Fallback: if not from JWT, try from request body
+		if companyID == 0 {
+			if cid, ok := req["companyId"].(float64); ok {
+				companyID = int64(cid)
+			}
+		}
+		
 		log.Printf("📦 [CreateProductPurchase] Request for company %d: %+v", companyID, req)
 
 		// Parse purchase date or use current date
