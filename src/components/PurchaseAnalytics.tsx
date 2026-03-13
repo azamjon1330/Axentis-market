@@ -99,7 +99,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
     const grouped: Record<string, { date: string; quantity: number; cost: number }> = {};
 
     purchases.forEach(purchase => {
-      const date = new Date(purchase.purchaseDate).toLocaleDateString('ru-RU');
+      const date = new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ');
       if (!grouped[date]) {
         grouped[date] = { date, quantity: 0, cost: 0 };
       }

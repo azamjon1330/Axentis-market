@@ -762,7 +762,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           }`}
         >
           <Package className="w-5 h-5" />
-          <span>Закупки товаров</span>
+          <span>{t.purchasesExpense}</span>
         </button>
       </div>
 

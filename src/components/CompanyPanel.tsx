@@ -284,7 +284,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             }`}
           >
             <TruckIcon className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>Закупки товаров</span>
+            <span className={`font-medium ${responsive.small}`}>{t.purchasesExpense}</span>
           </button>
 
         </nav>
@@ -373,7 +373,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'barcode' && t.searchByBarcode}
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
-                {activeTab === 'purchases' && 'Закупки товаров'}
+                {activeTab === 'purchases' && t.purchasesExpense}
               </h1>
             </div>
             

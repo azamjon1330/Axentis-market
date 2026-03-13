@@ -50,11 +50,41 @@ func CreateProductPurchase(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Extract fields
+		// Extract fields with safe type assertions
 		productName, _ := req["productName"].(string)
-		quantity := int(req["quantity"].(float64))
-		purchasePrice := req["purchasePrice"].(float64)
-		totalCost := req["totalCost"].(float64)
+		
+		quantityFloat, ok := req["quantity"].(float64)
+		if !ok || quantityFloat <= 0 {
+			log.Printf("❌ [CreateProductPurchase] Invalid quantity: %v", req["quantity"])
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid quantity value"})
+			return
+		}
+		quantity := int(quantityFloat)
+		
+		purchasePrice, ok := req["purchasePrice"].(float64)
+		if !ok || purchasePrice < 0 {
+			log.Printf("❌ [CreateProductPurchase] Invalid purchasePrice: %v", req["purchasePrice"])
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid purchasePrice value"})
+			return
+		}
+		
+		totalCost, ok := req["totalCost"].(float64)
+		if !ok {
+			// Calculate from quantity * purchasePrice if missing
+			totalCost = float64(quantity) * purchasePrice
+		}
+
+		if productName == "" {
+			log.Printf("❌ [CreateProductPurchase] Missing productName")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "productName is required"})
+			return
+		}
+
+		if companyID == 0 {
+			log.Printf("❌ [CreateProductPurchase] Missing companyId")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "companyId is required"})
+			return
+		}
 		
 		// Optional fields
 		var productID *int64
@@ -261,15 +291,14 @@ func GetProductPurchaseStats(db *sql.DB) gin.HandlerFunc {
 func DeleteProductPurchase(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		purchaseID := c.Param("id")
-		companyID := c.GetInt64("companyId") // From JWT middleware
 
-		log.Printf("🗑️ [DeleteProductPurchase] Deleting purchase %s for company %d", purchaseID, companyID)
+		log.Printf("🗑️ [DeleteProductPurchase] Deleting purchase %s", purchaseID)
 
-		// Verify ownership before deleting
+		// Delete by ID only (no JWT auth, company check happens at app level)
 		result, err := db.Exec(`
 			DELETE FROM product_purchases 
-			WHERE id = $1 AND company_id = $2
-		`, purchaseID, companyID)
+			WHERE id = $1
+		`, purchaseID)
 
 		if err != nil {
 			log.Printf("❌ [DeleteProductPurchase] Database error: %v", err)
@@ -279,7 +308,7 @@ func DeleteProductPurchase(db *sql.DB) gin.HandlerFunc {
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			log.Printf("⚠️ [DeleteProductPurchase] No purchase found with id %s for company %d", purchaseID, companyID)
+			log.Printf("⚠️ [DeleteProductPurchase] No purchase found with id %s", purchaseID)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Purchase not found"})
 			return
 		}
@@ -293,7 +322,6 @@ func DeleteProductPurchase(db *sql.DB) gin.HandlerFunc {
 func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		purchaseID := c.Param("id")
-		companyID := c.GetInt64("companyId") // From JWT middleware
 
 		var req map[string]interface{}
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -302,7 +330,7 @@ func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("📝 [UpdateProductPurchase] Updating purchase %s for company %d: %+v", purchaseID, companyID, req)
+		log.Printf("📝 [UpdateProductPurchase] Updating purchase %s: %+v", purchaseID, req)
 
 		// Build update query dynamically based on provided fields
 		updates := []string{}
@@ -350,14 +378,14 @@ func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Add purchase ID and company ID to args
-		args = append(args, purchaseID, companyID)
+		// Add purchase ID to args (no company_id check since no JWT)
+		args = append(args, purchaseID)
 
 		query := "UPDATE product_purchases SET " + updates[0]
 		for i := 1; i < len(updates); i++ {
 			query += ", " + updates[i]
 		}
-		query += " WHERE id = $" + string(rune(argIndex+'0')) + " AND company_id = $" + string(rune(argIndex+'1'))
+		query += " WHERE id = $" + string(rune(argIndex+'0'))
 
 		result, err := db.Exec(query, args...)
 		if err != nil {
@@ -368,7 +396,7 @@ func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected == 0 {
-			log.Printf("⚠️ [UpdateProductPurchase] No purchase found with id %s for company %d", purchaseID, companyID)
+			log.Printf("⚠️ [UpdateProductPurchase] No purchase found with id %s", purchaseID)
 			c.JSON(http.StatusNotFound, gin.H{"error": "Purchase not found"})
 			return
 		}
