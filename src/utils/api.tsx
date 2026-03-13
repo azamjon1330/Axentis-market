@@ -897,6 +897,7 @@ export const expenses = {
 export const productPurchases = {
   // Create product purchase
   create: async (data: {
+    companyId: number;
     productId?: number;
     productName: string;
     quantity: number;

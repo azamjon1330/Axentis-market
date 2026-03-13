@@ -138,12 +138,13 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
     e.preventDefault();
 
     if (!formData.productName || !formData.quantity || !formData.purchasePrice) {
-      alert('Пожалуйста, заполните все обязательные поля');
+      alert('Majburiy maydonlarni to\'ldiring');
       return;
     }
 
     try {
       const data = {
+        companyId,
         productId: formData.productId ? parseInt(formData.productId) : undefined,
         productName: formData.productName,
         quantity: parseInt(formData.quantity),
@@ -156,10 +157,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
 
       if (editingId) {
         await api.productPurchases.update(editingId, data);
-        alert('✅ Закупка обновлена');
+        alert('✅ Xarid yangilandi');
       } else {
         await api.productPurchases.create(data);
-        alert('✅ Закупка добавлена');
+        alert('✅ Xarid qo\'shildi');
       }
 
       // Reset form
@@ -178,7 +179,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       loadData();
     } catch (error: any) {
       console.error('❌ Error saving purchase:', error);
-      alert(`Ошибка: ${error.message}`);
+      alert(`Xato: ${error.message}`);
     }
   };
 
@@ -198,15 +199,15 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Вы уверены, что хотите удалить эту закупку?')) return;
+    if (!confirm('Bu xaridni o\'chirmoqchimisiz?')) return;
 
     try {
       await api.productPurchases.delete(id);
-      alert('✅ Закупка удалена');
+      alert('✅ Xarid o\'chirildi');
       loadData();
     } catch (error: any) {
       console.error('❌ Error deleting purchase:', error);
-      alert(`Ошибка: ${error.message}`);
+      alert(`Xato: ${error.message}`);
     }
   };
 
@@ -229,10 +230,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Package className="w-7 h-7 text-blue-600" />
-            История закупок товаров
+            Tovar xaridlari tarixi
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Отслеживайте все закупки и пополнения товаров
+            Barcha xaridlar va tovar to'ldirishlarni kuzating
           </p>
         </div>
         <button
@@ -255,7 +256,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           {showAddForm ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-          {showAddForm ? 'Отмена' : 'Добавить закупку'}
+          {showAddForm ? 'Bekor qilish' : 'Xarid qo\'shish'}
         </button>
       </div>
 
@@ -273,7 +274,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <Package className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Всего закупок</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Jami xaridlar</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPurchases}</p>
             </div>
           </div>
@@ -285,7 +286,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <Hash className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Всего товаров</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Jami tovarlar</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalQuantity}</p>
             </div>
           </div>
@@ -297,9 +298,9 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <DollarSign className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Общая сумма</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Umumiy summa</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {totalCost.toLocaleString()} сум
+                {totalCost.toLocaleString()} so'm
               </p>
             </div>
           </div>
@@ -310,21 +311,21 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       {showAddForm && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            {editingId ? 'Редактировать закупку' : 'Добавить закупку'}
+            {editingId ? 'Xaridni tahrirlash' : 'Xarid qo\'shish'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Product Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Товар (опционально)
+                  Tovar (ixtiyoriy)
                 </label>
                 <select
                   value={formData.productId}
                   onChange={(e) => handleProductSelect(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
-                  <option value="">Выберите товар или введите вручную</option>
+                  <option value="">Tovarni tanlang yoki qo'lda kiriting</option>
                   {products.map(product => (
                     <option key={product.id} value={product.id}>
                       {product.name}
@@ -336,7 +337,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               {/* Product Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Название товара *
+                  Tovar nomi *
                 </label>
                 <input
                   type="text"
@@ -344,14 +345,14 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                   onChange={(e) => setFormData(prev => ({ ...prev, productName: e.target.value }))}
                   required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Введите название"
+                  placeholder="Nomni kiriting"
                 />
               </div>
 
               {/* Quantity */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Количество *
+                  Miqdori *
                 </label>
                 <input
                   type="number"
@@ -360,14 +361,14 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                   required
                   min="1"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Введите количество"
+                  placeholder="Miqdorni kiriting"
                 />
               </div>
 
               {/* Purchase Price */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Цена закупки (за ед.) *
+                  Xarid narxi (dona) *
                 </label>
                 <input
                   type="number"
@@ -377,18 +378,18 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                   min="0"
                   step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Введите цену"
+                  placeholder="Narxni kiriting"
                 />
               </div>
 
               {/* Total Cost (auto-calculated) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Общая сумма
+                  Umumiy summa
                 </label>
                 <input
                   type="text"
-                  value={`${formData.totalCost} сум`}
+                  value={`${formData.totalCost} so'm`}
                   readOnly
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white cursor-not-allowed"
                 />
@@ -397,7 +398,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               {/* Purchase Date */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Дата закупки *
+                  Xarid sanasi *
                 </label>
                 <input
                   type="date"
@@ -411,28 +412,28 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               {/* Supplier */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Поставщик (опционально)
+                  Ta'minotchi (ixtiyoriy)
                 </label>
                 <input
                   type="text"
                   value={formData.supplier}
                   onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Название поставщика"
+                  placeholder="Ta'minotchi nomi"
                 />
               </div>
 
               {/* Notes */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Заметки (опционально)
+                  Izoh (ixtiyoriy)
                 </label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder="Дополнительная информация о закупке"
+                  placeholder="Xarid haqida qo'shimcha ma'lumot"
                 />
               </div>
             </div>
@@ -447,14 +448,14 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                 }}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Отмена
+                Bekor qilish
               </button>
               <button
                 type="submit"
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Save className="w-5 h-5" />
-                {editingId ? 'Сохранить' : 'Добавить'}
+                {editingId ? 'Saqlash' : 'Qo\'shish'}
               </button>
             </div>
           </form>
@@ -467,7 +468,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
           <div className="p-12 text-center">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400">
-              Нет данных о закупках за выбранный период
+              Tanlangan davr uchun xarid ma'lumotlari yo'q
             </p>
           </div>
         ) : (
@@ -476,25 +477,25 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Дата
+                    Sana
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Товар
+                    Tovar
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Количество
+                    Miqdori
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Цена за ед.
+                    Dona narxi
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Сумма
+                    Summa
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Поставщик
+                    Ta'minotchi
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Действия
+                    Amallar
                   </th>
                 </tr>
               </thead>
@@ -502,7 +503,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                 {purchases.map((purchase) => (
                   <tr key={purchase.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {new Date(purchase.purchaseDate).toLocaleDateString('ru-RU')}
+                      {new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ')}
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -518,10 +519,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                       {purchase.quantity}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {purchase.purchasePrice.toLocaleString()} сум
+                      {purchase.purchasePrice.toLocaleString()} so'm
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                      {purchase.totalCost.toLocaleString()} сум
+                      {purchase.totalCost.toLocaleString()} so'm
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {purchase.supplier || '—'}
@@ -531,14 +532,14 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                         <button
                           onClick={() => handleEdit(purchase)}
                           className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                          title="Редактировать"
+                          title="Tahrirlash"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(purchase.id)}
                           className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          title="Удалить"
+                          title="O'chirish">
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
