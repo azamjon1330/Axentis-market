@@ -158,3 +158,19 @@ type AggressiveDiscountWithDetails struct {
 	CompanyName      string  `json:"companyName"`
 	CompanyLogo      *string `json:"companyLogo,omitempty"`
 }
+
+// ProductPurchase represents history of product purchases/stock additions by company
+// 📦 История закупок товаров компанией
+type ProductPurchase struct {
+	ID            int64      `json:"id"`
+	CompanyID     int64      `json:"companyId"`
+	ProductID     *int64     `json:"productId,omitempty"`     // NULL if product was deleted
+	ProductName   string     `json:"productName"`             // Save product name at purchase time
+	Quantity      int        `json:"quantity"`                // Number of items purchased
+	PurchasePrice float64    `json:"purchasePrice"`           // Purchase price per unit
+	TotalCost     float64    `json:"totalCost"`               // Total cost (quantity * purchasePrice)
+	Supplier      *string    `json:"supplier,omitempty"`      // Supplier name (optional)
+	Notes         *string    `json:"notes,omitempty"`         // Additional notes/comments
+	PurchaseDate  time.Time  `json:"purchaseDate"`            // Date of purchase
+	CreatedAt     time.Time  `json:"createdAt"`
+}

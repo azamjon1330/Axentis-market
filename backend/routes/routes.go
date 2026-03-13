@@ -212,6 +212,16 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			customExpenses.DELETE("/:id", handlers.DeleteCustomExpense(db))
 		}
 
+		// Product Purchases routes (📦 История закупок товаров)
+		productPurchases := api.Group("/product-purchases")
+		{
+			productPurchases.GET("", handlers.GetProductPurchases(db))                  // Список закупок
+			productPurchases.POST("", handlers.CreateProductPurchase(db))              // Создание записи о закупке
+			productPurchases.GET("/stats", handlers.GetProductPurchaseStats(db))       // Статистика закупок
+			productPurchases.PUT("/:id", handlers.UpdateProductPurchase(db))           // Обновление закупки
+			productPurchases.DELETE("/:id", handlers.DeleteProductPurchase(db))        // Удаление закупки
+		}
+
 		// Analytics routes
 		analytics := api.Group("/analytics")
 		{

@@ -119,7 +119,8 @@ export default function AdminAnalyticsPanel() {
     orders: true,
     products: false,
     calculator: true,
-    topProducts: true
+    topProducts: true,
+    purchases: false
   });
   
   // Search and expanded orders
@@ -1448,8 +1449,129 @@ export default function AdminAnalyticsPanel() {
         </div>
       )}
 
+      {/* ========== СЕКЦИЯ: ЗАКУПКИ ТОВАРОВ ========== */}
+      {(viewMode === 'all' || selectedCompanyId) && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
+          <button
+            onClick={() => toggleSection('purchases')}
+            className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 hover:from-indigo-100 hover:to-indigo-200 dark:hover:from-indigo-800/30 dark:hover:to-indigo-700/30 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-500 rounded-lg">
+                <Truck className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  📦 Аналитика закупок товаров
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  История и статистика закупок по {viewMode === 'all' ? 'всем компаниям' : 'выбранной компании'}
+                </p>
+              </div>
+            </div>
+            {expandedSections.purchases ? (
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-500" />
+            )}
+          </button>
+
+          {expandedSections.purchases && (
+            <div className="p-6">
+              {viewMode === 'single' && selectedCompanyId ? (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 mb-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Building2 className="w-6 h-6 text-blue-600" />
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white">
+                        Аналитика закупок для выбранной компании
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        ID компании: {selectedCompanyId}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Используем компонент PurchaseAnalytics для отображения */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                    <iframe
+                      src={`#purchases-analytics-${selectedCompanyId}`}
+                      style={{ display: 'none' }}
+                    />
+                    <p className="text-center text-gray-600 dark:text-gray-400 py-8">
+                      Для просмотра детальной аналитики закупок перейдите в панель компании
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg p-6">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                      <Package className="w-5 h-5 text-indigo-600" />
+                      Общая статистика закупок
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Всего компаний закупают товары</p>
+                        <p className="text-2xl font-bold text-indigo-600">
+                          {companies.length}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Примерно закупок</p>
+                        <p className="text-2xl font-bold text-purple-600">
+                          —
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Требуется агрегация данных
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Общая сумма закупок</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          —
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Требуется агрегация данных
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="p-2 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg">
+                        <Eye className="w-5 h-5 text-yellow-600" />
+                      </div>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-gray-900 dark:text-white mb-1">
+                        💡 Совет: Используйте режим "Одна компания"
+                      </h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Для просмотра детальной аналитики закупок выберите конкретную компанию 
+                        или перейдите в панель компании.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-center py-12 text-gray-400">
+                    <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">
+                      Детальная аналитика закупок доступна для каждой компании
+                    </p>
+                    <p className="text-sm">
+                      Выберите компанию выше, чтобы увидеть сводку по закупкам
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ========== FOOTER INFO ========== */}
-      <div className="bg-gray-100 rounded-lg p-4 text-center text-sm text-gray-500">
+      <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 text-center text-sm text-gray-500 dark:text-gray-400">
         <p>
           📊 Панель аналитики для администратора • Только просмотр • Обновлено: {new Date().toLocaleTimeString('ru-RU')}
         </p>

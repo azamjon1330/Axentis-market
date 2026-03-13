@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, TruckIcon } from 'lucide-react';
 import { DigitalWarehouse } from './DigitalWarehouse';
 import SalesPanel from './SalesPanel';
 import CompanyOrdersPanel from './CompanyOrdersPanel';
@@ -8,6 +8,7 @@ import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
 import CompanyDiscountsManager from './CompanyDiscountsManager';
 import CompanyInboxPanel from './CompanyInboxPanel';
+import ProductPurchasesPanel from './ProductPurchasesPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { useTheme } from '../utils/ThemeContext';
@@ -28,7 +29,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
   
-  const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts'>('warehouse');
+  const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'purchases'>('warehouse');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   const [showInbox, setShowInbox] = useState(false); // 📨 Показать входящие сообщения
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0); // 📨 Кол-во непрочитанных
@@ -274,6 +275,18 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             <span className={`font-medium ${responsive.small}`}>{t.discountsManagement}</span>
           </button>
 
+          <button
+            onClick={() => handleNavigate('purchases')}
+            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
+              activeTab === 'purchases'
+                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 border-r-4 border-indigo-600 dark:border-indigo-400'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-y-105 hover:shadow-lg hover:shadow-indigo-200/50 dark:hover:shadow-indigo-900/50'
+            }`}
+          >
+            <TruckIcon className={responsive.iconSmall} />
+            <span className={`font-medium ${responsive.small}`}>Закупки товаров</span>
+          </button>
+
         </nav>
 
         {/* Кнопка выхода внизу - АДАПТИВНО */}
@@ -360,6 +373,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'barcode' && t.searchByBarcode}
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
+                {activeTab === 'purchases' && 'Закупки товаров'}
               </h1>
             </div>
             
@@ -395,6 +409,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'barcode' && <BarcodeSearchPanel companyId={companyId} />}
           {activeTab === 'smm' && <CompanySMMPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'discounts' && <CompanyDiscountsManager companyId={companyId} products={[]} />}
+          {activeTab === 'purchases' && <ProductPurchasesPanel companyId={companyId} />}
         </div>
       </main>
 

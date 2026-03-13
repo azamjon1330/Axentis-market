@@ -890,6 +890,68 @@ export const expenses = {
 };
 
 // ============================================================================
+// PRODUCT PURCHASES API
+// 📦 API для истории закупок товаров
+// ============================================================================
+
+export const productPurchases = {
+  // Create product purchase
+  create: async (data: {
+    productId?: number;
+    productName: string;
+    quantity: number;
+    purchasePrice: number;
+    totalCost: number;
+    supplier?: string;
+    notes?: string;
+    purchaseDate?: string;
+  }) => {
+    return apiCall('/product-purchases', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // List product purchases
+  list: async (params?: {
+    companyId?: string | number;
+    startDate?: string;
+    endDate?: string;
+    productId?: string | number;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return apiCall(`/product-purchases?${query}`);
+  },
+
+  // Get purchase statistics
+  stats: async (params?: {
+    companyId?: string | number;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return apiCall(`/product-purchases/stats?${query}`);
+  },
+
+  // Update product purchase
+  update: async (id: string | number, data: Partial<any>) => {
+    return apiCall(`/product-purchases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Delete product purchase
+  delete: async (id: string | number) => {
+    return apiCall(`/product-purchases/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ============================================================================
 // ADS API
 // ============================================================================
 
@@ -1315,6 +1377,7 @@ export default {
   companies,
   users,
   expenses,
+  productPurchases, // 📦 История закупок товаров
   ads,
   aggressiveDiscounts,
   messages,

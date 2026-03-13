@@ -4,6 +4,7 @@ import api from '../utils/api';
 import ExpensesManager from './ExpensesManager';
 import PaymentHistoryForCompany from './PaymentHistoryForCompany';
 import AdvancedInsightsPanel from './AdvancedInsightsPanel';
+import PurchaseAnalytics from './PurchaseAnalytics';
 import CompactPeriodSelector from './CompactPeriodSelector';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
@@ -54,7 +55,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   const [paymentHistoryProfit, setPaymentHistoryProfit] = useState(0);
   
   // 📑 Вкладки
-  const [activeTab, setActiveTab] = useState<'analytics' | 'payments'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'payments' | 'purchases'>('analytics');
   
   // 💰 Expenses state - НОВОЕ: хранить все затраты с датами
   const [allCustomExpenses, setAllCustomExpenses] = useState<any[]>([]); // Пользовательские затраты с датами
@@ -727,13 +728,13 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   return (
     <div>
       {/* 📑 Вкладки */}
-      <div className="bg-white rounded-lg shadow-sm mb-6 p-2 flex gap-2">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6 p-2 flex gap-2">
         <button
           onClick={() => setActiveTab('analytics')}
           className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition ${
             activeTab === 'analytics'
               ? 'bg-blue-600 text-white shadow'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
           <TrendingUp className="w-5 h-5" />
@@ -745,17 +746,34 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition ${
             activeTab === 'payments'
               ? 'bg-blue-600 text-white shadow'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           }`}
         >
           <CreditCard className="w-5 h-5" />
           <span>{t.paymentHistory}</span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('purchases')}
+          className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg transition ${
+            activeTab === 'purchases'
+              ? 'bg-blue-600 text-white shadow'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+          }`}
+        >
+          <Package className="w-5 h-5" />
+          <span>Закупки товаров</span>
+        </button>
       </div>
 
-      {/* 💳 ВКЛАДКА: История плтежей */}
+      {/* 💳 ВКЛАДКА: История платежей */}
       {activeTab === 'payments' && (
         <PaymentHistoryForCompany companyId={companyId} />
+      )}
+
+      {/* 📦 ВКЛАДКА: Аналитика закупок */}
+      {activeTab === 'purchases' && (
+        <PurchaseAnalytics companyId={companyId} />
       )}
 
       {/* 📊 ВКЛАДКА: Аналитика */}
