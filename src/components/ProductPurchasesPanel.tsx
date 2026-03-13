@@ -539,7 +539,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                         <button
                           onClick={() => handleDelete(purchase.id)}
                           className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          title="O'chirish">
+                          title="O'chirish"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
