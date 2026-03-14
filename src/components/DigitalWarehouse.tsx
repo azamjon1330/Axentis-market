@@ -335,35 +335,85 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         return;
       }
       
-      // 🎯 Если добавляем товар в категорию, удаляем товар-маркер этой категории
-      if (finalCategory) {
-        const categoryMarker = products.find((p: any) => 
-          p.name === `__CATEGORY_MARKER__${finalCategory}` && p.category === finalCategory
-        );
-        if (categoryMarker) {
-          await api.products.delete(categoryMarker.id);
+      // 🔍 НОВАЯ ЛОГИКА: Проверяем, существует ли товар с такими же характеристиками
+      const existingProduct = products.find((p: any) => {
+        // Игнорируем маркеры категорий
+        if (p.name?.startsWith('__CATEGORY_MARKER__')) return false;
+        
+        // Проверяем совпадение по ключевым характеристикам
+        const nameMatch = p.name?.trim().toLowerCase() === validatedProduct.name?.trim().toLowerCase();
+        const priceMatch = Math.abs(p.price - validatedProduct.price) < 0.01; // Допуск 0.01 для float
+        const barcodeMatch = (p.barcode || '') === (validatedProduct.barcode || '');
+        const baridMatch = (p.barid || '') === (validatedProduct.barid || '');
+        
+        // Если barcode и barid пустые у обоих, не считаем это совпадением
+        const hasBarcodeOrBarid = validatedProduct.barcode || validatedProduct.barid;
+        
+        // Товары совпадают, если:
+        // 1. Совпадают название И цена
+        // 2. И если есть barcode/barid, то они тоже должны совпадать
+        if (hasBarcodeOrBarid) {
+          return nameMatch && priceMatch && barcodeMatch && baridMatch;
+        } else {
+          // Если barcode/barid нет, проверяем только название и цену
+          return nameMatch && priceMatch;
         }
+      });
+      
+      if (existingProduct) {
+        // ✅ Товар найден - обновляем количество
+        console.log('🔄 Найден существующий товар, обновляем количество:', existingProduct);
+        const newQuantity = (existingProduct.quantity || 0) + (validatedProduct.quantity || 0);
+        
+        await api.products.update(existingProduct.id, {
+          quantity: newQuantity
+        });
+        
+        const message = language === 'uz' 
+          ? `✅ Tovar topildi va miqdor yangilandi!\n${existingProduct.name}\nYangi miqdor: ${newQuantity}` 
+          : `✅ Товар найден и количество обновлено!\n${existingProduct.name}\nНовое количество: ${newQuantity}`;
+        alert(message);
+        
+        console.log(`✅ Количество обновлено: ${existingProduct.quantity} → ${newQuantity}`);
+      } else {
+        // 🆕 Товар не найден - создаем новый
+        console.log('🆕 Создаем новый товар');
+        
+        // 🎯 Если добавляем товар в категорию, удаляем товар-маркер этой категории
+        if (finalCategory) {
+          const categoryMarker = products.find((p: any) => 
+            p.name === `__CATEGORY_MARKER__${finalCategory}` && p.category === finalCategory
+          );
+          if (categoryMarker) {
+            await api.products.delete(categoryMarker.id);
+          }
+        }
+        
+        const productData = {
+          companyId: companyId,
+          name: validatedProduct.name,
+          quantity: validatedProduct.quantity || 0,
+          price: validatedProduct.price,
+          markupPercent: validatedProduct.markupPercent || 0,
+          barcode: validatedProduct.barcode || '',
+          barid: validatedProduct.barid || '',
+          category: finalCategory || '',
+          description: validatedProduct.description || '',
+          color: validatedProduct.color || '',
+          size: validatedProduct.size || '',
+          brand: validatedProduct.brand || '',
+          hasColorOptions: false,
+          availableForCustomers: true
+        };
+        
+        console.log('📦 Product data to create:', productData);
+        await api.products.create(productData);
+        
+        const message = language === 'uz' 
+          ? `✅ Yangi tovar qo'shildi!\n${validatedProduct.name}` 
+          : `✅ Новый товар добавлен!\n${validatedProduct.name}`;
+        alert(message);
       }
-      
-      const productData = {
-        companyId: companyId,
-        name: validatedProduct.name,
-        quantity: validatedProduct.quantity || 0,
-        price: validatedProduct.price,
-        markupPercent: validatedProduct.markupPercent || 0,
-        barcode: validatedProduct.barcode || '',
-        barid: validatedProduct.barid || '',
-        category: finalCategory || '',
-        description: validatedProduct.description || '',
-        color: validatedProduct.color || '',
-        size: validatedProduct.size || '',
-        brand: validatedProduct.brand || '',
-        hasColorOptions: false,
-        availableForCustomers: true
-      };
-      
-      console.log('📦 Product data to create:', productData);
-      await api.products.create(productData);
       
       // Перезагружаем данные сразу после добавления БЕЗ КЭША
       console.log('🔄 Очистка кэша после добавления товара...');
@@ -581,7 +631,52 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
             setImportProgress(t.importingFromCSV.replace('{count}', importedProducts.length.toString()));
             try {
               const startTime = Date.now();
-              await api.products.bulkImport(companyId, importedProducts);
+              
+              // 🔍 НОВАЯ ЛОГИКА: Проверяем дубликаты и разделяем на обновления и новые товары
+              const productsToCreate: any[] = [];
+              const productsToUpdate: { id: number; quantity: number }[] = [];
+              
+              for (const importedProduct of importedProducts) {
+                const existingProduct = products.find((p: any) => {
+                  if (p.name?.startsWith('__CATEGORY_MARKER__')) return false;
+                  
+                  const nameMatch = p.name?.trim().toLowerCase() === importedProduct.name?.trim().toLowerCase();
+                  const priceMatch = Math.abs(p.price - importedProduct.price) < 0.01;
+                  const barcodeMatch = (p.barcode || '') === (importedProduct.barcode || '');
+                  
+                  const hasBarcode = importedProduct.barcode;
+                  
+                  if (hasBarcode) {
+                    return nameMatch && priceMatch && barcodeMatch;
+                  } else {
+                    return nameMatch && priceMatch;
+                  }
+                });
+                
+                if (existingProduct) {
+                  const newQuantity = (existingProduct.quantity || 0) + (importedProduct.quantity || 0);
+                  productsToUpdate.push({
+                    id: existingProduct.id,
+                    quantity: newQuantity
+                  });
+                  console.log(`🔄 CSV обновление: ${existingProduct.name}, ${existingProduct.quantity} → ${newQuantity}`);
+                } else {
+                  productsToCreate.push(importedProduct);
+                  console.log(`🆕 CSV новый товар: ${importedProduct.name}`);
+                }
+              }
+              
+              console.log(`📊 CSV: Обновлений: ${productsToUpdate.length}, Новых: ${productsToCreate.length}`);
+              
+              // Обновляем существующие товары
+              for (const update of productsToUpdate) {
+                await api.products.update(update.id, { quantity: update.quantity });
+              }
+              
+              // Создаем новые товары
+              if (productsToCreate.length > 0) {
+                await api.products.bulkImport(companyId, productsToCreate);
+              }
               
               const duration = ((Date.now() - startTime) / 1000).toFixed(2);
               
@@ -736,10 +831,61 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       if (importedProducts.length > 0) {
         setImportProgress(t.importingToDatabase.replace('{count}', importedProducts.length.toString()));
         const startTime = Date.now();
-        const results = await api.products.bulkImport(companyId, importedProducts);
+        
+        // 🔍 НОВАЯ ЛОГИКА: Проверяем дубликаты и разделяем на обновления и новые товары
+        const productsToCreate: any[] = [];
+        const productsToUpdate: { id: number; quantity: number }[] = [];
+        
+        for (const importedProduct of importedProducts) {
+          const existingProduct = products.find((p: any) => {
+            // Игнорируем маркеры категорий
+            if (p.name?.startsWith('__CATEGORY_MARKER__')) return false;
+            
+            // Проверяем совпадение по ключевым характеристикам
+            const nameMatch = p.name?.trim().toLowerCase() === importedProduct.name?.trim().toLowerCase();
+            const priceMatch = Math.abs(p.price - importedProduct.price) < 0.01;
+            const barcodeMatch = (p.barcode || '') === (importedProduct.barcode || '');
+            const baridMatch = (p.barid || '') === (importedProduct.barid || '');
+            
+            const hasBarcodeOrBarid = importedProduct.barcode || importedProduct.barid;
+            
+            if (hasBarcodeOrBarid) {
+              return nameMatch && priceMatch && barcodeMatch && baridMatch;
+            } else {
+              return nameMatch && priceMatch;
+            }
+          });
+          
+          if (existingProduct) {
+            // Товар найден - добавляем к обновлениям
+            const newQuantity = (existingProduct.quantity || 0) + (importedProduct.quantity || 0);
+            productsToUpdate.push({
+              id: existingProduct.id,
+              quantity: newQuantity
+            });
+            console.log(`🔄 Обновление: ${existingProduct.name}, ${existingProduct.quantity} → ${newQuantity}`);
+          } else {
+            // Товар новый - добавляем к созданию
+            productsToCreate.push(importedProduct);
+            console.log(`🆕 Новый товар: ${importedProduct.name}`);
+          }
+        }
+        
+        console.log(`📊 Обновлений: ${productsToUpdate.length}, Новых: ${productsToCreate.length}`);
+        
+        // Обновляем существующие товары
+        for (const update of productsToUpdate) {
+          await api.products.update(update.id, { quantity: update.quantity });
+        }
+        
+        // Создаем новые товары
+        let results = null;
+        if (productsToCreate.length > 0) {
+          results = await api.products.bulkImport(companyId, productsToCreate);
+        }
         
         const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-        console.log('✅ Импорт завершен, результаты:', results);
+        console.log('✅ Импорт завершен:', { updated: productsToUpdate.length, created: productsToCreate.length });
         
         // ⚡ ВАЖНО: Полностью очищаем ВСЕ кэши!
         setImportProgress(t.updatingData);
