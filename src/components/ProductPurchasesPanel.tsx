@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save, Warehouse } from 'lucide-react';
+import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save, Warehouse, FileText, ChevronRight } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
 import { getCurrentLanguage, type Language } from '../utils/translations';
@@ -37,6 +37,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  
+  // Модальное окно для деталей групповой закупки
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedPurchaseDetails, setSelectedPurchaseDetails] = useState<any[]>([]);
 
   // Listen for language changes
   useEffect(() => {
@@ -224,6 +228,21 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
     } catch (error: any) {
       console.error('❌ Error deleting purchase:', error);
       alert(`Xato: ${error.message}`);
+    }
+  };
+  
+  // Показать детали групповой закупки
+  const showPurchaseDetails = (purchase: ProductPurchase) => {
+    try {
+      if (purchase.notes) {
+        const details = JSON.parse(purchase.notes);
+        if (Array.isArray(details)) {
+          setSelectedPurchaseDetails(details);
+          setShowDetailsModal(true);
+        }
+      }
+    } catch (error) {
+      console.error('Ошибка парсинга деталей закупки:', error);
     }
   };
 
@@ -531,19 +550,48 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {/* Manual purchase records */}
-                {purchases.map((purchase) => (
+                {purchases.map((purchase) => {
+                  // Проверяем, является ли это групповой закупкой (импортом)
+                  const isGroupPurchase = purchase.notes && purchase.notes.startsWith('[');
+                  let purchaseDetails: any[] = [];
+                  if (isGroupPurchase) {
+                    try {
+                      purchaseDetails = JSON.parse(purchase.notes);
+                    } catch (e) {
+                      // Игнорируем ошибки парсинга
+                    }
+                  }
+                  
+                  return (
                   <tr key={`purchase-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      <div>{new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ')}</div>
+                      <div>{new Date(purchase.purchaseDate).toLocaleDateString('ru-RU', { 
+                        day: '2-digit', 
+                        month: 'long', 
+                        year: 'numeric' 
+                      })}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(purchase.purchaseDate).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(purchase.purchaseDate).toLocaleTimeString('ru-RU', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                        {isGroupPurchase && <FileText className="w-4 h-4 text-green-600" />}
                         {purchase.productName}
                       </div>
-                      {purchase.notes && (
+                      {isGroupPurchase && purchaseDetails.length > 0 && (
+                        <button
+                          onClick={() => showPurchaseDetails(purchase)}
+                          className="text-xs text-blue-600 hover:text-blue-800 mt-1 flex items-center gap-1"
+                        >
+                          <ChevronRight className="w-3 h-3" />
+                          {language === 'uz' ? 'Batafsil' : 'Подробнее'} ({purchaseDetails.length} {language === 'uz' ? 'tovar' : 'товаров'})
+                        </button>
+                      )}
+                      {!isGroupPurchase && purchase.notes && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {purchase.notes}
                         </div>
@@ -580,7 +628,8 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {/* Warehouse products shown as purchase entries */}
                 {warehouseProducts.map((product) => (
@@ -623,6 +672,100 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
           </div>
         )}
       </div>
+      
+      {/* Модальное окно с деталями групповой закупки */}
+      {showDetailsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full p-6 max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <FileText className="w-6 h-6 text-green-600" />
+                {language === 'uz' ? 'Import tafsilotlari' : 'Детали импорта'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedPurchaseDetails([]);
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      №
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'uz' ? 'Tovar nomi' : 'Название товара'}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'uz' ? 'Miqdor' : 'Количество'}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'uz' ? 'Narx' : 'Цена'}
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      {language === 'uz' ? 'Jami' : 'Сумма'}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {selectedPurchaseDetails.map((item, index) => (
+                    <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                        {item.name}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                        {item.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                        {item.price?.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сўм'}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white text-right">
+                        {item.total?.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сўм'}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-blue-50 dark:bg-blue-900/20 font-bold">
+                    <td colSpan={2} className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                      {language === 'uz' ? 'Jami:' : 'Итого:'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                      {selectedPurchaseDetails.reduce((sum, item) => sum + (item.quantity || 0), 0)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                      —
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right">
+                      {selectedPurchaseDetails.reduce((sum, item) => sum + (item.total || 0), 0).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сўм'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedPurchaseDetails([]);
+                }}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                {language === 'uz' ? 'Yopish' : 'Закрыть'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

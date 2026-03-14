@@ -478,7 +478,25 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         };
         
         console.log('📦 Product data to create:', productData);
-        await api.products.create(productData);
+        const createdProduct = await api.products.create(productData);
+        
+        // 🆕 Создаем запись в закупках для нового товара
+        if (validatedProduct.quantity > 0 && validatedProduct.price > 0) {
+          try {
+            await api.productPurchases.create({
+              companyId: companyId,
+              productId: createdProduct.id,
+              productName: validatedProduct.name,
+              quantity: validatedProduct.quantity,
+              purchasePrice: validatedProduct.price,
+              totalCost: validatedProduct.quantity * validatedProduct.price,
+              notes: language === 'uz' ? 'Yangi tovar qo\'shildi' : 'Добавлен новый товар'
+            });
+            console.log('✅ Запись о закупке создана');
+          } catch (error) {
+            console.warn('⚠️ Не удалось создать запись о закупке:', error);
+          }
+        }
         
         const message = language === 'uz' 
           ? `✅ Yangi tovar qo'shildi!\n${validatedProduct.name}` 
@@ -781,6 +799,37 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 await refetch();
               }
               
+              // 🆕 Создаем ОДНУ групповую запись о закупке для всего импорта (CSV)
+              if (importedProducts.length > 0) {
+                try {
+                  const totalCost = importedProducts.reduce((sum, p) => sum + (p.quantity * p.price), 0);
+                  const totalQuantity = importedProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
+                  
+                  const importDetails = importedProducts.map(p => ({
+                    name: p.name,
+                    quantity: p.quantity,
+                    price: p.price,
+                    total: p.quantity * p.price
+                  }));
+                  
+                  await api.productPurchases.create({
+                    companyId: companyId,
+                    productId: null,
+                    productName: language === 'uz' 
+                      ? `Import: ${importedProducts.length} turdagi tovar (CSV)` 
+                      : `Импорт: ${importedProducts.length} видов товара (CSV)`,
+                    quantity: totalQuantity,
+                    purchasePrice: totalCost / totalQuantity,
+                    totalCost: totalCost,
+                    notes: JSON.stringify(importDetails),
+                    supplier: language === 'uz' ? 'CSV import' : 'Импорт из CSV'
+                  });
+                  console.log('✅ Групповая запись о закупке создана для CSV импорта');
+                } catch (error) {
+                  console.warn('⚠️ Не удалось создать запись о закупке для CSV импорта:', error);
+                }
+              }
+              
               alert(`✅ ${t.importSuccess} за ${duration} секунд!\n\nВсего товаров: ${importedProducts.length}`);
             } finally {
               setImporting(false);
@@ -1012,6 +1061,38 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           invalidateCache();
           await refetch();
           console.log('🔄 Финальная перезагрузка после удаления маркеров');
+        }
+        
+        // 🆕 Создаем ОДНУ групповую запись о закупке для всего импорта
+        if (importedProducts.length > 0) {
+          try {
+            const totalCost = importedProducts.reduce((sum, p) => sum + (p.quantity * p.price), 0);
+            const totalQuantity = importedProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
+            
+            // Формируем детали импорта в JSON
+            const importDetails = importedProducts.map(p => ({
+              name: p.name,
+              quantity: p.quantity,
+              price: p.price,
+              total: p.quantity * p.price
+            }));
+            
+            await api.productPurchases.create({
+              companyId: companyId,
+              productId: null, // Групповая закупка без привязки к конкретному товару
+              productName: language === 'uz' 
+                ? `Import: ${importedProducts.length} turdagi tovar` 
+                : `Импорт: ${importedProducts.length} видов товара`,
+              quantity: totalQuantity,
+              purchasePrice: totalCost / totalQuantity, // Средняя цена
+              totalCost: totalCost,
+              notes: JSON.stringify(importDetails), // Детали в JSON
+              supplier: language === 'uz' ? 'Excel import' : 'Импорт из Excel'
+            });
+            console.log('✅ Групповая запись о закупке создана для импорта');
+          } catch (error) {
+            console.warn('⚠️ Не удалось создать запись о закупке для импорта:', error);
+          }
         }
         
         alert(`✅ ${t.importSuccess} за ${duration} секунд!\n\nВсего строк в файле: ${fullData.length - startRow}\nУспешно импортировано: ${importedProducts.length} товаров\n\nОбновление данных может занять несколько секунд...`);
