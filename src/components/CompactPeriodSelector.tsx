@@ -155,4 +155,3 @@ export default function CompactPeriodSelector({ value, onChange, label, language
       )}
     </div>
   );
-}
