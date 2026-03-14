@@ -349,7 +349,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 onClick={() => setIsSidebarOpen(true)}
                 className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
               >
-                <Menu className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 />
+                <Menu className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300`} />
               </button>
 
               <h1 className={`${responsive.heading} font-bold text-gray-800 dark:text-gray-100`}>

@@ -173,11 +173,16 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       </div>
 
       {/* Period Selector */}
-      <CompactPeriodSelector
-        value={timePeriod}
-        onChange={setTimePeriod}
-        language={language}
-      />
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+          {language === 'uz' ? '📅 Davr tanlang:' : '📅 Выберите период:'}
+        </label>
+        <CompactPeriodSelector
+          value={timePeriod}
+          onChange={setTimePeriod}
+          language={language}
+        />
+      </div>
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -213,16 +218,16 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-orange-500 rounded-lg">
+            <div className="p-3 bg-blue-500 rounded-lg">
               <DollarSign className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                 {language === 'uz' ? 'Sarflangan' : 'Потрачено'}
               </p>
-              <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+              <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                 {(stats.totalCost + warehouseProducts.reduce((s, p) => s + (p.quantity || 0) * (p.price || 0), 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
               </p>
             </div>
@@ -243,9 +248,12 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Purchases Over Time */}
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   {language === 'uz' ? 'Xaridlar dinamikasi' : 'Динамика закупок'}
                 </h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {language === 'uz' ? 'Xaridlar summasi o\'zgarishi vaqt bo\'yicha' : 'Изменение суммы закупок по времени'}
+                </p>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -272,9 +280,12 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
 
               {/* Top Products */}
               <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                   {language === 'uz' ? 'Top 5 tovarlar' : 'Топ товаров по закупкам'}
                 </h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  {language === 'uz' ? 'Eng ko\'p sotib olingan tovarlar' : 'Самые покупаемые товары'}
+                </p>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={topProducts}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
