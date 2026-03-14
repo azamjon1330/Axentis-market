@@ -25,7 +25,10 @@ export default function CompanyManagement() {
   const [showPasswords, setShowPasswords] = useState<{ [key: number]: boolean }>({});
   const [showAccessKeys, setShowAccessKeys] = useState<{ [key: number]: boolean }>({});
   const [editingCompany, setEditingCompany] = useState<number | null>(null);
-  const [editedData, setEditedData] = useState<{ [key: number]: Company }>({});
+  const [editingName, setEditingName] = useState('');
+  const [editingPhone, setEditingPhone] = useState('');
+  const [editingPassword, setEditingPassword] = useState('');
+  const [editingAccessKey, setEditingAccessKey] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   
   // Форма для новой компании
@@ -86,27 +89,27 @@ export default function CompanyManagement() {
 
   const startEditing = (company: Company) => {
     setEditingCompany(company.id);
-    // Password starts empty so user types a new one instead of seeing the hash
-    setEditedData({ ...editedData, [company.id]: { ...company, password: '' } });
+    setEditingName(company.name);
+    setEditingPhone(company.phone);
+    setEditingPassword('');
+    setEditingAccessKey(company.accessKey || '');
   };
 
-  const cancelEditing = (companyId: number) => {
+  const cancelEditing = (_companyId: number) => {
     setEditingCompany(null);
-    const newEditedData = { ...editedData };
-    delete newEditedData[companyId];
-    setEditedData(newEditedData);
+    setEditingName('');
+    setEditingPhone('');
+    setEditingPassword('');
+    setEditingAccessKey('');
   };
 
   const saveCompanyChanges = async (companyId: number) => {
-    const edited = editedData[companyId];
-    if (!edited) return;
-
     try {
       await api.companies.update(companyId.toString(), {
-        name: edited.name,
-        phone: edited.phone,
-        password: edited.password || undefined,
-        access_key: edited.accessKey
+        name: editingName,
+        phone: editingPhone,
+        password: editingPassword || undefined,
+        access_key: editingAccessKey
       });
 
       alert('✅ Компания успешно обновлена!');
@@ -660,14 +663,8 @@ export default function CompanyManagement() {
                 {editingCompany === company.id ? (
                   <input
                     type="text"
-                    value={editedData[company.id]?.name ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setEditedData(prev => ({
-                        ...prev,
-                        [company.id]: { ...prev[company.id], name: val }
-                      }));
-                    }}
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
                     className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500"
                     autoComplete="off"
                   />
@@ -692,13 +689,10 @@ export default function CompanyManagement() {
                   {editingCompany === company.id ? (
                     <input
                       type="text"
-                      value={editedData[company.id]?.phone ?? ''}
+                      value={editingPhone}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 9);
-                        setEditedData(prev => ({
-                          ...prev,
-                          [company.id]: { ...prev[company.id], phone: value }
-                        }));
+                        setEditingPhone(value);
                       }}
                       className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500"
                       maxLength={9}
@@ -725,14 +719,8 @@ export default function CompanyManagement() {
                   {editingCompany === company.id ? (
                     <input
                       type={showPasswords[company.id] ? 'text' : 'password'}
-                      value={editedData[company.id]?.password ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setEditedData(prev => ({
-                          ...prev,
-                          [company.id]: { ...prev[company.id], password: val }
-                        }));
-                      }}
+                      value={editingPassword}
+                      onChange={(e) => setEditingPassword(e.target.value)}
                       className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500 font-mono"
                       placeholder="Введите новый пароль..."
                       autoComplete="new-password"
@@ -741,11 +729,18 @@ export default function CompanyManagement() {
                     <code
                       className="block font-mono text-sm break-all bg-white px-3 py-2 rounded border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
                       style={{ userSelect: 'text' }}
-                      onClick={() => handleCopyToClipboard(company.password || '', `pwd-${company.id}`)}
+                      onClick={() => {
+                        const pwd = company.password;
+                        if (pwd && !pwd.startsWith('$2')) handleCopyToClipboard(pwd, `pwd-${company.id}`);
+                      }}
                       title="Нажмите для копирования"
                     >
                       {showPasswords[company.id]
-                        ? (company.password || '(не задан)')
+                        ? (company.password
+                            ? company.password.startsWith('$2')
+                              ? '🔒 зашифрован — пересохраните пароль'
+                              : company.password
+                            : '(не задан)')
                         : '••••••••'}
                     </code>
                   )}
@@ -759,7 +754,7 @@ export default function CompanyManagement() {
                   >
                     {showPasswords[company.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                  {editingCompany !== company.id && showPasswords[company.id] && (
+                  {editingCompany !== company.id && showPasswords[company.id] && company.password && !company.password.startsWith('$2') && (
                     <button
                       type="button"
                       onClick={() => handleCopyToClipboard(company.password || '', `pwd-${company.id}`)}
@@ -780,13 +775,10 @@ export default function CompanyManagement() {
                   {editingCompany === company.id ? (
                     <input
                       type="text"
-                      value={editedData[company.id]?.accessKey ?? ''}
+                      value={editingAccessKey}
                       onChange={(e) => {
                         const value = e.target.value.slice(0, 30);
-                        setEditedData(prev => ({
-                          ...prev,
-                          [company.id]: { ...prev[company.id], accessKey: value }
-                        }));
+                        setEditingAccessKey(value);
                       }}
                       className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm select-all"
                       maxLength={30}

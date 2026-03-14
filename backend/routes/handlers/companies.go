@@ -68,7 +68,8 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"deliveryEnabled": comp.DeliveryEnabled,
 			}
 
-			// НЕ возвращаем password_hash - это небезопасно
+			// Возвращаем пароль для админ-панели (plaintext если не bcrypt, иначе маркер)
+			company["password"] = comp.PasswordHash
 			if comp.AccessKey.Valid {
 				company["accessKey"] = comp.AccessKey.String
 			}
@@ -222,6 +223,7 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 		var req struct {
 			Name                string   `json:"name"`
 			Phone               string   `json:"phone"`
+			Password            string   `json:"password"`
 			AccessKey           string   `json:"access_key"`
 			Description         string   `json:"description"`
 			Address             string   `json:"address"`
@@ -248,6 +250,12 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 		if req.Phone != "" {
 			query += fmt.Sprintf(", phone = $%d", argCount)
 			args = append(args, req.Phone)
+			argCount++
+		}
+		if req.Password != "" {
+			// Храним пароль в открытом виде (для отображения в админ панели)
+			query += fmt.Sprintf(", password_hash = $%d", argCount)
+			args = append(args, req.Password)
 			argCount++
 		}
 		if req.AccessKey != "" {
