@@ -314,12 +314,12 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     const purchasePrice = parseFloat(purchaseForm.purchasePrice);
     
     if (!quantity || quantity <= 0) {
-      alert(currentLanguage === 'uz' ? 'Iltimos, miqdorni kiriting' : 'Пожалуйста, введите количество');
+      alert(language === 'uz' ? 'Iltimos, miqdorni kiriting' : 'Пожалуйста, введите количество');
       return;
     }
     
     if (!purchasePrice || purchasePrice <= 0) {
-      alert(currentLanguage === 'uz' ? 'Iltimos, sotib olish narxini kiriting' : 'Пожалуйста, введите цену закупки');
+      alert(language === 'uz' ? 'Iltimos, sotib olish narxini kiriting' : 'Пожалуйста, введите цену закупки');
       return;
     }
     
@@ -359,13 +359,13 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       await refetch();
       
       console.log('✅ Покупка успешно записана!');
-      alert(currentLanguage === 'uz' 
+      alert(language === 'uz' 
         ? `Tovar muvaffaqiyatli sotib olindi!\nMiqdor: ${quantity}\nNarx: ${purchasePrice} so'm\nJami: ${totalCost.toLocaleString()} so'm` 
         : `Товар успешно закуплен!\nКоличество: ${quantity}\nЦена: ${purchasePrice} сўм\nВсего: ${totalCost.toLocaleString()} сўм`
       );
     } catch (error) {
       console.error('Error recording purchase:', error);
-      alert(currentLanguage === 'uz' ? 'Xatolik yuz berdi' : 'Произошла ошибка');
+      alert(language === 'uz' ? 'Xatolik yuz berdi' : 'Произошла ошибка');
     }
   };
 
@@ -1466,7 +1466,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                     setPurchaseForm({ quantity: '', purchasePrice: '' });
                                   }}
                                   className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                  title={currentLanguage === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
+                                  title={language === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
                                 >
                                   <ShoppingCart className="w-4 h-4" />
                                 </button>
@@ -1603,7 +1603,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <ShoppingCart className="w-6 h-6 text-green-600" />
-                {currentLanguage === 'uz' ? 'Tovar sotib olish' : 'Закупка товара'}
+                {language === 'uz' ? 'Tovar sotib olish' : 'Закупка товара'}
               </h3>
               <button
                 onClick={() => {
@@ -1619,24 +1619,24 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
             <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
               <p className="text-sm text-gray-700 dark:text-gray-300">
-                <strong>{currentLanguage === 'uz' ? 'Tovar:' : 'Товар:'}</strong> {purchasingProduct.name}
+                <strong>{language === 'uz' ? 'Tovar:' : 'Товар:'}</strong> {purchasingProduct.name}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                <strong>{currentLanguage === 'uz' ? 'Joriy miqdor:' : 'Текущее количество:'}</strong> {purchasingProduct.quantity}
+                <strong>{language === 'uz' ? 'Joriy miqdor:' : 'Текущее количество:'}</strong> {purchasingProduct.quantity}
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {currentLanguage === 'uz' ? 'Sotib olingan miqdor' : 'Количество для закупки'}
+                  {language === 'uz' ? 'Sotib olingan miqdor' : 'Количество для закупки'}
                 </label>
                 <input
                   type="number"
                   value={purchaseForm.quantity}
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:border-green-500 dark:focus:border-green-400 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder={currentLanguage === 'uz' ? 'Miqdorni kiriting' : 'Введите количество'}
+                  placeholder={language === 'uz' ? 'Miqdorni kiriting' : 'Введите количество'}
                   min="0.01"
                   step="0.01"
                 />
@@ -1644,14 +1644,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {currentLanguage === 'uz' ? 'Sotib olish narxi (bitta uchun)' : 'Цена закупки (за единицу)'}
+                  {language === 'uz' ? 'Sotib olish narxi (bitta uchun)' : 'Цена закупки (за единицу)'}
                 </label>
                 <input
                   type="number"
                   value={purchaseForm.purchasePrice}
                   onChange={(e) => setPurchaseForm({ ...purchaseForm, purchasePrice: e.target.value })}
                   className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:border-green-500 dark:focus:border-green-400 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  placeholder={currentLanguage === 'uz' ? 'Narxni kiriting' : 'Введите цену'}
+                  placeholder={language === 'uz' ? 'Narxni kiriting' : 'Введите цену'}
                   min="0.01"
                   step="0.01"
                 />
@@ -1660,7 +1660,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
               {purchaseForm.quantity && purchaseForm.purchasePrice && (
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
                   <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                    {currentLanguage === 'uz' ? 'Jami summa:' : 'Общая сумма:'} {(parseFloat(purchaseForm.quantity) * parseFloat(purchaseForm.purchasePrice)).toLocaleString()} {currentLanguage === 'uz' ? "so'm" : 'сўм'}
+                    {language === 'uz' ? 'Jami summa:' : 'Общая сумма:'} {(parseFloat(purchaseForm.quantity) * parseFloat(purchaseForm.purchasePrice)).toLocaleString()} {language === 'uz' ? "so'm" : 'сўм'}
                   </p>
                 </div>
               )}
@@ -1675,14 +1675,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 }}
                 className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
               >
-                {currentLanguage === 'uz' ? 'Bekor qilish' : 'Отмена'}
+                {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
               </button>
               <button
                 onClick={handlePurchase}
                 className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <ShoppingCart className="w-5 h-5" />
-                {currentLanguage === 'uz' ? 'Sotib olish' : 'Купить'}
+                {language === 'uz' ? 'Sotib olish' : 'Купить'}
               </button>
             </div>
           </div>
