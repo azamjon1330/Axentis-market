@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -153,19 +154,19 @@ func GetProductPurchases(db *sql.DB) gin.HandlerFunc {
 
 		// Apply filters
 		if startDate != "" {
-			query += ` AND purchase_date >= $` + string(rune(argIndex+'0'))
+			query += fmt.Sprintf(" AND purchase_date >= $%d", argIndex)
 			args = append(args, startDate)
 			argIndex++
 		}
 		
 		if endDate != "" {
-			query += ` AND purchase_date <= $` + string(rune(argIndex+'0'))
+			query += fmt.Sprintf(" AND purchase_date <= $%d", argIndex)
 			args = append(args, endDate)
 			argIndex++
 		}
 		
 		if productID != "" && productID != "0" {
-			query += ` AND product_id = $` + string(rune(argIndex+'0'))
+			query += fmt.Sprintf(" AND product_id = $%d", argIndex)
 			args = append(args, productID)
 			argIndex++
 		}
@@ -256,13 +257,13 @@ func GetProductPurchaseStats(db *sql.DB) gin.HandlerFunc {
 		argIndex := 2
 
 		if startDate != "" {
-			query += ` AND purchase_date >= $` + string(rune(argIndex+'0'))
+			query += fmt.Sprintf(" AND purchase_date >= $%d", argIndex)
 			args = append(args, startDate)
 			argIndex++
 		}
 		
 		if endDate != "" {
-			query += ` AND purchase_date <= $` + string(rune(argIndex+'0'))
+			query += fmt.Sprintf(" AND purchase_date <= $%d", argIndex)
 			args = append(args, endDate)
 		}
 
@@ -338,37 +339,37 @@ func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 		argIndex := 1
 
 		if productName, ok := req["productName"].(string); ok {
-			updates = append(updates, "product_name = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("product_name = $%d", argIndex))
 			args = append(args, productName)
 			argIndex++
 		}
 
 		if quantity, ok := req["quantity"].(float64); ok {
-			updates = append(updates, "quantity = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("quantity = $%d", argIndex))
 			args = append(args, int(quantity))
 			argIndex++
 		}
 
 		if purchasePrice, ok := req["purchasePrice"].(float64); ok {
-			updates = append(updates, "purchase_price = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("purchase_price = $%d", argIndex))
 			args = append(args, purchasePrice)
 			argIndex++
 		}
 
 		if totalCost, ok := req["totalCost"].(float64); ok {
-			updates = append(updates, "total_cost = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("total_cost = $%d", argIndex))
 			args = append(args, totalCost)
 			argIndex++
 		}
 
 		if supplier, ok := req["supplier"].(string); ok {
-			updates = append(updates, "supplier = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("supplier = $%d", argIndex))
 			args = append(args, supplier)
 			argIndex++
 		}
 
 		if notes, ok := req["notes"].(string); ok {
-			updates = append(updates, "notes = $"+string(rune(argIndex+'0')))
+			updates = append(updates, fmt.Sprintf("notes = $%d", argIndex))
 			args = append(args, notes)
 			argIndex++
 		}
@@ -385,7 +386,7 @@ func UpdateProductPurchase(db *sql.DB) gin.HandlerFunc {
 		for i := 1; i < len(updates); i++ {
 			query += ", " + updates[i]
 		}
-		query += " WHERE id = $" + string(rune(argIndex+'0'))
+		query += fmt.Sprintf(" WHERE id = $%d", argIndex)
 
 		result, err := db.Exec(query, args...)
 		if err != nil {
