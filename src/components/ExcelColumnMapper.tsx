@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, X, ChevronDown } from 'lucide-react';
+import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
 interface ExcelColumnMapperProps {
   columns: string[]; // Названия колонок из Excel (первая строка)
@@ -17,15 +18,6 @@ export interface ColumnMapping {
   barid: number | null; // Индекс колонки для barid (опционально)
 }
 
-const fieldLabels = {
-  name: 'Название товара',
-  quantity: 'Количество',
-  price: 'Базовая цена',
-  markupPercent: 'Процент наценки (%)',
-  barcode: 'Штрих-код',
-  barid: 'Barid (5-6 цифр)'
-};
-
 const fieldRequired = {
   name: true,
   quantity: false,
@@ -36,6 +28,27 @@ const fieldRequired = {
 };
 
 export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCancel }: ExcelColumnMapperProps) {
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  const t = useTranslation(language);
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => {
+      setLanguage(e.detail);
+    };
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
+
+  const fieldLabels: Record<keyof ColumnMapping, string> = {
+    name: t.productNameField,
+    quantity: t.quantityField,
+    price: t.basePriceField,
+    markupPercent: t.markupPercentField,
+    barcode: t.barcodeField,
+    barid: t.baridField
+  };
+
   const [mapping, setMapping] = useState<ColumnMapping>({
     name: 0,
     quantity: 1,
@@ -56,7 +69,7 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
 
   const handleConfirm = () => {
     if (!isValid()) {
-      alert('Заполните обязательные поля: Название и Цена');
+      alert(t.fillRequiredFieldsAlert);
       return;
     }
     onConfirm(mapping);
@@ -64,11 +77,11 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4">
-          <h2 className="text-xl font-bold">Сопоставление колонок Excel</h2>
-          <p className="text-sm text-blue-100 mt-1">Укажите какая колонка соответствует какому полю</p>
+          <h2 className="text-xl font-bold">{t.excelColumnMapping}</h2>
+          <p className="text-sm text-blue-100 mt-1">{t.excelColumnMappingDesc}</p>
         </div>
 
         {/* Content */}
@@ -86,12 +99,12 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
                     <select
                       value={mapping[field] ?? ''}
                       onChange={(e) => handleMapping(field, e.target.value === '' ? null : Number(e.target.value))}
-                      className="appearance-none border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="appearance-none border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
-                      <option value="">-- Не выбрано --</option>
+                      <option value="">{t.notSelected}</option>
                       {columns.map((col, idx) => (
                         <option key={idx} value={idx}>
-                          Колонка {idx + 1}: {col || `(пустое название)`}
+                          {t.columnLabel} {idx + 1}: {col || t.emptyColumnName}
                         </option>
                       ))}
                     </select>
@@ -101,12 +114,12 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
                 
                 {/* Preview данных для выбранной колонки */}
                 {mapping[field] !== null && (
-                  <div className="mt-2 p-3 bg-gray-50 rounded text-sm">
-                    <div className="font-medium text-gray-600 mb-1">Предпросмотр данных:</div>
+                  <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 rounded text-sm">
+                    <div className="font-medium text-gray-600 dark:text-gray-300 mb-1">{t.dataPreview}</div>
                     <div className="space-y-1">
                       {sampleData.slice(0, 3).map((row, idx) => (
-                        <div key={idx} className="text-gray-700">
-                          • {row[mapping[field]!] || '(пусто)'}
+                        <div key={idx} className="text-gray-700 dark:text-gray-300">
+                          • {row[mapping[field]!] || t.emptyCell}
                         </div>
                       ))}
                     </div>
@@ -117,27 +130,27 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
           </div>
 
           {/* Preview Table */}
-          <div className="border border-gray-300 rounded-lg overflow-hidden">
-            <div className="bg-gray-100 px-4 py-2 font-medium text-gray-700">
-              Предпросмотр первых строк файла
+          <div className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+            <div className="bg-gray-100 dark:bg-gray-700 px-4 py-2 font-medium text-gray-700 dark:text-gray-300">
+              {t.filePreviewRowsTitle}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     {columns.map((col, idx) => (
-                      <th key={idx} className="px-4 py-2 text-left font-medium text-gray-700 border-b">
-                        {col || `Колонка ${idx + 1}`}
+                      <th key={idx} className="px-4 py-2 text-left font-medium text-gray-700 dark:text-gray-300 border-b dark:border-gray-600">
+                        {col || `${t.columnLabel} ${idx + 1}`}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {sampleData.map((row, rowIdx) => (
-                    <tr key={rowIdx} className="border-b hover:bg-gray-50">
+                    <tr key={rowIdx} className="border-b dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700">
                       {row.map((cell, cellIdx) => (
-                        <td key={cellIdx} className="px-4 py-2 text-gray-600">
-                          {cell || '(пусто)'}
+                        <td key={cellIdx} className="px-4 py-2 text-gray-600 dark:text-gray-400">
+                          {cell || t.emptyCell}
                         </td>
                       ))}
                     </tr>
@@ -148,28 +161,28 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
           </div>
 
           {/* Info */}
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="text-sm text-blue-800">
-              <div className="font-medium mb-2">ℹ️ Важная информация:</div>
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="text-sm text-blue-800 dark:text-blue-300">
+              <div className="font-medium mb-2">{t.importantInfo}</div>
               <ul className="list-disc list-inside space-y-1">
-                <li><span className="font-medium">Обязательные поля:</span> Название, Цена</li>
-                <li><span className="font-medium">Опциональные поля:</span> Количество, Процент наценки, Штрих-код</li>
-                <li>Если количество не указано, будет установлено значение 0</li>
-                <li>Если наценка не указана, товар будет продаваться по базовой цене</li>
-                <li>Если штрих-код не указан, товар можно будет добавить позже</li>
+                <li><span className="font-medium">{t.requiredFields}</span> {t.productNameField}, {t.basePriceField}</li>
+                <li><span className="font-medium">{t.optionalFields}</span> {t.quantityField}, {t.markupPercentField}, {t.barcodeField}</li>
+                <li>{t.quantityNotSpecifiedHint}</li>
+                <li>{t.markupNotSpecifiedHint}</li>
+                <li>{t.barcodeNotSpecifiedHint}</li>
               </ul>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4 flex items-center justify-between bg-gray-50">
+        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
           <button
             onClick={onCancel}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-2"
+            className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <X className="w-4 h-4" />
-            Отмена
+            {t.cancel}
           </button>
           <button
             onClick={handleConfirm}
@@ -177,7 +190,7 @@ export default function ExcelColumnMapper({ columns, sampleData, onConfirm, onCa
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Check className="w-4 h-4" />
-            Подтвердить и импортировать
+            {t.confirmAndImport}
           </button>
         </div>
       </div>

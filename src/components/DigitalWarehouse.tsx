@@ -578,14 +578,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
           if (importedProducts.length > 0) {
             setImporting(true);
-            setImportProgress(`Импорт ${importedProducts.length} товаров из CSV/TXT...`);
+            setImportProgress(t.importingFromCSV.replace('{count}', importedProducts.length.toString()));
             try {
               const startTime = Date.now();
               await api.products.bulkImport(companyId, importedProducts);
               
               const duration = ((Date.now() - startTime) / 1000).toFixed(2);
               
-              setImportProgress('Обновление данных...');
+              setImportProgress(t.updatingData);
               localCache.clear();
               queryClient.invalidateQueries({ queryKey: ['products'] });
               invalidateCache();
@@ -662,7 +662,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     
     setShowColumnMapper(false);
     setImporting(true);
-    setImportProgress('Обработка данных из Excel...');
+    setImportProgress(t.processingExcelData);
     
     try {
       const { fullData } = excelPreviewData;
@@ -734,7 +734,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       console.log(`📊 Итого распарсено товаров: ${importedProducts.length} из ${fullData.length - startRow} строк`);
 
       if (importedProducts.length > 0) {
-        setImportProgress(`Импорт ${importedProducts.length} товаров в базу данных...`);
+        setImportProgress(t.importingToDatabase.replace('{count}', importedProducts.length.toString()));
         const startTime = Date.now();
         const results = await api.products.bulkImport(companyId, importedProducts);
         
@@ -742,7 +742,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         console.log('✅ Импорт завершен, результаты:', results);
         
         // ⚡ ВАЖНО: Полностью очищаем ВСЕ кэши!
-        setImportProgress('Обновление данных...');
+        setImportProgress(t.updatingData);
         
         // Очищаем локальные кэши
         localCache.clear();

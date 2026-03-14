@@ -939,6 +939,36 @@ export interface Translations {
   // Table headers (short)
   methodHeader: string;
   detailsBtn: string;
+  
+  // Excel Column Mapper
+  excelColumnMapping: string;
+  excelColumnMappingDesc: string;
+  productNameField: string;
+  quantityField: string;
+  basePriceField: string;
+  markupPercentField: string;
+  barcodeField: string;
+  baridField: string;
+  notSelected: string;
+  columnLabel: string;
+  emptyColumnName: string;
+  dataPreview: string;
+  emptyCell: string;
+  filePreviewRowsTitle: string;
+  importantInfo: string;
+  requiredFields: string;
+  optionalFields: string;
+  quantityNotSpecifiedHint: string;
+  markupNotSpecifiedHint: string;
+  barcodeNotSpecifiedHint: string;
+  fillRequiredFieldsAlert: string;
+  confirmAndImport: string;
+  
+  // Import Progress Messages
+  importingFromCSV: string;
+  importingToDatabase: string;
+  processingExcelData: string;
+  updatingData: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -1874,6 +1904,36 @@ export const translations: Record<Language, Translations> = {
     // Table headers (short)
     methodHeader: 'Метод',
     detailsBtn: 'Детали',
+    
+    // Excel Column Mapper
+    excelColumnMapping: 'Сопоставление колонок Excel',
+    excelColumnMappingDesc: 'Укажите какая колонка соответствует какому полю',
+    productNameField: 'Название товара',
+    quantityField: 'Количество',
+    basePriceField: 'Базовая цена',
+    markupPercentField: 'Процент наценки (%)',
+    barcodeField: 'Штрих-код',
+    baridField: 'Barid (5-6 цифр)',
+    notSelected: '-- Не выбрано --',
+    columnLabel: 'Колонка',
+    emptyColumnName: '(пустое название)',
+    dataPreview: 'Предпросмотр данных:',
+    emptyCell: '(пусто)',
+    filePreviewRowsTitle: 'Предпросмотр первых строк файла',
+    importantInfo: 'ℹ️ Важная информация:',
+    requiredFields: 'Обязательные поля:',
+    optionalFields: 'Опциональные поля:',
+    quantityNotSpecifiedHint: 'Если количество не указано, будет установлено значение 0',
+    markupNotSpecifiedHint: 'Если наценка не указана, товар будет продаваться по базовой цене',
+    barcodeNotSpecifiedHint: 'Если штрих-код не указан, товар можно будет добавить позже',
+    fillRequiredFieldsAlert: 'Заполните обязательные поля: Название и Цена',
+    confirmAndImport: 'Подтвердить и импортировать',
+    
+    // Import Progress Messages
+    importingFromCSV: 'Импорт {count} товаров из CSV/TXT...',
+    importingToDatabase: 'Импорт {count} товаров в базу данных...',
+    processingExcelData: 'Обработка данных из Excel...',
+    updatingData: 'Обновление данных...',
   },
   
   uz: {
@@ -2808,6 +2868,36 @@ export const translations: Record<Language, Translations> = {
     // Table headers (short)
     methodHeader: 'Usul',
     detailsBtn: 'Batafsil',
+    
+    // Excel Column Mapper
+    excelColumnMapping: 'Excel ustunlarini moslashtirish',
+    excelColumnMappingDesc: 'Qaysi ustun qaysi maydonga mos kelishini ko\'rsating',
+    productNameField: 'Tovar nomi',
+    quantityField: 'Miqdori',
+    basePriceField: 'Bazaviy narx',
+    markupPercentField: 'Ustama foizi (%)',
+    barcodeField: 'Shtrix-kod',
+    baridField: 'Barid (5-6 raqam)',
+    notSelected: '-- Tanlanmagan --',
+    columnLabel: 'Ustun',
+    emptyColumnName: '(bo\'sh nom)',
+    dataPreview: 'Ma\'lumotlarni oldindan ko\'rish:',
+    emptyCell: '(bo\'sh)',
+    filePreviewRowsTitle: 'Faylning birinchi qatorlarini ko\'rish',
+    importantInfo: 'ℹ️ Muhim ma\'lumot:',
+    requiredFields: 'Majburiy maydonlar:',
+    optionalFields: 'Ixtiyoriy maydonlar:',
+    quantityNotSpecifiedHint: 'Agar miqdor ko\'rsatilmagan bo\'lsa, 0 qiymati o\'rnatiladi',
+    markupNotSpecifiedHint: 'Agar ustama ko\'rsatilmagan bo\'lsa, tovar bazaviy narxda sotiladi',
+    barcodeNotSpecifiedHint: 'Agar shtrix-kod ko\'rsatilmagan bo\'lsa, uni keyinroq qo\'shish mumkin',
+    fillRequiredFieldsAlert: 'Majburiy maydonlarni to\'ldiring: Nom va Narx',
+    confirmAndImport: 'Tasdiqlash va import qilish',
+    
+    // Import Progress Messages
+    importingFromCSV: '{count} tovarlarni CSV/TXT dan import qilish...',
+    importingToDatabase: '{count} tovarlarni ma\'lumotlar bazasiga import qilish...',
+    processingExcelData: 'Excel ma\'lumotlarini qayta ishlash...',
+    updatingData: 'Ma\'lumotlarni yangilash...',
   }
 };
 
