@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCache } from '../utils/productsCache';
-import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image as ImageIcon } from 'lucide-react';
+import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image as ImageIcon, ShoppingCart } from 'lucide-react';
 import api, { API_BASE } from '../utils/api';
 import { useCompanyProducts, ramCache } from '../utils/cache';
 import ImageUploader from './ImageUploader';
@@ -75,6 +75,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showImageUploader, setShowImageUploader] = useState<string | null>(null); // ID товара для которого показываем загрузчик фото
+  
+  // 🆕 Состояние для модального окна покупки товара
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [purchasingProduct, setPurchasingProduct] = useState<any>(null);
+  const [purchaseForm, setPurchaseForm] = useState({
+    quantity: '',
+    purchasePrice: '',
+  });
   
   // 🔄 Real-time обновления каждые 3 секунды
   React.useEffect(() => {
@@ -181,9 +189,9 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       }
       
       // 🎯 Подготовка данных в формате camelCase для backend
+      // ⚠️ Количество (quantity) больше не редактируется напрямую - только через покупку товара
       const updateData = {
         name: editForm.name,
-        quantity: editForm.quantity,
         price: editForm.price,
         markupPercent: validatedMarkup,
         barcode: editForm.barcode || '',
@@ -295,6 +303,69 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       console.error('Error deleting product:', error);
       alert(t.deleteError);
       await refetch(); // Rollback on error
+    }
+  };
+
+  // 🛒 Обработчик покупки товара
+  const handlePurchase = async () => {
+    if (!purchasingProduct) return;
+    
+    const quantity = parseFloat(purchaseForm.quantity);
+    const purchasePrice = parseFloat(purchaseForm.purchasePrice);
+    
+    if (!quantity || quantity <= 0) {
+      alert(currentLanguage === 'uz' ? 'Iltimos, miqdorni kiriting' : 'Пожалуйста, введите количество');
+      return;
+    }
+    
+    if (!purchasePrice || purchasePrice <= 0) {
+      alert(currentLanguage === 'uz' ? 'Iltimos, sotib olish narxini kiriting' : 'Пожалуйста, введите цену закупки');
+      return;
+    }
+    
+    try {
+      const totalCost = quantity * purchasePrice;
+      
+      // 1️⃣ Создаем запись о закупке для аналитики
+      await api.productPurchases.create({
+        companyId: companyId,
+        productId: purchasingProduct.id,
+        productName: purchasingProduct.name,
+        quantity: quantity,
+        purchasePrice: purchasePrice,
+        totalCost: totalCost,
+      });
+      
+      // 2️⃣ Обновляем товар: увеличиваем количество и устанавливаем цену закупки
+      const newQuantity = purchasingProduct.quantity + quantity;
+      await api.products.update(purchasingProduct.id, {
+        quantity: newQuantity,
+        price: purchasePrice, // Цена без наценки
+      });
+      
+      // 3️⃣ Закрываем модальное окно
+      setShowPurchaseModal(false);
+      setPurchasingProduct(null);
+      setPurchaseForm({ quantity: '', purchasePrice: '' });
+      
+      // 4️⃣ Обновляем данные
+      console.log('🔄 Обновление данных после закупки...');
+      ramCache.delete(`company_products_${companyId}`);
+      localCache.clear();
+      queryClient.removeQueries({ queryKey: ['company-products', companyId] });
+      queryClient.removeQueries({ queryKey: ['products'] });
+      queryClient.removeQueries({ queryKey: ['product-purchases'] });
+      invalidateCache();
+      await refetch();
+      
+      console.log('✅ Покупка успешно записана!');
+      alert(currentLanguage === 'uz' 
+        ? `Tovar muvaffaqiyatli sotib olindi!\nMiqdor: ${quantity}\nNarx: ${purchasePrice} so'm\nJami: ${totalCost.toLocaleString()} so'm` 
+        : `Товар успешно закуплен!\nКоличество: ${quantity}\nЦена: ${purchasePrice} сўм\nВсего: ${totalCost.toLocaleString()} сўм`
+      );
+    } catch (error) {
+      console.error('Error recording purchase:', error);
+      alert(currentLanguage === 'uz' ? 'Xatolik yuz berdi' : 'Произошла ошибка');
     }
   };
 
@@ -1303,16 +1374,8 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="number"
-                              value={editForm.quantity}
-                              onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) })}
-                              className="w-24 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : (
-                            <span className="text-gray-700 dark:text-gray-300">{product.quantity}</span>
-                          )}
+                          {/* 🚫 Количество больше не редактируется напрямую - только через покупку товара */}
+                          <span className="text-gray-700 dark:text-gray-300">{product.quantity}</span>
                         </td>
                         <td className="px-6 py-4">
                           {editingId === product.id ? (
@@ -1395,6 +1458,17 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                   title={t.addPhotoTitle}
                                 >
                                   <ImageIcon className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setPurchasingProduct(product);
+                                    setShowPurchaseModal(true);
+                                    setPurchaseForm({ quantity: '', purchasePrice: '' });
+                                  }}
+                                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                  title={currentLanguage === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
+                                >
+                                  <ShoppingCart className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleEdit(product)}
@@ -1520,6 +1594,99 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           onConfirm={handleColumnMappingConfirm}
           onCancel={handleColumnMappingCancel}
         />
+      )}
+
+      {/* 🛒 Модальное окно покупки товара */}
+      {showPurchaseModal && purchasingProduct && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <ShoppingCart className="w-6 h-6 text-green-600" />
+                {currentLanguage === 'uz' ? 'Tovar sotib olish' : 'Закупка товара'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPurchaseModal(false);
+                  setPurchasingProduct(null);
+                  setPurchaseForm({ quantity: '', purchasePrice: '' });
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                <strong>{currentLanguage === 'uz' ? 'Tovar:' : 'Товар:'}</strong> {purchasingProduct.name}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                <strong>{currentLanguage === 'uz' ? 'Joriy miqdor:' : 'Текущее количество:'}</strong> {purchasingProduct.quantity}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {currentLanguage === 'uz' ? 'Sotib olingan miqdor' : 'Количество для закупки'}
+                </label>
+                <input
+                  type="number"
+                  value={purchaseForm.quantity}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, quantity: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:border-green-500 dark:focus:border-green-400 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder={currentLanguage === 'uz' ? 'Miqdorni kiriting' : 'Введите количество'}
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {currentLanguage === 'uz' ? 'Sotib olish narxi (bitta uchun)' : 'Цена закупки (за единицу)'}
+                </label>
+                <input
+                  type="number"
+                  value={purchaseForm.purchasePrice}
+                  onChange={(e) => setPurchaseForm({ ...purchaseForm, purchasePrice: e.target.value })}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:border-green-500 dark:focus:border-green-400 outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder={currentLanguage === 'uz' ? 'Narxni kiriting' : 'Введите цену'}
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+
+              {purchaseForm.quantity && purchaseForm.purchasePrice && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <p className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                    {currentLanguage === 'uz' ? 'Jami summa:' : 'Общая сумма:'} {(parseFloat(purchaseForm.quantity) * parseFloat(purchaseForm.purchasePrice)).toLocaleString()} {currentLanguage === 'uz' ? "so'm" : 'сўм'}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowPurchaseModal(false);
+                  setPurchasingProduct(null);
+                  setPurchaseForm({ quantity: '', purchasePrice: '' });
+                }}
+                className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
+              >
+                {currentLanguage === 'uz' ? 'Bekor qilish' : 'Отмена'}
+              </button>
+              <button
+                onClick={handlePurchase}
+                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {currentLanguage === 'uz' ? 'Sotib olish' : 'Купить'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
