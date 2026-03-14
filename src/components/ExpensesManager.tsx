@@ -249,9 +249,14 @@ export default function ExpensesManager({
         </div>
       </div>
 
-      {/* Форма добавления */}
+      {/* Форма добавления - Modal */}
       {showAddForm && (
-        <div className="mb-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-xl p-6 shadow-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => {
+          setShowAddForm(false);
+          setNewExpenseForm({ expense_name: '', monthly_amount: '', description: '' });
+        }}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2 dark:text-white">
             <Plus className="w-5 h-5 text-green-600 dark:text-green-400" />
             {t.newExpense}
@@ -301,7 +306,7 @@ export default function ExpensesManager({
               </p>
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 sticky bottom-0 bg-white dark:bg-gray-800 pt-4 pb-2 -mb-2 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={handleAddCustomExpense}
               className="flex items-center gap-2 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
@@ -320,6 +325,8 @@ export default function ExpensesManager({
               {t.cancel}
             </button>
           </div>
+        </div>
+        </div>
         </div>
       )}
 

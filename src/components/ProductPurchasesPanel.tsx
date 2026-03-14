@@ -328,9 +328,14 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
         </div>
       </div>
 
-      {/* Add/Edit Form */}
+      {/* Add/Edit Form - Modal */}
       {showAddForm && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => {
+          setShowAddForm(false);
+          setEditingId(null);
+        }}>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
             {editingId
               ? (language === 'uz' ? 'Xaridni tahrirlash' : 'Редактировать закупку')
@@ -462,7 +467,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800 pt-4 pb-2 -mb-2 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => {
@@ -482,6 +487,8 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               </button>
             </div>
           </form>
+        </div>
+        </div>
         </div>
       )}
 
@@ -527,7 +534,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                 {purchases.map((purchase) => (
                   <tr key={`purchase-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ')}
+                      <div>{new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ')}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(purchase.purchaseDate).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">
