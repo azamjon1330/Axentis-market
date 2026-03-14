@@ -19,12 +19,4 @@ BEGIN
     RAISE NOTICE 'Updated % companies with default password', (SELECT COUNT(*) FROM companies WHERE password_hash = default_password);
 END $$;
 
--- ✅ Проверка: показываем компании и их пароли (для дебага)
-SELECT id, name, phone, 
-       CASE 
-           WHEN LENGTH(password_hash) > 10 THEN 'Has hashed password'
-           WHEN LENGTH(password_hash) > 0 THEN 'Plain text: ' || password_hash
-           ELSE 'EMPTY PASSWORD'
-       END as password_status
-FROM companies
-ORDER BY id;
+

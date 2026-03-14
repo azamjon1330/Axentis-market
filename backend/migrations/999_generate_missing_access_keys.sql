@@ -42,14 +42,4 @@ BEGIN
     RAISE NOTICE '🎉 Generated access keys for % companies', counter;
 END $$;
 
--- Проверяем результат
-SELECT 
-    COUNT(*) as total_companies,
-    COUNT(access_key) as companies_with_key,
-    COUNT(*) - COUNT(access_key) as companies_without_key
-FROM companies;
 
--- Показываем компании с ключами
-SELECT id, name, phone, access_key 
-FROM companies 
-ORDER BY id;
