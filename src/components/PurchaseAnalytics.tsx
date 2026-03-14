@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Package, TrendingUp, DollarSign } from 'lucide-react';
+import { Package, TrendingUp, DollarSign, Warehouse } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
+import { getCurrentLanguage, type Language } from '../utils/translations';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 
 interface PurchaseAnalyticsProps {
@@ -24,12 +25,23 @@ interface PurchaseStats {
 
 export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [warehouseProducts, setWarehouseProducts] = useState<any[]>([]);
   const [stats, setStats] = useState<PurchaseStats>({
     totalPurchases: 0,
     totalQuantity: 0,
     totalCost: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => {
+      setLanguage(e.detail);
+    };
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
 
   // Filter state
   type PeriodType = 'day' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
@@ -79,13 +91,18 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       }
 
       // Load purchases and stats
-      const [purchasesData, statsData] = await Promise.all([
+      const [purchasesData, statsData, productsData] = await Promise.all([
         api.productPurchases.list(params),
         api.productPurchases.stats(params),
+        api.products.list({ companyId: companyId.toString() }),
       ]);
 
       setPurchases(purchasesData?.purchases || []);
       setStats(statsData || { totalPurchases: 0, totalQuantity: 0, totalCost: 0 });
+
+      // Show warehouse products as purchase entries
+      const products = Array.isArray(productsData) ? productsData : productsData?.products || [];
+      setWarehouseProducts(products);
       
     } catch (error) {
       console.error('❌ Error loading purchase analytics:', error);
@@ -148,10 +165,10 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       <div>
         <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
           <Package className="w-6 h-6 text-blue-600" />
-          Аналитика закупок
+          {language === 'uz' ? 'Xaridlar tahlili' : 'Аналитика закупок'}
         </h3>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Статистика и тренды закупок товаров
+          {language === 'uz' ? 'Tovar xaridlari statistikasi va trendlari' : 'Статистика и тренды закупок товаров'}
         </p>
       </div>
 
@@ -159,6 +176,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       <CompactPeriodSelector
         value={timePeriod}
         onChange={setTimePeriod}
+        language={language}
       />
 
       {/* Statistics Cards */}
@@ -169,9 +187,11 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
               <Package className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">Закупок</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                {language === 'uz' ? 'Xaridlar' : 'Закупок'}
+              </p>
               <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">
-                {stats.totalPurchases}
+                {stats.totalPurchases + warehouseProducts.length}
               </p>
             </div>
           </div>
@@ -183,9 +203,11 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
               <TrendingUp className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-green-700 dark:text-green-300 font-medium">Товаров</p>
+              <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+                {language === 'uz' ? 'Tovarlar' : 'Товаров'}
+              </p>
               <p className="text-3xl font-bold text-green-900 dark:text-green-100">
-                {stats.totalQuantity}
+                {stats.totalQuantity + warehouseProducts.reduce((s, p) => s + (p.quantity || 0), 0)}
               </p>
             </div>
           </div>
@@ -197,31 +219,33 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
               <DollarSign className="w-6 h-6 text-white" />
             </div>
             <div>
-              <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">Потрачено</p>
+              <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+                {language === 'uz' ? 'Sarflangan' : 'Потрачено'}
+              </p>
               <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                {stats.totalCost.toLocaleString()} сум
+                {(stats.totalCost + warehouseProducts.reduce((s, p) => s + (p.quantity || 0) * (p.price || 0), 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {purchases.length === 0 ? (
+      {purchases.length === 0 && warehouseProducts.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-12 text-center">
           <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">
-            Нет данных о закупках за выбранный период
+            {language === 'uz' ? 'Tanlangan davr uchun xarid ma\'lumotlari yo\'q' : 'Нет данных о закупках за выбранный период'}
           </p>
         </div>
       ) : (
         <>
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Purchases Over Time */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Динамика закупок
-              </h4>
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Purchases Over Time */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {language === 'uz' ? 'Xaridlar dinamikasi' : 'Динамика закупок'}
+                </h4>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -246,11 +270,11 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
               </ResponsiveContainer>
             </div>
 
-            {/* Top Products */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Топ товаров по закупкам
-              </h4>
+              {/* Top Products */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  {language === 'uz' ? 'Top 5 tovarlar' : 'Топ товаров по закупкам'}
+                </h4>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={topProducts}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -274,7 +298,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Последние закупки
+                {language === 'uz' ? 'So\'nggi xaridlar' : 'Последние закупки'}
               </h4>
             </div>
             <div className="overflow-x-auto">
@@ -282,24 +306,24 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Дата
+                      {language === 'uz' ? 'Sana' : 'Дата'}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Товар
+                      {language === 'uz' ? 'Tovar' : 'Товар'}
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Количество
+                      {language === 'uz' ? 'Miqdori' : 'Количество'}
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                      Сумма
+                      {language === 'uz' ? 'Summa' : 'Сумма'}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {purchases.slice(0, 10).map((purchase) => (
-                    <tr key={purchase.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <tr key={`p-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(purchase.purchaseDate).toLocaleDateString('ru-RU')}
+                        {new Date(purchase.purchaseDate).toLocaleDateString(language === 'uz' ? 'uz-UZ' : 'ru-RU')}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                         {purchase.productName}
@@ -308,7 +332,28 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                         {purchase.quantity}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                        {purchase.totalCost.toLocaleString()} сум
+                        {purchase.totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                      </td>
+                    </tr>
+                  ))}
+                  {/* Warehouse products shown as entries */}
+                  {warehouseProducts.map((product) => (
+                    <tr key={`w-${product.id}`} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 bg-indigo-50/30 dark:bg-indigo-900/5">
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">—</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Warehouse className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</span>
+                        </div>
+                        <div className="text-xs text-indigo-500 mt-0.5 ml-5">
+                          {language === 'uz' ? 'Ombordan (avtomatik)' : 'Со склада (авто)'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                        {product.quantity || 0}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
+                        {((product.quantity || 0) * (product.price || 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
                       </td>
                     </tr>
                   ))}

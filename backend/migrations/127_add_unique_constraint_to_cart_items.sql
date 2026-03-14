@@ -10,7 +10,15 @@ WHERE ci1.user_phone = ci2.user_phone
   AND COALESCE(ci1.selected_size, '') = COALESCE(ci2.selected_size, '')
   AND ci1.id < ci2.id;  -- Удаляем старые записи, оставляем новые
 
--- Теперь добавляем UNIQUE constraint
-ALTER TABLE cart_items 
-ADD CONSTRAINT cart_items_user_product_variant_unique 
-UNIQUE (user_phone, product_id, selected_color, selected_size);
+-- Теперь добавляем UNIQUE constraint только если не существует
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'cart_items_user_product_variant_unique'
+    ) THEN
+        ALTER TABLE cart_items 
+        ADD CONSTRAINT cart_items_user_product_variant_unique 
+        UNIQUE (user_phone, product_id, selected_color, selected_size);
+    END IF;
+END $$;

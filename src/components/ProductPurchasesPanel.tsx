@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save } from 'lucide-react';
+import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save, Warehouse } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
+import { getCurrentLanguage, type Language } from '../utils/translations';
 
 interface ProductPurchase {
   id: number;
@@ -31,9 +32,20 @@ interface ProductPurchasesPanelProps {
 export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPanelProps) {
   const [purchases, setPurchases] = useState<ProductPurchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [warehouseProducts, setWarehouseProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => {
+      setLanguage(e.detail);
+    };
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -101,6 +113,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
 
       const purchasesData = await api.productPurchases.list(params);
       setPurchases(purchasesData?.purchases || []);
+
+      // Also load warehouse products to show them as "auto-imported" purchase entries
+      const allProducts = Array.isArray(productsData) ? productsData : productsData?.products || [];
+      setWarehouseProducts(allProducts);
       
     } catch (error) {
       console.error('❌ Error loading purchases:', error);
@@ -211,9 +227,11 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
     }
   };
 
-  const totalPurchases = purchases.length;
-  const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0);
-  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+  const totalPurchases = purchases.length + warehouseProducts.length;
+  const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0) 
+    + warehouseProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
+  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0)
+    + warehouseProducts.reduce((sum, p) => sum + ((p.quantity || 0) * (p.price || 0)), 0);
 
   if (loading) {
     return (
@@ -230,10 +248,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Package className="w-7 h-7 text-blue-600" />
-            Tovar xaridlari tarixi
+            {language === 'uz' ? 'Tovar xaridlari tarixi' : 'История закупок товаров'}
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Barcha xaridlar va tovar to'ldirishlarni kuzating
+            {language === 'uz' ? 'Barcha xaridlar va tovar to\'ldirishlarni kuzating' : 'Отслеживайте все закупки и пополнения склада'}
           </p>
         </div>
         <button
@@ -256,7 +274,9 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           {showAddForm ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
-          {showAddForm ? 'Bekor qilish' : 'Xarid qo\'shish'}
+          {showAddForm
+            ? (language === 'uz' ? 'Bekor qilish' : 'Отмена')
+            : (language === 'uz' ? 'Xarid qo\'shish' : 'Добавить закупку')}
         </button>
       </div>
 
@@ -264,6 +284,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       <CompactPeriodSelector
         value={timePeriod}
         onChange={setTimePeriod}
+        language={language}
       />
 
       {/* Statistics Cards */}
@@ -274,7 +295,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <Package className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Jami xaridlar</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'uz' ? 'Jami xaridlar' : 'Всего закупок'}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPurchases}</p>
             </div>
           </div>
@@ -286,7 +307,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <Hash className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Jami tovarlar</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'uz' ? 'Jami tovarlar' : 'Всего единиц'}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalQuantity}</p>
             </div>
           </div>
@@ -298,9 +319,9 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <DollarSign className="w-6 h-6 text-orange-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Umumiy summa</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{language === 'uz' ? 'Umumiy summa' : 'Общая сумма'}</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {totalCost.toLocaleString()} so'm
+                {totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
               </p>
             </div>
           </div>
@@ -311,7 +332,9 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       {showAddForm && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            {editingId ? 'Xaridni tahrirlash' : 'Xarid qo\'shish'}
+            {editingId
+              ? (language === 'uz' ? 'Xaridni tahrirlash' : 'Редактировать закупку')
+              : (language === 'uz' ? 'Xarid qo\'shish' : 'Добавить закупку')}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -464,11 +487,11 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
 
       {/* Purchases List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-        {purchases.length === 0 ? (
+        {purchases.length === 0 && warehouseProducts.length === 0 ? (
           <div className="p-12 text-center">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400">
-              Tanlangan davr uchun xarid ma'lumotlari yo'q
+              {language === 'uz' ? 'Tanlangan davr uchun xarid ma\'lumotlari yo\'q' : 'Нет данных о закупках за выбранный период'}
             </p>
           </div>
         ) : (
@@ -477,31 +500,32 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Sana
+                    {language === 'uz' ? 'Sana' : 'Дата'}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Tovar
+                    {language === 'uz' ? 'Tovar' : 'Товар'}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Miqdori
+                    {language === 'uz' ? 'Miqdori' : 'Кол-во'}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Dona narxi
+                    {language === 'uz' ? 'Dona narxi' : 'Цена за ед.'}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Summa
+                    {language === 'uz' ? 'Summa' : 'Сумма'}
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Ta'minotchi
+                    {language === 'uz' ? 'Ta\'minotchi' : 'Поставщик'}
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Amallar
+                    {language === 'uz' ? 'Amallar' : 'Действия'}
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {/* Manual purchase records */}
                 {purchases.map((purchase) => (
-                  <tr key={purchase.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={`purchase-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                       {new Date(purchase.purchaseDate).toLocaleDateString('uz-UZ')}
                     </td>
@@ -519,10 +543,10 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                       {purchase.quantity}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {purchase.purchasePrice.toLocaleString()} so'm
+                      {purchase.purchasePrice.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                      {purchase.totalCost.toLocaleString()} so'm
+                      {purchase.totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {purchase.supplier || '—'}
@@ -532,18 +556,55 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                         <button
                           onClick={() => handleEdit(purchase)}
                           className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                          title="Tahrirlash"
+                          title={language === 'uz' ? 'Tahrirlash' : 'Редактировать'}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(purchase.id)}
                           className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          title="O'chirish"
+                          title={language === 'uz' ? 'O\'chirish' : 'Удалить'}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {/* Warehouse products shown as purchase entries */}
+                {warehouseProducts.map((product) => (
+                  <tr key={`warehouse-${product.id}`} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 bg-indigo-50/30 dark:bg-indigo-900/5">
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      —
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Warehouse className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {product.name}
+                        </div>
+                      </div>
+                      <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5 ml-5">
+                        {language === 'uz' ? 'Ombordan (avtomatik)' : 'Со склада (авто)'}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                      {product.quantity || 0}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                      {(product.price || 0).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                      {((product.quantity || 0) * (product.price || 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      —
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-xs text-indigo-500 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">
+                        {language === 'uz' ? 'Ombor' : 'Склад'}
+                      </span>
                     </td>
                   </tr>
                 ))}

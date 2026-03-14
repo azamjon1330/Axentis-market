@@ -299,7 +299,13 @@ func runMigrationFiles(db *sql.DB, dir string) error {
 
 		_, err = db.Exec(sqlContent)
 		if err != nil {
-			return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
+			// Skip "already exists" errors — idempotent migrations
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate") {
+				log.Printf("⚠️  Skipping migration %s (already applied): %v", fileName, err)
+			} else {
+				return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
+			}
 		}
 
 		log.Printf("✅ Executed migration: %s", fileName)

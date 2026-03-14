@@ -86,7 +86,8 @@ export default function CompanyManagement() {
 
   const startEditing = (company: Company) => {
     setEditingCompany(company.id);
-    setEditedData({ ...editedData, [company.id]: { ...company } });
+    // Password starts empty so user types a new one instead of seeing the hash
+    setEditedData({ ...editedData, [company.id]: { ...company, password: '' } });
   };
 
   const cancelEditing = (companyId: number) => {
@@ -659,12 +660,16 @@ export default function CompanyManagement() {
                 {editingCompany === company.id ? (
                   <input
                     type="text"
-                    value={editedData[company.id]?.name || company.name}
-                    onChange={(e) => setEditedData({
-                      ...editedData,
-                      [company.id]: { ...editedData[company.id], name: e.target.value }
-                    })}
+                    value={editedData[company.id]?.name ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEditedData(prev => ({
+                        ...prev,
+                        [company.id]: { ...prev[company.id], name: val }
+                      }));
+                    }}
                     className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500"
+                    autoComplete="off"
                   />
                 ) : (
                   <div className="flex items-center justify-between">
@@ -687,13 +692,13 @@ export default function CompanyManagement() {
                   {editingCompany === company.id ? (
                     <input
                       type="text"
-                      value={editedData[company.id]?.phone || company.phone}
+                      value={editedData[company.id]?.phone ?? ''}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '').slice(0, 9);
-                        setEditedData({
-                          ...editedData,
-                          [company.id]: { ...editedData[company.id], phone: value }
-                        });
+                        setEditedData(prev => ({
+                          ...prev,
+                          [company.id]: { ...prev[company.id], phone: value }
+                        }));
                       }}
                       className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500"
                       maxLength={9}
@@ -713,31 +718,57 @@ export default function CompanyManagement() {
               </div>
 
               {/* Пароль */}
-              <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+              <div className="flex items-center gap-3 bg-gradient-to-r from-gray-50 to-gray-100 p-3 rounded-lg border border-gray-200">
                 <Lock className="w-5 h-5 text-gray-600" />
                 <div className="flex-1">
-                  <p className="text-xs text-gray-500">Пароль</p>
+                  <p className="text-xs text-gray-500 font-medium mb-1">🔐 Пароль</p>
                   {editingCompany === company.id ? (
                     <input
                       type={showPasswords[company.id] ? 'text' : 'password'}
-                      value={editedData[company.id]?.password || company.password || ''}
-                      onChange={(e) => setEditedData({
-                        ...editedData,
-                        [company.id]: { ...editedData[company.id], password: e.target.value }
-                      })}
-                      className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500"
+                      value={editedData[company.id]?.password ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditedData(prev => ({
+                          ...prev,
+                          [company.id]: { ...prev[company.id], password: val }
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500 font-mono"
                       placeholder="Введите новый пароль..."
+                      autoComplete="new-password"
                     />
                   ) : (
-                    <p className="font-medium font-mono text-gray-500">
-                      {/* Не показываем хеш пароля */}
-                      •••••••• (защищен)
-                    </p>
+                    <code
+                      className="block font-mono text-sm break-all bg-white px-3 py-2 rounded border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                      style={{ userSelect: 'text' }}
+                      onClick={() => handleCopyToClipboard(company.password || '', `pwd-${company.id}`)}
+                      title="Нажмите для копирования"
+                    >
+                      {showPasswords[company.id]
+                        ? (company.password || '(не задан)')
+                        : '••••••••'}
+                    </code>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Убираем кнопку копирования хеша - это бессмысленно */}
-                  {/* Убираем кнопку показа пароля - на backend хранится только хеш */}
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility(company.id)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    title={showPasswords[company.id] ? 'Скрыть' : 'Показать'}
+                  >
+                    {showPasswords[company.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  {editingCompany !== company.id && showPasswords[company.id] && (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyToClipboard(company.password || '', `pwd-${company.id}`)}
+                      className="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-xs"
+                      title="Копировать"
+                    >
+                      {copiedField === `pwd-${company.id}` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -749,13 +780,13 @@ export default function CompanyManagement() {
                   {editingCompany === company.id ? (
                     <input
                       type="text"
-                      value={editedData[company.id]?.accessKey || company.accessKey}
+                      value={editedData[company.id]?.accessKey ?? ''}
                       onChange={(e) => {
                         const value = e.target.value.slice(0, 30);
-                        setEditedData({
-                          ...editedData,
-                          [company.id]: { ...editedData[company.id], accessKey: value }
-                        });
+                        setEditedData(prev => ({
+                          ...prev,
+                          [company.id]: { ...prev[company.id], accessKey: value }
+                        }));
                       }}
                       className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm select-all"
                       maxLength={30}
