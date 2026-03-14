@@ -240,14 +240,14 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
   };
 
-  // 🔢 Короткий формат чисел (для великих сум)
+  // 🔢 Короткий формат чисел (для больших сумм)
   const formatShortPrice = (price: number) => {
     if (price >= 1_000_000_000) {
-      return `${(price / 1_000_000_000).toFixed(1)} млрд`;
+      return `${(price / 1_000_000_000).toFixed(1)} ${language === 'uz' ? 'mlrd' : 'м лрд'}`;
     } else if (price >= 1_000_000) {
-      return `${(price / 1_000_000).toFixed(1)} млн`;
+      return `${(price / 1_000_000).toFixed(1)} ${language === 'uz' ? 'mln' : 'млн'}`;
     } else if (price >= 1_000) {
-      return `${(price / 1_000).toFixed(1)} тыс`;
+      return `${(price / 1_000).toFixed(1)} ${language === 'uz' ? 'ming' : 'тыс'}`;
     }
     return price.toString();
   };

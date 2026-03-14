@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save, Warehouse, FileText, ChevronRight } from 'lucide-react';
+import { Package, Plus, DollarSign, Hash, Trash2, Edit2, X, Save, FileText, ChevronRight } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
 import { getCurrentLanguage, type Language } from '../utils/translations';
@@ -32,7 +32,6 @@ interface ProductPurchasesPanelProps {
 export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPanelProps) {
   const [purchases, setPurchases] = useState<ProductPurchase[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [warehouseProducts, setWarehouseProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -118,9 +117,8 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       const purchasesData = await api.productPurchases.list(params);
       setPurchases(purchasesData?.purchases || []);
 
-      // Also load warehouse products to show them as "auto-imported" purchase entries
-      const allProducts = Array.isArray(productsData) ? productsData : productsData?.products || [];
-      setWarehouseProducts(allProducts);
+      // Убрано: больше не показываем товары со склада как отдельные записи
+      // Теперь все закупки (включая импорт) записываются в productPurchases
       
     } catch (error) {
       console.error('❌ Error loading purchases:', error);
@@ -246,11 +244,9 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
     }
   };
 
-  const totalPurchases = purchases.length + warehouseProducts.length;
-  const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0) 
-    + warehouseProducts.reduce((sum, p) => sum + (p.quantity || 0), 0);
-  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0)
-    + warehouseProducts.reduce((sum, p) => sum + ((p.quantity || 0) * (p.price || 0)), 0);
+  const totalPurchases = purchases.length;
+  const totalQuantity = purchases.reduce((sum, p) => sum + p.quantity, 0);
+  const totalCost = purchases.reduce((sum, p) => sum + p.totalCost, 0);
 
   if (loading) {
     return (
@@ -515,7 +511,7 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         {purchases.length === 0 && warehouseProducts.length === 0 ? (
           <div className="p-12 text-center">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <Package className="-4" />
             <p className="text-gray-600 dark:text-gray-400">
               {language === 'uz' ? 'Tanlangan davr uchun xarid ma\'lumotlari yo\'q' : 'Нет данных о закупках за выбранный период'}
             </p>
@@ -565,13 +561,15 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                   return (
                   <tr key={`purchase-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      <div>{new Date(purchase.purchaseDate).toLocaleDateString('ru-RU', { 
-                        day: '2-digit', 
-                        month: 'long', 
-                        year: 'numeric' 
-                      })}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(purchase.purchaseDate).toLocaleTimeString('ru-RU', { 
+                      <div>
+                        {new Date(purchase.purchaseDate).toLocaleDateString(language === 'uz' ? 'uz-UZ' : 'ru-RU', { 
+                          day: '2-digit', 
+                          month: 'long', 
+                          year: 'numeric' 
+                        })}
+                      </div>
+                      <div className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                        {new Date(purchase.purchaseDate).toLocaleTimeString(language === 'uz' ? 'uz-UZ' : 'ru-RU', { 
                           hour: '2-digit', 
                           minute: '2-digit' 
                         })}
@@ -630,43 +628,6 @@ export default function ProductPurchasesPanel({ companyId }: ProductPurchasesPan
                   </tr>
                   );
                 })}
-
-                {/* Warehouse products shown as purchase entries */}
-                {warehouseProducts.map((product) => (
-                  <tr key={`warehouse-${product.id}`} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 bg-indigo-50/30 dark:bg-indigo-900/5">
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      —
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Warehouse className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {product.name}
-                        </div>
-                      </div>
-                      <div className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5 ml-5">
-                        {language === 'uz' ? 'Ombordan (avtomatik)' : 'Со склада (авто)'}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {product.quantity || 0}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                      {(product.price || 0).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                      {((product.quantity || 0) * (product.price || 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      —
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="text-xs text-indigo-500 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-full">
-                        {language === 'uz' ? 'Ombor' : 'Склад'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
+import { getCurrentLanguage, type Language } from '../utils/translations';
 import {
   PieChart,
   Pie,
@@ -126,6 +127,17 @@ export default function AdminAnalyticsPanel() {
   // Search and expanded orders
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
+  
+  // Language support
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => {
+      setLanguage(e.detail);
+    };
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
 
   // ===================== DATA LOADING =====================
   
@@ -432,11 +444,11 @@ export default function AdminAnalyticsPanel() {
   
   const formatShortPrice = (price: number) => {
     if (price >= 1_000_000_000) {
-      return `${(price / 1_000_000_000).toFixed(1)} млрд`;
+      return `${(price / 1_000_000_000).toFixed(1)} ${language === 'uz' ? 'mlrd' : 'млрд'}`;
     } else if (price >= 1_000_000) {
-      return `${(price / 1_000_000).toFixed(1)} млн`;
+      return `${(price / 1_000_000).toFixed(1)} ${language === 'uz' ? 'mln' : 'млн'}`;
     } else if (price >= 1_000) {
-      return `${(price / 1_000).toFixed(1)} тыс`;
+      return `${(price / 1_000).toFixed(1)} ${language === 'uz' ? 'ming' : 'тыс'}`;
     }
     return price.toLocaleString();
   };

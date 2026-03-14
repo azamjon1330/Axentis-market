@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Package, DollarSign, ShoppingCart, Calendar, Download, Award } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { getCurrentLanguage, type Language } from '../utils/translations';
 
 interface AdvancedAnalyticsProps {
   companyId?: number;
@@ -12,12 +13,21 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalProfit: 0,
     totalOrders: 0,
     averageOrderValue: 0
   });
+  
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => {
+      setLanguage(e.detail);
+    };
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
 
   useEffect(() => {
     loadAnalytics();
@@ -190,7 +200,7 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
     <div className="space-y-6">
       {/* Заголовок и фильтры */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">📊 Расширенная аналитика</h2>
+        <h2 className="text-2xl font-bold text-gray-900">📊 {language === 'uz' ? 'Kengaytirilgan tahlil' : 'Расширенная аналитика'}</h2>
         
         <div className="flex items-center gap-3">
           {/* Выбор периода */}
@@ -199,9 +209,9 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             onChange={(e) => setTimeRange(e.target.value as any)}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
-            <option value="week">Неделя</option>
-            <option value="month">Месяц</option>
-            <option value="year">Год</option>
+            <option value="week">{language === 'uz' ? 'Hafta' : 'Неделя'}</option>
+            <option value="month">{language === 'uz' ? 'Oy' : 'Месяц'}</option>
+            <option value="year">{language === 'uz' ? 'Yil' : 'Год'}</option>
           </select>
 
           {/* Кнопка экспорта */}
@@ -210,7 +220,7 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
           >
             <Download className="w-4 h-4" />
-            Экспорт Excel
+            {language === 'uz' ? 'Excel eksport' : 'Экспорт Excel'}
           </button>
         </div>
       </div>
@@ -222,8 +232,8 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <DollarSign className="w-8 h-8 opacity-80" />
             <TrendingUp className="w-5 h-5" />
           </div>
-          <p className="text-sm opacity-90">Выручка</p>
-          <p className="text-3xl font-bold mt-1">{stats.totalRevenue.toLocaleString()} ₸</p>
+          <p className="text-sm opacity-90">{language === 'uz' ? 'Tushum' : 'Выручка'}</p>
+          <p className="text-3xl font-bold mt-1">{stats.totalRevenue.toLocaleString()} {language === 'uz' ? "so'm" : '₸'}</p>
         </div>
 
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
@@ -231,8 +241,8 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <Award className="w-8 h-8 opacity-80" />
             <TrendingUp className="w-5 h-5" />
           </div>
-          <p className="text-sm opacity-90">Прибыль</p>
-          <p className="text-3xl font-bold mt-1">{stats.totalProfit.toLocaleString()} ₸</p>
+          <p className="text-sm opacity-90">{language === 'uz' ? 'Foyda' : 'Прибыль'}</p>
+          <p className="text-3xl font-bold mt-1">{stats.totalProfit.toLocaleString()} {language === 'uz' ? "so'm" : '₸'}</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
@@ -240,7 +250,7 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <ShoppingCart className="w-8 h-8 opacity-80" />
             <Calendar className="w-5 h-5" />
           </div>
-          <p className="text-sm opacity-90">Заказы</p>
+          <p className="text-sm opacity-90">{language === 'uz' ? 'Buyurtmalar' : 'Заказы'}</p>
           <p className="text-3xl font-bold mt-1">{stats.totalOrders}</p>
         </div>
 
@@ -249,14 +259,14 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <Package className="w-8 h-8 opacity-80" />
             <DollarSign className="w-5 h-5" />
           </div>
-          <p className="text-sm opacity-90">Средний чек</p>
+          <p className="text-sm opacity-90">{language === 'uz' ? 'O\'rtacha chek' : 'Средний чек'}</p>
           <p className="text-3xl font-bold mt-1">{Math.round(stats.averageOrderValue).toLocaleString()} ₸</p>
         </div>
       </div>
 
       {/* График продаж */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Динамика продаж</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">{language === 'uz' ? 'Sotish dinamikasi' : 'Динамика продаж'}</h3>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={salesData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -264,15 +274,15 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Выручка" strokeWidth={2} />
-            <Line type="monotone" dataKey="profit" stroke="#10b981" name="Прибыль" strokeWidth={2} />
+            <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name={language === 'uz' ? 'Tushum' : 'Выручка'} strokeWidth={2} />
+            <Line type="monotone" dataKey="profit" stroke="#10b981" name={language === 'uz' ? 'Foyda' : 'Прибыль'} strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
       {/* ТОП товаров */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">ТОП-10 товаров по выручке</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">{language === 'uz' ? 'TOP-10 tovarlar (tushum bo\'yicha)' : 'ТОП-10 товаров по выручке'}</h3>
         <ResponsiveContainer width="100%" height={400}>
           <BarChart data={topProducts}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -280,7 +290,7 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
             <YAxis />
             <Tooltip />
             <Legend />
-            <Bar dataKey="revenue" fill="#3b82f6" name="Выручка" />
+            <Bar dataKey="revenue" fill="#3b82f6" name={language === 'uz' ? 'Tushum' : 'Выручка'} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -288,7 +298,7 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
       {/* Продажи по категориям */}
       {categoryData.some(c => c.value > 0) && (
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Продажи по категориям</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">{language === 'uz' ? 'Kategoriyalar bo\'yicha sotish' : 'Продажи по категориям'}</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
