@@ -858,9 +858,6 @@ func GetNearestCompany(db *sql.DB) gin.HandlerFunc {
 		log.Printf("✅ Found nearest company: %s (ID: %d, Distance: %.2f km)", company.Name, company.ID, company.Distance)
 
 		c.JSON(http.StatusOK, response)
-
-		log.Printf("✅ ToggleCompanyPrivacy: Company %s switched to %s mode", companyID, req.Mode)
-		c.JSON(http.StatusOK, response)
 	}
 }
 
