@@ -13,6 +13,11 @@ type Company struct {
 	Status               string    `json:"status"`
 	LogoURL              *string   `json:"logoUrl,omitempty"`
 	Address              *string   `json:"address,omitempty"`
+	Region               *string   `json:"region,omitempty"`               // 📍 Регион/Область (например: Андижан, Ташкент)
+	District             *string   `json:"district,omitempty"`             // 📍 Район (например: Кургантепа, Джалакудук)
+	LocationLat          *float64  `json:"locationLat,omitempty"`          // 🗺️ Широта
+	LocationLng          *float64  `json:"locationLng,omitempty"`          // 🗺️ Долгота
+	LocationAddress      *string   `json:"locationAddress,omitempty"`      // 🗺️ Адрес из карт
 	Description          *string   `json:"description,omitempty"`
 	ProductsDescription  *string   `json:"productsDescription,omitempty"` // 📝 Описание товаров компании
 	CreatedAt            time.Time `json:"createdAt"`

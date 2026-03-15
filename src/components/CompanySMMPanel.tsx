@@ -5,6 +5,7 @@ import MapLocationPicker from './MapLocationPicker';
 import api, { getImageUrl } from '../utils/api';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
+import { UZBEKISTAN_REGIONS, getDistrictsByRegion } from '../utils/uzbekistanRegions';
 
 interface CompanySMMPanelProps {
   companyId: number;
@@ -64,7 +65,9 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     latitude: 0,
     longitude: 0,
     description: '',
-    logo_image: ''
+    logo_image: '',
+    region: '',
+    district: ''
   });
   const [locationModalOpen, setLocationModalOpen] = useState(false);
 
@@ -212,7 +215,10 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         description: formData.description,
         address: formData.location,
         latitude: formData.latitude,
-        longitude: formData.longitude
+        longitude: formData.longitude,
+        region: formData.region,
+        district: formData.district,
+        locationAddress: formData.location
       });
       
       toast.success(t.profileSaved, { id: 'save-profile' });
@@ -315,17 +321,17 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
             {/* Логотип и основная информация */}
             <div className={`flex ${isMobile ? 'flex-col' : 'items-start'} ${responsive.gapLarge} mb-6`}>
               <div className={`relative ${isMobile ? 'mx-auto' : ''}`}>
-                <div className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'} rounded-full bg-white border-4 border-purple-200 shadow-lg overflow-hidden`}>
+                <div className={`${isMobile ? 'w-24 h-24' : 'w-32 h-32'} rounded-full bg-white border-4 border-[#141B2A]/30 shadow-lg overflow-hidden`}>
                   {formData.logo_image ? (
                     <img src={formData.logo_image} alt="Логотип" className="w-full h-full object-cover" />
                   ) : (
-                    <div className={`w-full h-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white ${isMobile ? 'text-base' : 'text-lg'} font-bold`}>
+                    <div className={`w-full h-full bg-gradient-to-b from-white to-[#141B2A] flex items-center justify-center text-[#141B2A] ${isMobile ? 'text-base' : 'text-lg'} font-bold`}>
                       {companyName.substring(0, 2).toUpperCase()}
                     </div>
                   )}
                 </div>
                 {editMode && (
-                  <label className={`absolute bottom-0 right-0 bg-purple-600 text-white ${isMobile ? 'p-1.5' : 'p-2'} rounded-full cursor-pointer hover:bg-purple-700 transition-colors shadow-lg`}>
+                  <label className={`absolute bottom-0 right-0 bg-[#141B2A] text-white ${isMobile ? 'p-1.5' : 'p-2'} rounded-full cursor-pointer hover:bg-[#141B2A]/90 transition-colors shadow-lg`}>
                     <Upload className="w-4 h-4" />
                     <input
                       type="file"
@@ -379,7 +385,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                   </div>
                   <button
                     onClick={() => editMode ? handleSaveProfile() : setEditMode(true)}
-                    className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                    className="bg-[#141B2A] text-white px-6 py-2 rounded-lg hover:bg-[#141B2A]/90 transition-colors"
                   >
                     {editMode ? t.saveButton : t.editButton}
                   </button>
@@ -389,8 +395,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
             
             {/* Статистика */}
             <div className="grid grid-cols-4 gap-4 mt-6">
-              <div className="bg-purple-50 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-purple-600 mb-2">
+              <div className="bg-[#141B2A]/5 rounded-lg p-4">
+                <div className="flex items-center gap-2 text-[#141B2A] mb-2">
                   <Package className="w-5 h-5" />
                   <span className="text-sm">{t.productsCount}</span>
                 </div>
@@ -423,10 +429,10 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                   <div className="space-y-2">
                     <button
                       onClick={() => setLocationModalOpen(true)}
-                      className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg hover:border-purple-600 transition-colors text-left bg-purple-50 hover:bg-purple-100 flex items-center justify-between"
+                      className="w-full px-4 py-3 border-2 border-[#141B2A]/30 rounded-lg hover:border-[#141B2A] transition-colors text-left bg-[#141B2A]/5 hover:bg-[#141B2A]/10 flex items-center justify-between"
                     >
                       <span>{formData.location || t.selectLocation}</span>
-                      <Navigation className="w-5 h-5 text-purple-600" />
+                      <Navigation className="w-5 h-5 text-[#141B2A]" />
                     </button>
                     {formData.latitude && formData.longitude && (
                       <p className="text-xs text-gray-500">
@@ -452,7 +458,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#141B2A] focus:border-transparent"
                     rows={4}
                     placeholder={t.companyDescPlaceholder}
                   />

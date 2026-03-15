@@ -1398,17 +1398,17 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+              <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
                 <tr>
-                  <th className="px-6 py-4 text-left">{t.productName}</th>
-                  <th className="px-6 py-4 text-left">{t.categoryHeader}</th>
-                  <th className="px-6 py-4 text-left">{t.quantityHeader}</th>
-                  <th className="px-6 py-4 text-left">{t.basePriceHeader}</th>
-                  <th className="px-6 py-4 text-left">{t.markupHeader}</th>
-                  <th className="px-6 py-4 text-left">{t.sellingPriceHeader}</th>
-                  <th className="px-6 py-4 text-left">{t.barcodeHeader}</th>
-                  <th className="px-6 py-4 text-left">Barid</th>
-                  <th className="px-6 py-4 text-right">{t.actionsHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.productName}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.categoryHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.quantityHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.basePriceHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.markupHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.sellingPriceHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">{t.barcodeHeader}</th>
+                  <th className="px-6 py-4 text-left text-white font-semibold">Barid</th>
+                  <th className="px-6 py-4 text-right text-white font-semibold">{t.actionsHeader}</th>
                 </tr>
               </thead>
               <tbody>

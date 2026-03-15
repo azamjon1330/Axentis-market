@@ -237,7 +237,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
+    return new Intl.NumberFormat('uz-UZ').format(price) + ' ' + t.sum;
   };
 
   // 🔢 Короткий формат чисел (для больших сумм)

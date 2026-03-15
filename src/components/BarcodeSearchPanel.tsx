@@ -436,12 +436,12 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
                   handleScan();
                 }
               }}
-              className="w-full px-5 py-4 pl-14 text-gray-900 border-2 border-white rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 text-lg font-medium"
+              className="w-full px-5 py-4 pl-14 bg-[#171F2E] text-white border-2 border-white/20 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-300 text-lg font-medium placeholder:text-gray-400"
               placeholder={t.scanOrEnter}
               autoFocus
               disabled={processing}
             />
-            <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
+            <Barcode className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-300" />
           </div>
           
           <button

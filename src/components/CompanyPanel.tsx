@@ -167,13 +167,13 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         style={isMobile ? { width: sidebarWidth } : {}}
       >
         {/* Логотип и название компании - АДАПТИВНО */}
-        <div className={`bg-gradient-to-br from-purple-600 to-purple-700 text-white ${isMobile ? 'p-3' : 'p-4'}`}>
+        <div className={`bg-gradient-to-b from-white to-[#141B2A] text-gray-800 dark:text-white ${isMobile ? 'p-3' : 'p-4'}`}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Building2 className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} />
               <div>
                 <h2 className={`font-bold ${isMobile ? 'text-sm' : 'text-base'}`}>{companyName}</h2>
-                <p className={`text-purple-100 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
+                <p className={`text-gray-600 dark:text-gray-300 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
                   {t.companyPanel}
                 </p>
               </div>
@@ -194,8 +194,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('warehouse')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'warehouse'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <Package className={responsive.iconSmall} />
@@ -206,8 +206,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('sales')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'sales'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <ShoppingCart className={responsive.iconSmall} />
@@ -218,8 +218,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('orders')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'orders'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <Receipt className={responsive.iconSmall} />
@@ -230,8 +230,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('analytics')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'analytics'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <BarChart3 className={responsive.iconSmall} />
@@ -242,8 +242,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('barcode')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'barcode'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <Barcode className={responsive.iconSmall} />
@@ -254,8 +254,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('smm')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'smm'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <Megaphone className={responsive.iconSmall} />
@@ -266,8 +266,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
             onClick={() => handleNavigate('discounts')}
             className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
               activeTab === 'discounts'
-                ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600 dark:border-purple-400'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/20 hover:text-purple-600 dark:hover:text-purple-400 hover:scale-y-105 hover:shadow-lg hover:shadow-purple-200/50 dark:hover:shadow-purple-900/50'
+                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
             }`}
           >
             <Tag className={responsive.iconSmall} />
@@ -310,7 +310,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
               onClick={() => setCurrentLanguage('uz')}
               className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
                 language === 'uz' 
-                  ? 'bg-purple-600 text-white' 
+                  ? 'bg-[#141B2A] text-white' 
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
               }`}
             >
@@ -320,7 +320,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
               onClick={() => setCurrentLanguage('ru')}
               className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
                 language === 'ru' 
-                  ? 'bg-purple-600 text-white' 
+                  ? 'bg-[#141B2A] text-white' 
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
               }`}
             >
@@ -369,12 +369,12 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 setShowInbox(true);
                 setUnreadMessagesCount(0);
               }}
-              className="relative p-2 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-300 group"
+              className="relative p-2 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/30 rounded-lg transition-all duration-300 group"
               title="Сообщения Axis"
             >
               <MessageSquare 
-                className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition ${
-                  unreadMessagesCount > 0 ? 'fill-purple-100 dark:fill-purple-900 animate-pulse' : ''
+                className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 group-hover:text-[#141B2A] dark:group-hover:text-[#141B2A]/90 transition ${
+                  unreadMessagesCount > 0 ? 'fill-[#141B2A]/20 dark:fill-[#141B2A]/50 animate-pulse' : ''
                 }`} 
               />
               {unreadMessagesCount > 0 && (
