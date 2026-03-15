@@ -140,10 +140,12 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
       
       setFormData({
         location: data.address || '',
-        latitude: 0,
-        longitude: 0,
+        latitude: data.latitude || 0,
+        longitude: data.longitude || 0,
         description: data.description || '',
-        logo_image: fullLogoUrl
+        logo_image: fullLogoUrl,
+        region: data.region || '',
+        district: data.district || ''
       });
       
       setLoading(false);
@@ -420,6 +422,54 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
 
             {/* Информация о компании */}
             <div className="mt-6 space-y-4">
+              {/* Регион и Район */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">
+                    🗺️ {language === 'uz' ? 'Viloyat' : 'Регион/Область'}
+                  </label>
+                  {editMode ? (
+                    <select
+                      value={formData.region}
+                      onChange={(e) => {
+                        setFormData({ ...formData, region: e.target.value, district: '' });
+                      }}
+                      className="w-full px-4 py-3 border-2 border-[#141B2A]/30 rounded-lg focus:ring-2 focus:ring-[#141B2A] focus:border-transparent bg-white"
+                    >
+                      <option value="">{language === 'uz' ? 'Viloyatni tanlang' : 'Выберите регион'}</option>
+                      {UZBEKISTAN_REGIONS.map(r => (
+                        <option key={r.name} value={r.name}>
+                          {language === 'uz' ? r.nameUz : r.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-gray-900">{formData.region || t.notSpecified}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm text-gray-600 mb-2">
+                    📍 {language === 'uz' ? 'Tuman' : 'Район'}
+                  </label>
+                  {editMode ? (
+                    <select
+                      value={formData.district}
+                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-[#141B2A]/30 rounded-lg focus:ring-2 focus:ring-[#141B2A] focus:border-transparent bg-white disabled:bg-gray-100"
+                      disabled={!formData.region}
+                    >
+                      <option value="">{language === 'uz' ? 'Tumanni tanlang' : 'Выберите район'}</option>
+                      {formData.region && getDistrictsByRegion(formData.region).map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-gray-900">{formData.district || t.notSpecified}</p>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm text-gray-600 mb-2">
                   <MapPin className="w-4 h-4 inline mr-1" />

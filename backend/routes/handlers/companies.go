@@ -727,6 +727,138 @@ func ToggleCompanyPrivacy(db *sql.DB) gin.HandlerFunc {
 			response["privateCode"] = *privateCode
 		}
 
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+// GetNearestCompany - Поиск ближайшей компании к покупателю
+// GET /companies/nearest?lat=41.3&lng=69.2&district=Учтепа&excludeId=5
+func GetNearestCompany(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		lat := c.Query("lat")
+		lng := c.Query("lng")
+		district := c.Query("district")
+		excludeID := c.Query("excludeId") // ID компании, которую нужно исключить из поиска
+
+		if lat == "" || lng == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "lat and lng parameters are required"})
+			return
+		}
+
+		// SQL запрос с формулой Haversine для расчета расстояния
+		query := `
+			SELECT 
+				id, 
+				name, 
+				phone, 
+				address, 
+				latitude, 
+				longitude, 
+				district,
+				region,
+				delivery_enabled,
+				(
+					6371 * acos(
+						cos(radians($1)) * cos(radians(latitude)) *
+						cos(radians(longitude) - radians($2)) +
+						sin(radians($1)) * sin(radians(latitude))
+					)
+				) AS distance
+			FROM companies
+			WHERE 
+				latitude IS NOT NULL 
+				AND longitude IS NOT NULL
+				AND status = 'approved'
+				AND is_enabled = true
+		`
+
+		args := []interface{}{lat, lng}
+		argCounter := 3
+
+		// Фильтр по району (если указан)
+		if district != "" {
+			query += fmt.Sprintf(" AND (district = $%d OR region = $%d)", argCounter, argCounter)
+			args = append(args, district)
+			argCounter++
+		}
+
+		// Исключаем текущую компанию
+		if excludeID != "" {
+			query += fmt.Sprintf(" AND id != $%d", argCounter)
+			args = append(args, excludeID)
+			argCounter++
+		}
+
+		query += " ORDER BY distance ASC LIMIT 1"
+
+		log.Printf("🔍 Searching nearest company: lat=%s, lng=%s, district=%s, excludeId=%s", lat, lng, district, excludeID)
+
+		var company struct {
+			ID              int64
+			Name            string
+			Phone           string
+			Address         sql.NullString
+			Latitude        sql.NullFloat64
+			Longitude       sql.NullFloat64
+			District        sql.NullString
+			Region          sql.NullString
+			DeliveryEnabled bool
+			Distance        float64
+		}
+
+		err := db.QueryRow(query, args...).Scan(
+			&company.ID,
+			&company.Name,
+			&company.Phone,
+			&company.Address,
+			&company.Latitude,
+			&company.Longitude,
+			&company.District,
+			&company.Region,
+			&company.DeliveryEnabled,
+			&company.Distance,
+		)
+
+		if err == sql.ErrNoRows {
+			log.Printf("ℹ️ No nearby companies found for lat=%s, lng=%s, district=%s", lat, lng, district)
+			c.JSON(http.StatusNotFound, gin.H{"error": "No nearby companies found"})
+			return
+		}
+
+		if err != nil {
+			log.Printf("❌ GetNearestCompany: Query failed: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to find nearest company"})
+			return
+		}
+
+		response := map[string]interface{}{
+			"id":              company.ID,
+			"name":            company.Name,
+			"phone":           company.Phone,
+			"distance":        fmt.Sprintf("%.2f", company.Distance), // км с 2 знаками
+			"deliveryEnabled": company.DeliveryEnabled,
+		}
+
+		if company.Address.Valid {
+			response["address"] = company.Address.String
+		}
+		if company.Latitude.Valid {
+			response["latitude"] = company.Latitude.Float64
+		}
+		if company.Longitude.Valid {
+			response["longitude"] = company.Longitude.Float64
+		}
+		if company.District.Valid {
+			response["district"] = company.District.String
+		}
+		if company.Region.Valid {
+			response["region"] = company.Region.String
+		}
+
+		log.Printf("✅ Found nearest company: %s (ID: %d, Distance: %.2f km)", company.Name, company.ID, company.Distance)
+
+		c.JSON(http.StatusOK, response)
+
 		log.Printf("✅ ToggleCompanyPrivacy: Company %s switched to %s mode", companyID, req.Mode)
 		c.JSON(http.StatusOK, response)
 	}
