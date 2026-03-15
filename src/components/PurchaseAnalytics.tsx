@@ -314,18 +314,18 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+                <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Sana' : 'Дата'}
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Tovar' : 'Товар'}
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Miqdori' : 'Количество'}
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Summa' : 'Сумма'}
                     </th>
                   </tr>

@@ -401,7 +401,7 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
   return (
     <div className="space-y-6 pb-8">
       {/* ========== ПОЛЕ СКАНИРОВАНИЯ ========== */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl shadow-lg p-6">
+      <div className="bg-[#171F2E] text-white rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="flex items-center gap-2 text-2xl font-bold">
             <ShoppingCart className="w-7 h-7" />
@@ -454,7 +454,7 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
           </button>
         </div>
         
-        <p className="text-blue-100 text-sm mt-3">
+        <p className="text-gray-300 text-sm mt-3">
           💡 {t.scanOrEnter}
         </p>
       </div>

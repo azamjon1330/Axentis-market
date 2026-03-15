@@ -167,7 +167,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         style={isMobile ? { width: sidebarWidth } : {}}
       >
         {/* Логотип и название компании - АДАПТИВНО */}
-        <div className={`bg-gradient-to-b from-white to-[#141B2A] text-gray-800 dark:text-white ${isMobile ? 'p-3' : 'p-4'}`}>
+        <div className={`bg-gradient-to-b from-white to-[#18202F] text-gray-800 dark:text-white ${isMobile ? 'p-3' : 'p-4'}`}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <Building2 className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} />
