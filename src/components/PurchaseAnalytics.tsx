@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, TrendingUp, DollarSign, Warehouse } from 'lucide-react';
+import { Package, TrendingUp, DollarSign, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import api from '../utils/api';
 import CompactPeriodSelector from './CompactPeriodSelector';
 import { getCurrentLanguage, type Language } from '../utils/translations';
@@ -9,12 +9,20 @@ interface PurchaseAnalyticsProps {
   companyId: number;
 }
 
+interface ImportDetail {
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
 interface Purchase {
   id: number;
   productName: string;
   quantity: number;
   totalCost: number;
   purchaseDate: string;
+  notes?: string; // JSON string with import details
 }
 
 interface PurchaseStats {
@@ -25,7 +33,7 @@ interface PurchaseStats {
 
 export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [warehouseProducts, setWarehouseProducts] = useState<any[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [stats, setStats] = useState<PurchaseStats>({
     totalPurchases: 0,
     totalQuantity: 0,
@@ -91,24 +99,53 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       }
 
       // Load purchases and stats
-      const [purchasesData, statsData, productsData] = await Promise.all([
+      const [purchasesData, statsData] = await Promise.all([
         api.productPurchases.list(params),
         api.productPurchases.stats(params),
-        api.products.list({ companyId: companyId.toString() }),
       ]);
 
       setPurchases(purchasesData?.purchases || []);
       setStats(statsData || { totalPurchases: 0, totalQuantity: 0, totalCost: 0 });
-
-      // Show warehouse products as purchase entries
-      const products = Array.isArray(productsData) ? productsData : productsData?.products || [];
-      setWarehouseProducts(products);
       
     } catch (error) {
       console.error('❌ Error loading purchase analytics:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Toggle row expansion
+  const toggleRow = (purchaseId: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(purchaseId)) {
+        newSet.delete(purchaseId);
+      } else {
+        newSet.add(purchaseId);
+      }
+      return newSet;
+    });
+  };
+
+  // Parse import details from notes
+  const getImportDetails = (purchase: Purchase): ImportDetail[] | null => {
+    if (!purchase.notes) return null;
+    try {
+      return JSON.parse(purchase.notes);
+    } catch {
+      return null;
+    }
+  };
+
+  // Format date with time
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const dateStr = date.toLocaleDateString(language === 'uz' ? 'uz-UZ' : 'ru-RU');
+    const timeStr = date.toLocaleTimeString(language === 'uz' ? 'uz-UZ' : 'ru-RU', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    return { dateStr, timeStr };
   };
 
   // Prepare chart data - group by date
@@ -196,7 +233,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                 {language === 'uz' ? 'Xaridlar' : 'Закупок'}
               </p>
               <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">
-                {stats.totalPurchases + warehouseProducts.length}
+                {stats.totalPurchases}
               </p>
             </div>
           </div>
@@ -212,7 +249,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                 {language === 'uz' ? 'Tovarlar' : 'Товаров'}
               </p>
               <p className="text-3xl font-bold text-green-900 dark:text-green-100">
-                {stats.totalQuantity + warehouseProducts.reduce((s, p) => s + (p.quantity || 0), 0)}
+                {stats.totalQuantity}
               </p>
             </div>
           </div>
@@ -228,14 +265,14 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                 {language === 'uz' ? 'Sarflangan' : 'Потрачено'}
               </p>
               <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">
-                {(stats.totalCost + warehouseProducts.reduce((s, p) => s + (p.quantity || 0) * (p.price || 0), 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                {stats.totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {purchases.length === 0 && warehouseProducts.length === 0 ? (
+      {purchases.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-12 text-center">
           <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">
@@ -317,7 +354,7 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                 <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">
-                      {language === 'uz' ? 'Sana' : 'Дата'}
+                      {language === 'uz' ? 'Sana va vaqt' : 'Дата и время'}
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Tovar' : 'Товар'}
@@ -328,46 +365,118 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
                     <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase">
                       {language === 'uz' ? 'Summa' : 'Сумма'}
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase">
+                      {language === 'uz' ? 'Batafsil' : 'Подробнее'}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {purchases.slice(0, 10).map((purchase) => (
-                    <tr key={`p-${purchase.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(purchase.purchaseDate).toLocaleDateString(language === 'uz' ? 'uz-UZ' : 'ru-RU')}
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                        {purchase.productName}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                        {purchase.quantity}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                        {purchase.totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Warehouse products shown as entries */}
-                  {warehouseProducts.map((product) => (
-                    <tr key={`w-${product.id}`} className="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 bg-indigo-50/30 dark:bg-indigo-900/5">
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">—</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Warehouse className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</span>
-                        </div>
-                        <div className="text-xs text-indigo-500 mt-0.5 ml-5">
-                          {language === 'uz' ? 'Ombordan (avtomatik)' : 'Со склада (авто)'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                        {product.quantity || 0}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                        {((product.quantity || 0) * (product.price || 0)).toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
-                      </td>
-                    </tr>
-                  ))}
+                  {purchases.map((purchase) => {
+                    const importDetails = getImportDetails(purchase);
+                    const isExpanded = expandedRows.has(purchase.id);
+                    const { dateStr, timeStr } = formatDateTime(purchase.purchaseDate);
+                    const hasDetails = importDetails && importDetails.length > 0;
+
+                    return (
+                      <React.Fragment key={purchase.id}>
+                        {/* Main row */}
+                        <tr className={`${isExpanded ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-gray-500" />
+                              <div>
+                                <div>{dateStr}</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{timeStr}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                            {purchase.productName}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                            {hasDetails ? `${importDetails.length} ${language === 'uz' ? 'tur' : 'видов'}` : purchase.quantity}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
+                            {purchase.totalCost.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {hasDetails && (
+                              <button
+                                onClick={() => toggleRow(purchase.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="w-4 h-4" />
+                                    {language === 'uz' ? 'Yopish' : 'Скрыть'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="w-4 h-4" />
+                                    {language === 'uz' ? 'Ko\'rish' : 'Показать'}
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Expanded details row */}
+                        {isExpanded && hasDetails && (
+                          <tr className="bg-blue-50/50 dark:bg-blue-900/10">
+                            <td colSpan={5} className="px-4 py-4">
+                              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+                                <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                                  {language === 'uz' 
+                                    ? `Import tafsilotlari (${importDetails.length} tovar):`
+                                    : `Детали импорта (${importDetails.length} товаров):`
+                                  }
+                                </h5>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-gray-100 dark:bg-gray-700">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-400">
+                                          {language === 'uz' ? 'Tovar nomi' : 'Название товара'}
+                                        </th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-400">
+                                          {language === 'uz' ? 'Miqdori' : 'Количество'}
+                                        </th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-400">
+                                          {language === 'uz' ? 'Narxi' : 'Цена'}
+                                        </th>
+                                        <th className="px-3 py-2 text-right text-xs font-medium text-gray-600 dark:text-gray-400">
+                                          {language === 'uz' ? 'Jami' : 'Сумма'}
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                      {importDetails.map((detail, idx) => (
+                                        <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                          <td className="px-3 py-2 text-gray-900 dark:text-white">
+                                            {detail.name}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-gray-900 dark:text-white">
+                                            {detail.quantity}
+                                          </td>
+                                          <td className="px-3 py-2 text-right text-gray-900 dark:text-white">
+                                            {detail.price.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-white">
+                                            {detail.total.toLocaleString()} {language === 'uz' ? 'so\'m' : 'сум'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

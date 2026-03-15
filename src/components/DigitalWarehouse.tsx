@@ -434,11 +434,32 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       if (existingProduct) {
         // ✅ Товар найден - обновляем количество
         console.log('🔄 Найден существующий товар, обновляем количество:', existingProduct);
-        const newQuantity = (existingProduct.quantity || 0) + (validatedProduct.quantity || 0);
+        const addedQuantity = validatedProduct.quantity || 0;
+        const newQuantity = (existingProduct.quantity || 0) + addedQuantity;
         
         await api.products.update(existingProduct.id, {
           quantity: newQuantity
         });
+        
+        // 🆕 Создаем запись о закупке для добавленного количества
+        if (addedQuantity > 0 && validatedProduct.price > 0) {
+          try {
+            await api.productPurchases.create({
+              companyId: companyId,
+              productId: existingProduct.id,
+              productName: validatedProduct.name,
+              quantity: addedQuantity,
+              purchasePrice: validatedProduct.price,
+              totalCost: addedQuantity * validatedProduct.price,
+              notes: language === 'uz' 
+                ? `Tovar miqdori qo'shildi: +${addedQuantity} dona` 
+                : `Добавлено товара: +${addedQuantity} шт.`
+            });
+            console.log('✅ Запись о закупке создана для добавленного количества');
+          } catch (error) {
+            console.warn('⚠️ Не удалось создать запись о закупке:', error);
+          }
+        }
         
         const message = language === 'uz' 
           ? `✅ Tovar topildi va miqdor yangilandi!\n${existingProduct.name}\nYangi miqdor: ${newQuantity}` 
