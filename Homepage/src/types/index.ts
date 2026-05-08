@@ -66,8 +66,8 @@ export interface CartItem {
   userPhone: string;
   productId: number;
   quantity: number;
-  selectedColor?: string;
-  selectedSize?: string;
+  selected_color?: string;
+  selected_size?: string;
   product: Product;
 }
 

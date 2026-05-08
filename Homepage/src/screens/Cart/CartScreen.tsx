@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Image, ActivityIndicator, Alert, RefreshControl,
+  Image, ActivityIndicator, Alert, RefreshControl, TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { CartItem, RootStackParamList } from '../../types';
-import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -20,9 +20,9 @@ export default function CartScreen() {
   const { items, count, total, isLoading, updateItem, removeItem, clearAllItems, refresh } = useCart();
   const { user } = useAuth();
   const navigation = useNavigation<Nav>();
-  const [editing, setEditing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [qtyInputs, setQtyInputs] = useState<Record<number, string>>({});
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -33,7 +33,7 @@ export default function CartScreen() {
   const handleQuantityChange = async (item: CartItem, delta: number) => {
     const newQty = item.quantity + delta;
     if (newQty <= 0) {
-      handleRemove(item);
+      await removeItem(item.id);
       return;
     }
     setUpdatingId(item.id);
@@ -44,21 +44,27 @@ export default function CartScreen() {
     }
   };
 
+  const handleQtyInputChange = (item: CartItem, text: string) => {
+    setQtyInputs(prev => ({ ...prev, [item.id]: text }));
+  };
+
+  const handleQtyInputBlur = async (item: CartItem) => {
+    const raw = qtyInputs[item.id];
+    if (raw === undefined) return;
+    const parsed = parseInt(raw, 10);
+    if (!isNaN(parsed) && parsed > 0 && parsed !== item.quantity) {
+      setUpdatingId(item.id);
+      try {
+        await updateItem(item.productId, parsed, item.selected_color || undefined);
+      } finally {
+        setUpdatingId(null);
+      }
+    }
+    setQtyInputs(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+  };
+
   const handleRemove = async (item: CartItem) => {
-    Alert.alert(
-      'Удалить товар',
-      `Удалить "${item.product?.name}" из корзины?`,
-      [
-        { text: 'Отмена', style: 'cancel' },
-        {
-          text: 'Удалить',
-          style: 'destructive',
-          onPress: async () => {
-            await removeItem(item.id);
-          },
-        },
-      ]
-    );
+    await removeItem(item.id);
   };
 
   const handleClearCart = () => {
@@ -72,15 +78,13 @@ export default function CartScreen() {
 
   const renderItem = ({ item }: { item: CartItem }) => {
     const product = item.product;
-    const price = product?.sellingPrice || product?.price || 0;
+    const price = product?.discountedPrice || product?.sellingPrice || product?.price || 0;
     const itemTotal = price * item.quantity;
-    const imageUri = product?.images?.[0]
-      ? (product.images[0].startsWith('http') ? product.images[0] : `${UPLOADS_URL}/${product.images[0]}`)
-      : null;
+    const imageUri = getImageUrl(product?.images?.[0]);
+    const qtyDisplay = qtyInputs[item.id] !== undefined ? qtyInputs[item.id] : String(item.quantity);
 
     return (
       <View style={[styles.cartItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        {/* Image */}
         <TouchableOpacity
           style={[styles.itemImg, { backgroundColor: colors.cardAlt }]}
           onPress={() => navigation.navigate('ProductDetail', { productId: item.productId })}
@@ -93,18 +97,23 @@ export default function CartScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Info */}
         <View style={styles.itemInfo}>
-          <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-            {product?.name || 'Товар'}
-          </Text>
-          {item.selected_color && (
-            <Text style={[styles.itemColor, { color: colors.textMuted }]}>
-              Цвет: {item.selected_color}
+          <View style={styles.itemNameRow}>
+            <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
+              {product?.name || 'Товар'}
             </Text>
+            <TouchableOpacity
+              onPress={() => handleRemove(item)}
+              style={[styles.deleteBtn, { backgroundColor: colors.error + '18' }]}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+            </TouchableOpacity>
+          </View>
+          {item.selected_color && (
+            <Text style={[styles.itemColor, { color: colors.textMuted }]}>Цвет: {item.selected_color}</Text>
           )}
 
-          {/* Qty + price */}
           <View style={styles.itemBottom}>
             <View style={[styles.qtyControl, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
               <TouchableOpacity
@@ -112,34 +121,31 @@ export default function CartScreen() {
                 style={styles.qtyBtn}
                 disabled={updatingId === item.id}
               >
-                <Ionicons name="remove" size={18} color={item.quantity <= 1 ? colors.error : colors.text} />
+                <Ionicons name="remove" size={16} color={item.quantity <= 1 ? colors.error : colors.text} />
               </TouchableOpacity>
               {updatingId === item.id ? (
-                <ActivityIndicator size="small" color={colors.primary} style={{ width: 28 }} />
+                <ActivityIndicator size="small" color={colors.primary} style={{ width: 32 }} />
               ) : (
-                <Text style={[styles.qtyNum, { color: colors.text }]}>{item.quantity}</Text>
+                <TextInput
+                  style={[styles.qtyInput, { color: colors.text }]}
+                  value={qtyDisplay}
+                  onChangeText={(t) => handleQtyInputChange(item, t)}
+                  onBlur={() => handleQtyInputBlur(item)}
+                  keyboardType="number-pad"
+                  selectTextOnFocus
+                />
               )}
               <TouchableOpacity
                 onPress={() => handleQuantityChange(item, 1)}
                 style={styles.qtyBtn}
                 disabled={updatingId === item.id}
               >
-                <Ionicons name="add" size={18} color={colors.primary} />
+                <Ionicons name="add" size={16} color={colors.primary} />
               </TouchableOpacity>
             </View>
             <Text style={[styles.itemTotal, { color: colors.text }]}>{formatPrice(itemTotal)}</Text>
           </View>
         </View>
-
-        {/* Delete btn */}
-        {editing && (
-          <TouchableOpacity
-            onPress={() => handleRemove(item)}
-            style={[styles.deleteBtn, { backgroundColor: colors.error + '20' }]}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-          </TouchableOpacity>
-        )}
       </View>
     );
   };
@@ -156,14 +162,15 @@ export default function CartScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Корзина</Text>
         {items.length > 0 && (
-          <TouchableOpacity onPress={() => setEditing(p => !p)} activeOpacity={0.7}>
-            <Text style={[styles.editBtn, { color: colors.primary }]}>
-              {editing ? 'Готово' : 'Изменить'}
-            </Text>
+          <TouchableOpacity
+            onPress={handleClearCart}
+            style={[styles.trashHeader, { backgroundColor: colors.error + '15' }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.error} />
           </TouchableOpacity>
         )}
       </View>
@@ -197,31 +204,14 @@ export default function CartScreen() {
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
             }
-            ListFooterComponent={() => (
-              <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                    Товары ({count} шт.)
-                  </Text>
-                  <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(total)}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Доставка</Text>
-                  <Text style={[styles.summaryFree, { color: colors.success }]}>Бесплатно</Text>
-                </View>
-                <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.totalLabel, { color: colors.text }]}>Итого</Text>
-                  <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(total)}</Text>
-                </View>
-              </View>
-            )}
+            ListFooterComponent={<View style={{ height: 8 }} />}
           />
 
-          {/* Bottom checkout bar */}
           <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.totalRow}>
-              <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>Итого</Text>
+              <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>
+                Итого · {count} шт.
+              </Text>
               <Text style={[styles.bottomTotal, { color: colors.text }]}>{formatPrice(total)}</Text>
             </View>
             <TouchableOpacity
@@ -250,7 +240,13 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   headerTitle: { fontSize: 28, fontWeight: '800' },
-  editBtn: { fontSize: 15, fontWeight: '500' },
+  trashHeader: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
   emptyIconBg: {
     width: 120,
@@ -290,9 +286,17 @@ const styles = StyleSheet.create({
   },
   img: { width: '100%', height: '100%', borderRadius: 12 },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: 14, fontWeight: '500', lineHeight: 19, marginBottom: 4 },
+  itemNameRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 4 },
+  itemName: { flex: 1, fontSize: 14, fontWeight: '500', lineHeight: 19 },
   itemColor: { fontSize: 12, marginBottom: 8 },
-  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  deleteBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   qtyControl: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -301,30 +305,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   qtyBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  qtyNum: { width: 28, textAlign: 'center', fontSize: 15, fontWeight: '600' },
-  itemTotal: { fontSize: 16, fontWeight: '700' },
-  deleteBtn: {
+  qtyInput: {
     width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 32,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '600',
+    paddingVertical: 0,
   },
-  summaryCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 8,
-    marginBottom: 20,
-    gap: 12,
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  summaryLabel: { fontSize: 14 },
-  summaryValue: { fontSize: 14, fontWeight: '500' },
-  summaryFree: { fontSize: 14, fontWeight: '600' },
-  divider: { height: 1 },
-  totalLabel: { fontSize: 16, fontWeight: '700' },
-  totalValue: { fontSize: 18, fontWeight: '800' },
+  itemTotal: { fontSize: 16, fontWeight: '700' },
   bottomBar: {
     padding: 16,
     borderTopWidth: 1,

@@ -12,7 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getCompanyDetail, getProducts, subscribeToCompany, unsubscribeFromCompany } from '../../api';
 import { Company, Product, RootStackParamList } from '../../types';
-import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -88,9 +88,7 @@ export default function CompanyStoreScreen() {
     }
   };
 
-  const logoUri = company?.logoUrl
-    ? (company.logoUrl.startsWith('http') ? company.logoUrl : `${UPLOADS_URL}/${company.logoUrl}`)
-    : null;
+  const logoUri = getImageUrl(company?.logoUrl);
 
   if (isLoading) {
     return (

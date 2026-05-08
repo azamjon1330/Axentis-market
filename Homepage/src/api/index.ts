@@ -147,7 +147,7 @@ export const getFavoritesCount = async (phone: string): Promise<number> => {
 
 export const toggleFavorite = async (phone: string, productId: number): Promise<{ added: boolean }> => {
   const res = await api.post(ENDPOINTS.favoritesToggle, { user_phone: phone, product_id: productId });
-  return res.data;
+  return { added: res.data?.is_favorite ?? res.data?.added ?? false };
 };
 
 export const checkFavorite = async (phone: string, productId: number): Promise<boolean> => {
@@ -254,6 +254,26 @@ export const getUserProfile = async (phone: string): Promise<User> => {
 export const getPaymentCards = async (phone: string): Promise<PaymentCard[]> => {
   const res = await api.get(ENDPOINTS.paymentCards(phone));
   return Array.isArray(res.data) ? res.data : (res.data?.cards || []);
+};
+
+export const addPaymentCard = async (data: {
+  userPhone: string;
+  cardNumberLast4: string;
+  cardExpiry: string;
+  cardHolderFirstName: string;
+  cardHolderLastName: string;
+  cardType: 'uzcard' | 'humo' | 'visa' | 'mastercard';
+}): Promise<PaymentCard> => {
+  const res = await api.post(ENDPOINTS.paymentCardsAdd, data);
+  return res.data;
+};
+
+export const deletePaymentCard = async (id: number): Promise<void> => {
+  await api.delete(ENDPOINTS.paymentCardDelete(id));
+};
+
+export const setDefaultCard = async (id: number): Promise<void> => {
+  await api.put(ENDPOINTS.paymentCardDefault(id));
 };
 
 export default api;

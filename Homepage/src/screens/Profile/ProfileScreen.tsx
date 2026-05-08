@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Alert, Switch, Image,
+  Alert, Switch, Image, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../types';
+import { API_BASE_URL } from '../../config';
+import { getImageUrl } from '../../utils/imageUrl';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -25,8 +28,48 @@ interface MenuItem {
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigation = useNavigation<Nav>();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const handlePickAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Нет доступа', 'Разрешите доступ к фотогалерее в настройках');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append('avatar', {
+        uri: asset.uri,
+        type: asset.mimeType || 'image/jpeg',
+        name: 'avatar.jpg',
+      } as any);
+
+      const res = await fetch(`${API_BASE_URL}/users/${user?.phone}/avatar`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.ok) {
+        await refreshUser();
+      }
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось загрузить фото');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Выйти из аккаунта', 'Вы уверены, что хотите выйти?', [
@@ -64,7 +107,7 @@ export default function ProfileScreen() {
       id: 'cards',
       icon: 'card-outline',
       label: 'Способы оплаты',
-      onPress: () => Alert.alert('Скоро', 'Функция в разработке'),
+      onPress: () => navigation.navigate('PaymentCards'),
     },
     {
       id: 'support',
@@ -96,34 +139,28 @@ export default function ProfileScreen() {
         {/* Avatar + user info */}
         <View style={[styles.userCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.avatarRow}>
-            {user?.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
-                <Text style={styles.avatarInitials}>{getInitials(user?.name || '')}</Text>
+            <TouchableOpacity onPress={handlePickAvatar} activeOpacity={0.8} style={styles.avatarWrap}>
+              {user?.avatarUrl ? (
+                <Image source={{ uri: getImageUrl(user.avatarUrl) || user.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatarFallback, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.avatarInitials}>{getInitials(user?.name || '')}</Text>
+                </View>
+              )}
+              <View style={[styles.avatarEditBadge, { backgroundColor: colors.primary }]}>
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Ionicons name="camera" size={11} color="#FFF" />
+                )}
               </View>
-            )}
+            </TouchableOpacity>
             <View style={{ flex: 1 }}>
               <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'Пользователь'}</Text>
               <Text style={[styles.userPhone, { color: colors.textSecondary }]}>
                 {user?.phone ? `+${user.phone}` : ''}
               </Text>
             </View>
-            <TouchableOpacity
-              style={[styles.editBtn, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="create-outline" size={18} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Bonuses */}
-          <View style={[styles.bonusesCard, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '30' }]}>
-            <View style={styles.bonusesLeft}>
-              <Ionicons name="star" size={18} color={colors.primary} />
-              <Text style={[styles.bonusesLabel, { color: colors.text }]}>Бонусы</Text>
-            </View>
-            <Text style={[styles.bonusesValue, { color: colors.primary }]}>3 450 сум</Text>
           </View>
         </View>
 
@@ -205,36 +242,30 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 60, height: 60, borderRadius: 30 },
+  avatarWrap: { position: 'relative' },
+  avatar: { width: 64, height: 64, borderRadius: 32 },
   avatarFallback: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarInitials: { color: '#FFF', fontSize: 22, fontWeight: '800' },
+  avatarInitials: { color: '#FFF', fontSize: 24, fontWeight: '800' },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+  },
   userName: { fontSize: 18, fontWeight: '700' },
   userPhone: { fontSize: 14, marginTop: 2 },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bonusesCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-  },
-  bonusesLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  bonusesLabel: { fontSize: 15, fontWeight: '500' },
-  bonusesValue: { fontSize: 18, fontWeight: '800' },
   themeCard: {
     flexDirection: 'row',
     alignItems: 'center',

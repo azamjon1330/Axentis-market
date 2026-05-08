@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Product } from '../../types';
-import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -19,9 +19,7 @@ interface Props {
 const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite, horizontal }) => {
   const { colors } = useTheme();
 
-  const imageUri = product.images?.[0]
-    ? (product.images[0].startsWith('http') ? product.images[0] : `${UPLOADS_URL}/${product.images[0]}`)
-    : null;
+  const imageUri = getImageUrl(product.images?.[0]);
 
   const displayPrice = product.discountedPrice || product.sellingPrice || product.price;
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;

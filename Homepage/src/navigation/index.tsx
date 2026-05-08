@@ -24,6 +24,7 @@ import OrderDetailScreen from '../screens/Orders/OrderDetailScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import SearchScreen from '../screens/Search/SearchScreen';
 import CompanyStoreScreen from '../screens/Company/CompanyStoreScreen';
+import PaymentCardsScreen from '../screens/Profile/PaymentCardsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -142,6 +143,7 @@ export default function Navigation() {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen name="CompanyStore" component={CompanyStoreScreen} />
+            <Stack.Screen name="PaymentCards" component={PaymentCardsScreen} />
           </>
         )}
       </Stack.Navigator>

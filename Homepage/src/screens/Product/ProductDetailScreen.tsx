@@ -16,7 +16,7 @@ import {
   submitReview, voteReview,
 } from '../../api';
 import { Product, Review, ReviewStats, RootStackParamList } from '../../types';
-import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
 
 const { width } = Dimensions.get('window');
@@ -105,6 +105,16 @@ export default function ProductDetailScreen() {
     } finally {
       setIsAddingToCart(false);
     }
+  };
+
+  const handleBuyNow = async () => {
+    if (!product || !user) return;
+    if (!inCart) {
+      try {
+        await addItem(productId, 1, selectedColor || undefined);
+      } catch { /* ignore */ }
+    }
+    navigation.navigate('Checkout');
   };
 
   const handleShare = async () => {
@@ -214,7 +224,7 @@ export default function ProductDetailScreen() {
                 {images.map((img, i) => (
                   <Image
                     key={i}
-                    source={{ uri: img.startsWith('http') ? img : `${UPLOADS_URL}/${img}` }}
+                    source={{ uri: getImageUrl(img) || '' }}
                     style={[styles.mainImg, { width }]}
                     resizeMode="contain"
                   />
@@ -499,7 +509,7 @@ export default function ProductDetailScreen() {
                   >
                     {item.images?.[0] ? (
                       <Image
-                        source={{ uri: item.images[0].startsWith('http') ? item.images[0] : `${UPLOADS_URL}/${item.images[0]}` }}
+                        source={{ uri: getImageUrl(item.images[0]) || '' }}
                         style={styles.similarImg}
                         resizeMode="contain"
                       />
@@ -533,30 +543,35 @@ export default function ProductDetailScreen() {
             </Text>
           )}
         </View>
-        <TouchableOpacity
-          style={[
-            styles.addBtn,
-            { backgroundColor: (inCart || addedToCart) ? colors.success : colors.primary },
-          ]}
-          onPress={handleAddToCart}
-          disabled={isAddingToCart}
-          activeOpacity={0.85}
-        >
-          {isAddingToCart ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <>
+        <View style={styles.ctaButtons}>
+          <TouchableOpacity
+            style={[
+              styles.addBtn,
+              { backgroundColor: (inCart || addedToCart) ? colors.success : colors.primary + '20',
+                borderWidth: 1, borderColor: (inCart || addedToCart) ? colors.success : colors.primary },
+            ]}
+            onPress={handleAddToCart}
+            disabled={isAddingToCart}
+            activeOpacity={0.85}
+          >
+            {isAddingToCart ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
               <Ionicons
                 name={inCart || addedToCart ? 'checkmark' : 'bag-outline'}
-                size={18}
-                color="#FFF"
+                size={20}
+                color={(inCart || addedToCart) ? '#FFF' : colors.primary}
               />
-              <Text style={styles.addBtnText}>
-                {inCart ? 'В корзине' : addedToCart ? 'Добавлено!' : 'В корзину'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.buyNowBtn, { backgroundColor: colors.primary }]}
+            onPress={handleBuyNow}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.buyNowText}>Купить сейчас</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -709,18 +724,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderTopWidth: 1,
     paddingBottom: 28,
-    gap: 16,
+    gap: 12,
   },
   bottomPriceBlock: { flex: 1 },
   bottomPrice: { fontSize: 22, fontWeight: '800' },
   bottomOldPrice: { fontSize: 13, textDecorationLine: 'line-through' },
+  ctaButtons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   addBtn: {
-    flexDirection: 'row',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 24,
-    height: 52,
-    borderRadius: 16,
+    justifyContent: 'center',
   },
-  addBtnText: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  buyNowBtn: {
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buyNowText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });

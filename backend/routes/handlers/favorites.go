@@ -2,27 +2,14 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// FavoriteItem - структура избранного товара
-type FavoriteItem struct {
-	ID        int       `json:"id"`
-	UserPhone string    `json:"user_phone"`
-	ProductID int64     `json:"product_id"`
-	AddedAt   time.Time `json:"added_at"`
-	
-	// Дополнительная информация о товаре
-	ProductName   string   `json:"product_name,omitempty"`
-	ProductPrice  float64  `json:"product_price,omitempty"`
-	ProductImages []string `json:"product_images,omitempty"`
-}
-
-// GetUserFavorites - получить избранные товары пользователя
+// GetUserFavorites - получить избранные товары пользователя (возвращает полные объекты Product)
 func GetUserFavorites(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phone := c.Param("phone")
@@ -32,11 +19,14 @@ func GetUserFavorites(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.Query(`
-			SELECT 
-				f.id, f.user_phone, f.product_id, f.added_at,
-				p.name, p.selling_price, COALESCE(p.images::text, '[]') as images
+			SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
+			       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
+			       p.description, p.color, p.size, p.brand, p.has_color_options,
+			       p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
+			       c.name as company_name
 			FROM user_favorites f
 			JOIN products p ON f.product_id = p.id
+			LEFT JOIN companies c ON p.company_id = c.id
 			WHERE f.user_phone = $1
 			ORDER BY f.added_at DESC
 		`, phone)
@@ -48,23 +38,113 @@ func GetUserFavorites(db *sql.DB) gin.HandlerFunc {
 		}
 		defer rows.Close()
 
-		items := make([]FavoriteItem, 0)
+		products := make([]map[string]interface{}, 0)
 		for rows.Next() {
-			var item FavoriteItem
-			var imagesJSON string
+			var p struct {
+				ID                    int64
+				CompanyID             int64
+				Name                  string
+				Quantity              int
+				Price                 float64
+				MarkupPercent         sql.NullFloat64
+				SellingPrice          sql.NullFloat64
+				MarkupAmount          sql.NullFloat64
+				Barcode               sql.NullString
+				Barid                 sql.NullString
+				Category              sql.NullString
+				Images                sql.NullString
+				Description           sql.NullString
+				Color                 sql.NullString
+				Size                  sql.NullString
+				Brand                 sql.NullString
+				HasColorOptions       sql.NullBool
+				AvailableForCustomers sql.NullBool
+				SoldCount             sql.NullInt64
+				CreatedAt             string
+				UpdatedAt             string
+				CompanyName           sql.NullString
+			}
 			err := rows.Scan(
-				&item.ID, &item.UserPhone, &item.ProductID, &item.AddedAt,
-				&item.ProductName, &item.ProductPrice, &imagesJSON,
+				&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
+				&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount,
+				&p.Barcode, &p.Barid, &p.Category, &p.Images,
+				&p.Description, &p.Color, &p.Size, &p.Brand,
+				&p.HasColorOptions, &p.AvailableForCustomers,
+				&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName,
 			)
 			if err != nil {
+				log.Printf("⚠️ Scan error in GetUserFavorites: %v", err)
 				continue
 			}
-			item.ProductImages = []string{}
-			items = append(items, item)
+
+			product := map[string]interface{}{
+				"id":        p.ID,
+				"companyId": p.CompanyID,
+				"name":      p.Name,
+				"quantity":  p.Quantity,
+				"price":     p.Price,
+			}
+			if p.CompanyName.Valid {
+				product["companyName"] = p.CompanyName.String
+			}
+			if p.MarkupPercent.Valid {
+				product["markupPercent"] = p.MarkupPercent.Float64
+			} else {
+				product["markupPercent"] = 0
+			}
+			if p.SellingPrice.Valid {
+				product["sellingPrice"] = p.SellingPrice.Float64
+			} else {
+				product["sellingPrice"] = p.Price
+			}
+			if p.MarkupAmount.Valid {
+				product["markupAmount"] = p.MarkupAmount.Float64
+			} else {
+				product["markupAmount"] = 0
+			}
+			if p.Barcode.Valid {
+				product["barcode"] = p.Barcode.String
+			}
+			if p.Barid.Valid {
+				product["barid"] = p.Barid.String
+			}
+			if p.Category.Valid {
+				product["category"] = p.Category.String
+			}
+			if p.Description.Valid {
+				product["description"] = p.Description.String
+			}
+			if p.Color.Valid {
+				product["color"] = p.Color.String
+			}
+			if p.Size.Valid {
+				product["size"] = p.Size.String
+			}
+			if p.Brand.Valid {
+				product["brand"] = p.Brand.String
+			}
+			product["hasColorOptions"] = p.HasColorOptions.Bool
+			product["availableForCustomers"] = p.AvailableForCustomers.Bool
+			if p.SoldCount.Valid {
+				product["soldCount"] = p.SoldCount.Int64
+			} else {
+				product["soldCount"] = 0
+			}
+			if p.Images.Valid && p.Images.String != "" {
+				var images []string
+				if err := json.Unmarshal([]byte(p.Images.String), &images); err != nil {
+					product["images"] = []string{}
+				} else {
+					product["images"] = images
+				}
+			} else {
+				product["images"] = []string{}
+			}
+			products = append(products, product)
 		}
 
-		log.Printf("❤️ Favorites loaded for %s: %d items", phone, len(items))
-		c.JSON(http.StatusOK, items)
+		log.Printf("❤️ Favorites loaded for %s: %d items", phone, len(products))
+		c.JSON(http.StatusOK, products)
 	}
 }
 
