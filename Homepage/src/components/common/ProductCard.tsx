@@ -27,7 +27,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;
   const hasDiscount = !!product.discountPercent && product.discountPercent > 0;
 
-  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} ₽`;
+  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
 
   if (horizontal) {
     return (

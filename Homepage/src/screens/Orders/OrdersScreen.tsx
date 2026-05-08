@@ -118,7 +118,7 @@ export default function OrdersScreen() {
         <View style={styles.cardBottom}>
           <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Итого</Text>
           <Text style={[styles.totalValue, { color: colors.text }]}>
-            {item.totalAmount.toLocaleString('ru-RU')} ₽
+            {item.totalAmount.toLocaleString('ru-RU')} сум
           </Text>
           {item.deliveryType && (
             <Text style={[styles.deliveryInfo, { color: colors.textMuted }]}>

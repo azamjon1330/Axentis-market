@@ -98,7 +98,7 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const getCityDisplay = () => 'Москва';
+  const getCityDisplay = () => 'Ташкент';
 
   const renderBanners = () => {
     const banners = ads.length > 0 ? ads : BANNER_COLORS.map((_, i) => null);
@@ -267,7 +267,7 @@ export default function HomeScreen() {
                   <Text style={[styles.ratingText, { color: colors.textSecondary }]}> 4.8</Text>
                 </View>
                 <Text style={[styles.popularPrice, { color: colors.text }]}>
-                  {(item.sellingPrice || item.price).toLocaleString('ru-RU')} ₽
+                  {(item.sellingPrice || item.price).toLocaleString('ru-RU')} сум
                 </Text>
               </View>
             </TouchableOpacity>

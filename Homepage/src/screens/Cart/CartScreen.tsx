@@ -68,7 +68,7 @@ export default function CartScreen() {
     ]);
   };
 
-  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} ₽`;
+  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
 
   const renderItem = ({ item }: { item: CartItem }) => {
     const product = item.product;

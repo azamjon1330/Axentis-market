@@ -95,7 +95,7 @@ export default function CheckoutScreen() {
     }
   };
 
-  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} ₽`;
+  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
 
   const CARD_TYPES: { key: CardSubtype; label: string; icon: string }[] = [
     { key: 'visa', label: 'Visa', icon: '💳' },
@@ -325,7 +325,7 @@ export default function CheckoutScreen() {
                   </Text>
                   <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>× {item.quantity}</Text>
                   <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} ₽
+                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} сум
                   </Text>
                 </View>
               ))}

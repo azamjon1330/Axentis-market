@@ -101,7 +101,7 @@ export default function ProductDetailScreen() {
 
   const handleShare = async () => {
     if (!product) return;
-    await Share.share({ message: `${product.name} — ${(product.sellingPrice || product.price).toLocaleString('ru-RU')} ₽` });
+    await Share.share({ message: `${product.name} — ${(product.sellingPrice || product.price).toLocaleString('ru-RU')} сум` });
   };
 
   if (isLoading) {
@@ -233,11 +233,11 @@ export default function ProductDetailScreen() {
           {/* Price */}
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: colors.text }]}>
-              {displayPrice.toLocaleString('ru-RU')} ₽
+              {displayPrice.toLocaleString('ru-RU')} сум
             </Text>
             {originalPrice && (
               <Text style={[styles.oldPrice, { color: colors.textMuted }]}>
-                {originalPrice.toLocaleString('ru-RU')} ₽
+                {originalPrice.toLocaleString('ru-RU')} сум
               </Text>
             )}
           </View>
@@ -354,7 +354,7 @@ export default function ProductDetailScreen() {
                     )}
                     <Text style={[styles.similarName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
                     <Text style={[styles.similarPrice, { color: colors.primary }]}>
-                      {(item.sellingPrice || item.price).toLocaleString('ru-RU')} ₽
+                      {(item.sellingPrice || item.price).toLocaleString('ru-RU')} сум
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -369,11 +369,11 @@ export default function ProductDetailScreen() {
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomPriceBlock}>
           <Text style={[styles.bottomPrice, { color: colors.text }]}>
-            {displayPrice.toLocaleString('ru-RU')} ₽
+            {displayPrice.toLocaleString('ru-RU')} сум
           </Text>
           {originalPrice && (
             <Text style={[styles.bottomOldPrice, { color: colors.textMuted }]}>
-              {originalPrice.toLocaleString('ru-RU')} ₽
+              {originalPrice.toLocaleString('ru-RU')} сум
             </Text>
           )}
         </View>

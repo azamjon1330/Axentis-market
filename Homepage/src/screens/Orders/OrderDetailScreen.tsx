@@ -177,7 +177,7 @@ export default function OrderDetailScreen() {
                 <Text style={[styles.itemQty, { color: colors.textMuted }]}>{item.quantity} шт.</Text>
               </View>
               <Text style={[styles.itemPrice, { color: colors.text }]}>
-                {(item.price * item.quantity).toLocaleString('ru-RU')} ₽
+                {(item.price * item.quantity).toLocaleString('ru-RU')} сум
               </Text>
             </View>
           ))}
@@ -197,7 +197,7 @@ export default function OrderDetailScreen() {
           <View style={[styles.totalRow, { borderTopColor: colors.divider }]}>
             <Text style={[styles.totalLabel, { color: colors.text }]}>Итого</Text>
             <Text style={[styles.totalValue, { color: colors.text }]}>
-              {order.totalAmount.toLocaleString('ru-RU')} ₽
+              {order.totalAmount.toLocaleString('ru-RU')} сум
             </Text>
           </View>
         </View>

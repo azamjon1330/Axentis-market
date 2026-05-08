@@ -123,7 +123,7 @@ export default function ProfileScreen() {
               <Ionicons name="star" size={18} color={colors.primary} />
               <Text style={[styles.bonusesLabel, { color: colors.text }]}>Бонусы</Text>
             </View>
-            <Text style={[styles.bonusesValue, { color: colors.primary }]}>3 450 ₽</Text>
+            <Text style={[styles.bonusesValue, { color: colors.primary }]}>3 450 сум</Text>
           </View>
         </View>
 
