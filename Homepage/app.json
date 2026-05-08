@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Axentis Market",
+    "slug": "axentis-homepage",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0F1E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.axentis.homepage"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0F0F1E"
+      },
+      "package": "com.axentis.homepage"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7B5CF0"
+        }
+      ]
+    ]
+  }
+}
