@@ -1,11 +1,12 @@
 // ─── AXENTIS MARKET — BACKEND CONFIG ─────────────────────────────────────────
 // Chtoby izmenit' adres servera — izmeni tol'ko etu stroku:
-const DOMAIN = 'axentis.uz';
+const VPS_IP = '109.123.253.238';
+const BACKEND_PORT = '3000';
 
 // ─── API ─────────────────────────────────────────────────────────────────────
-export const API_BASE_URL = `https://${DOMAIN}/api`;
-export const UPLOADS_BASE_URL = `https://${DOMAIN}/uploads`;
-export const SOCKET_URL = `https://${DOMAIN}`;
+export const API_BASE_URL = `http://${VPS_IP}:${BACKEND_PORT}/api`;
+export const UPLOADS_BASE_URL = `http://${VPS_IP}:${BACKEND_PORT}/uploads`;
+export const SOCKET_URL = `http://${VPS_IP}:${BACKEND_PORT}`;
 
 // ─── APP ─────────────────────────────────────────────────────────────────────
 export const APP_CONFIG = {
