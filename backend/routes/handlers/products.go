@@ -218,6 +218,144 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// GetProductByID - возвращает один товар по ID
+func GetProductByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+			return
+		}
+
+		var p struct {
+			ID                    int64
+			CompanyID             int64
+			Name                  string
+			Quantity              int
+			Price                 float64
+			MarkupPercent         sql.NullFloat64
+			SellingPrice          sql.NullFloat64
+			MarkupAmount          sql.NullFloat64
+			Barcode               sql.NullString
+			Barid                 sql.NullString
+			Category              sql.NullString
+			Images                sql.NullString
+			Description           sql.NullString
+			Color                 sql.NullString
+			Size                  sql.NullString
+			Brand                 sql.NullString
+			HasColorOptions       sql.NullBool
+			AvailableForCustomers sql.NullBool
+			SoldCount             sql.NullInt64
+			CreatedAt             string
+			UpdatedAt             string
+			CompanyName           sql.NullString
+		}
+
+		err = db.QueryRow(`
+			SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
+			       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
+			       p.description, p.color, p.size, p.brand, p.has_color_options,
+			       p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
+			       c.name as company_name
+			FROM products p
+			LEFT JOIN companies c ON p.company_id = c.id
+			WHERE p.id = $1
+		`, id).Scan(
+			&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
+			&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
+			&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
+			&p.HasColorOptions, &p.AvailableForCustomers,
+			&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName,
+		)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ GetProductByID error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch product"})
+			return
+		}
+
+		product := map[string]interface{}{
+			"id":        p.ID,
+			"companyId": p.CompanyID,
+			"name":      p.Name,
+			"quantity":  p.Quantity,
+			"price":     p.Price,
+			"createdAt": p.CreatedAt,
+			"updatedAt": p.UpdatedAt,
+		}
+		if p.CompanyName.Valid {
+			product["companyName"] = p.CompanyName.String
+		}
+		if p.MarkupPercent.Valid {
+			product["markupPercent"] = p.MarkupPercent.Float64
+		} else {
+			product["markupPercent"] = 0
+		}
+		if p.SellingPrice.Valid {
+			product["sellingPrice"] = p.SellingPrice.Float64
+		} else {
+			product["sellingPrice"] = p.Price
+		}
+		if p.MarkupAmount.Valid {
+			product["markupAmount"] = p.MarkupAmount.Float64
+		} else {
+			product["markupAmount"] = 0
+		}
+		if p.Barcode.Valid {
+			product["barcode"] = p.Barcode.String
+		}
+		if p.Barid.Valid {
+			product["barid"] = p.Barid.String
+		}
+		if p.Category.Valid {
+			product["category"] = p.Category.String
+		}
+		if p.Description.Valid {
+			product["description"] = p.Description.String
+		}
+		if p.Color.Valid {
+			product["color"] = p.Color.String
+		}
+		if p.Size.Valid {
+			product["size"] = p.Size.String
+		}
+		if p.Brand.Valid {
+			product["brand"] = p.Brand.String
+		}
+		if p.HasColorOptions.Valid {
+			product["hasColorOptions"] = p.HasColorOptions.Bool
+		} else {
+			product["hasColorOptions"] = false
+		}
+		if p.AvailableForCustomers.Valid {
+			product["availableForCustomers"] = p.AvailableForCustomers.Bool
+		} else {
+			product["availableForCustomers"] = true
+		}
+		if p.SoldCount.Valid {
+			product["soldCount"] = p.SoldCount.Int64
+		} else {
+			product["soldCount"] = 0
+		}
+		if p.Images.Valid && p.Images.String != "" {
+			var images []string
+			if err := json.Unmarshal([]byte(p.Images.String), &images); err != nil {
+				product["images"] = []string{}
+			} else {
+				product["images"] = images
+			}
+		} else {
+			product["images"] = []string{}
+		}
+
+		c.JSON(http.StatusOK, product)
+	}
+}
+
 // CreateProduct - создаёт новый товар
 func CreateProduct(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -63,6 +63,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.DELETE("/:id", handlers.DeleteProduct(db))
 			products.POST("/:id/images", handlers.UploadProductImages(db))
 			products.DELETE("/:id/images", handlers.DeleteProductImage(db))
+			products.GET("/:id", handlers.GetProductByID(db))
 			products.GET("/:id/reviews", handlers.GetProductReviews(db))
 			products.GET("/:id/review-stats", handlers.GetReviewStats(db))
 			products.GET("/:id/similar", handlers.GetSimilarProducts(db)) // 🔍 Похожие товары

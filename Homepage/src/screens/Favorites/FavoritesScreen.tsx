@@ -80,14 +80,15 @@ export default function FavoritesScreen() {
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Список пуст</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Добавляйте понравившиеся товары в избранное, нажимая на сердечко
+            Нажмите на сердечко на карточке товара, чтобы сохранить его здесь
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('Main' as any, { screen: 'Catalog' })}
+            onPress={() => navigation.navigate('Main' as any, { screen: 'Home' })}
             activeOpacity={0.85}
           >
-            <Text style={styles.browseBtnText}>Перейти в каталог</Text>
+            <Ionicons name="storefront-outline" size={18} color="#FFF" />
+            <Text style={styles.browseBtnText}>К покупкам</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -141,6 +142,9 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', fontSize: 14, lineHeight: 21 },
   browseBtn: {
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,

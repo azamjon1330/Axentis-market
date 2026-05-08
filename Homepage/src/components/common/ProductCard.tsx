@@ -34,13 +34,13 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
       <TouchableOpacity
         style={[styles.hCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={onPress}
-        activeOpacity={0.8}
+        activeOpacity={0.85}
       >
         <View style={[styles.hImageBox, { backgroundColor: colors.cardAlt }]}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.hImage} resizeMode="contain" />
           ) : (
-            <Ionicons name="cube-outline" size={40} color={colors.textMuted} />
+            <Ionicons name="cube-outline" size={36} color={colors.textMuted} />
           )}
           {hasDiscount && (
             <View style={styles.discountBadge}>
@@ -50,18 +50,20 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         </View>
         <View style={styles.hInfo}>
           <Text style={[styles.hName, { color: colors.text }]} numberOfLines={2}>{product.name}</Text>
-          <View style={styles.ratingRow}>
-            <Ionicons name="star" size={12} color={colors.star} />
-            <Text style={[styles.ratingText, { color: colors.textSecondary }]}> 4.8</Text>
-          </View>
+          {product.brand ? (
+            <Text style={[styles.brand, { color: colors.textMuted }]} numberOfLines={1}>{product.brand}</Text>
+          ) : null}
           <View style={styles.priceRow}>
             <Text style={[styles.price, { color: colors.text }]}>{formatPrice(displayPrice)}</Text>
             {originalPrice && (
               <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{formatPrice(originalPrice)}</Text>
             )}
           </View>
+          {product.soldCount > 0 && (
+            <Text style={[styles.sold, { color: colors.textMuted }]}>{product.soldCount} продаж</Text>
+          )}
           {onFavorite && (
-            <TouchableOpacity onPress={onFavorite} style={styles.favBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={onFavorite} style={styles.favBtnH} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons
                 name={isFavorite ? 'heart' : 'heart-outline'}
                 size={18}
@@ -78,13 +80,13 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
     <TouchableOpacity
       style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, width: CARD_WIDTH }]}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
       <View style={[styles.imageBox, { backgroundColor: colors.cardAlt }]}>
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
         ) : (
-          <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
+          <Ionicons name="cube-outline" size={44} color={colors.textMuted} />
         )}
         {hasDiscount && (
           <View style={styles.discountBadge}>
@@ -94,12 +96,12 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         {onFavorite && (
           <TouchableOpacity
             onPress={onFavorite}
-            style={[styles.favIcon, { backgroundColor: colors.surface }]}
+            style={[styles.favIcon, { backgroundColor: colors.surface + 'E0' }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
-              size={16}
+              size={15}
               color={isFavorite ? colors.error : colors.textSecondary}
             />
           </TouchableOpacity>
@@ -107,13 +109,15 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
       </View>
       <View style={styles.info}>
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{product.name}</Text>
-        <View style={styles.ratingRow}>
-          <Ionicons name="star" size={11} color={colors.star} />
-          <Text style={[styles.ratingText, { color: colors.textSecondary }]}> 4.8</Text>
-        </View>
+        {product.brand ? (
+          <Text style={[styles.brand, { color: colors.textMuted }]} numberOfLines={1}>{product.brand}</Text>
+        ) : null}
         <Text style={[styles.price, { color: colors.text }]}>{formatPrice(displayPrice)}</Text>
         {originalPrice && (
           <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{formatPrice(originalPrice)}</Text>
+        )}
+        {product.soldCount > 0 && (
+          <Text style={[styles.sold, { color: colors.textMuted }]}>{product.soldCount} продаж</Text>
         )}
       </View>
     </TouchableOpacity>
@@ -121,25 +125,60 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
 };
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 16, borderWidth: 1, overflow: 'hidden', marginBottom: 12 },
-  imageBox: { height: 140, alignItems: 'center', justifyContent: 'center' },
+  card: {
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  imageBox: {
+    height: 150,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   image: { width: '100%', height: '100%' },
-  info: { padding: 10 },
-  name: { fontSize: 13, fontWeight: '500', marginBottom: 4, lineHeight: 18 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  ratingText: { fontSize: 11 },
-  price: { fontSize: 15, fontWeight: '700' },
-  oldPrice: { fontSize: 11, textDecorationLine: 'line-through', marginTop: 2 },
-  discountBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: '#FF3B30', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  info: { padding: 10, gap: 3 },
+  name: { fontSize: 13, fontWeight: '500', lineHeight: 18 },
+  brand: { fontSize: 11 },
+  price: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+  oldPrice: { fontSize: 11, textDecorationLine: 'line-through' },
+  sold: { fontSize: 11, marginTop: 1 },
+  discountBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
   discountText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
-  favIcon: { position: 'absolute', top: 8, right: 8, borderRadius: 20, padding: 6, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
-  hCard: { flexDirection: 'row', borderRadius: 14, borderWidth: 1, overflow: 'hidden', marginBottom: 10 },
-  hImageBox: { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
+  favIcon: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    borderRadius: 20,
+    padding: 5,
+  },
+  // Horizontal card
+  hCard: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  hImageBox: {
+    width: 110,
+    height: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   hImage: { width: '100%', height: '100%' },
-  hInfo: { flex: 1, padding: 12, justifyContent: 'space-between' },
+  hInfo: { flex: 1, padding: 12, gap: 4, justifyContent: 'center' },
   hName: { fontSize: 14, fontWeight: '500', lineHeight: 19 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  favBtn: { position: 'absolute', right: 12, bottom: 12 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
+  favBtnH: { position: 'absolute', right: 12, top: 12 },
 });
 
 export default ProductCard;

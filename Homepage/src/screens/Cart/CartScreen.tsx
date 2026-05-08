@@ -175,14 +175,15 @@ export default function CartScreen() {
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Корзина пуста</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Добавьте товары из каталога, чтобы сделать заказ
+            Здесь пока пусто — добавьте что-нибудь из магазина
           </Text>
           <TouchableOpacity
             style={[styles.shopBtn, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('Main' as any, { screen: 'Catalog' })}
+            onPress={() => navigation.navigate('Main' as any, { screen: 'Home' })}
             activeOpacity={0.85}
           >
-            <Text style={styles.shopBtnText}>Перейти в каталог</Text>
+            <Ionicons name="storefront-outline" size={18} color="#FFF" />
+            <Text style={styles.shopBtnText}>К покупкам</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -262,6 +263,9 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', fontSize: 14, lineHeight: 21 },
   shopBtn: {
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,
