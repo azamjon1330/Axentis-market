@@ -104,7 +104,7 @@ func CreateReview(db *sql.DB) gin.HandlerFunc {
 			UserPhone string `json:"user_phone" binding:"required"`
 			UserName  string `json:"user_name" binding:"required"`
 			Rating    int    `json:"rating" binding:"required,min=1,max=5"`
-			Comment   string `json:"comment" binding:"required"`
+			Comment   string `json:"comment"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {

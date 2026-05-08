@@ -54,9 +54,22 @@ export const getProductDetail = async (id: number): Promise<Product> => {
   return res.data;
 };
 
+const mapReview = (r: any): Review => ({
+  id: r.id,
+  productId: r.productId ?? r.product_id,
+  userPhone: r.userPhone ?? r.user_phone,
+  userName: r.userName ?? r.user_name,
+  rating: r.rating,
+  comment: r.comment,
+  likes: r.likes ?? 0,
+  dislikes: r.dislikes ?? 0,
+  createdAt: r.createdAt ?? r.created_at,
+});
+
 export const getProductReviews = async (id: number): Promise<Review[]> => {
   const res = await api.get(ENDPOINTS.productReviews(id));
-  return Array.isArray(res.data) ? res.data : (res.data?.reviews || []);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.reviews || []);
+  return raw.map(mapReview);
 };
 
 export const getProductReviewStats = async (id: number): Promise<ReviewStats> => {
@@ -77,7 +90,7 @@ export const submitReview = async (data: {
   comment?: string;
 }): Promise<Review> => {
   const res = await api.post(ENDPOINTS.reviews, data);
-  return res.data;
+  return mapReview(res.data);
 };
 
 export const voteReview = async (reviewId: number, phone: string, voteType: 'like' | 'dislike') => {
@@ -97,9 +110,39 @@ export const getCategoryProducts = async (category: string, params: { limit?: nu
 };
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
+const mapCartItem = (item: any): CartItem => {
+  const productId = item.productId ?? item.product_id ?? 0;
+  const product: any = item.product ?? {
+    id: productId,
+    companyId: item.companyId ?? item.company_id ?? 0,
+    name: item.product_name ?? item.productName ?? '',
+    price: item.product_price ?? item.productPrice ?? 0,
+    sellingPrice: item.product_price ?? item.sellingPrice ?? item.product_price ?? 0,
+    markupPercent: 0,
+    markupAmount: 0,
+    quantity: 0,
+    hasColorOptions: false,
+    availableForCustomers: true,
+    soldCount: 0,
+    images: item.product_images ?? item.productImages ?? [],
+    createdAt: '',
+    updatedAt: '',
+  };
+  return {
+    id: item.id,
+    userPhone: item.userPhone ?? item.user_phone ?? '',
+    productId,
+    quantity: item.quantity,
+    selected_color: item.selected_color ?? item.selectedColor ?? undefined,
+    selected_size: item.selected_size ?? item.selectedSize ?? undefined,
+    product,
+  };
+};
+
 export const getCart = async (phone: string): Promise<CartItem[]> => {
   const res = await api.get(ENDPOINTS.cart(phone));
-  return Array.isArray(res.data) ? res.data : (res.data?.items || []);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.items || []);
+  return raw.map(mapCartItem);
 };
 
 export const getCartCount = async (phone: string): Promise<number> => {
