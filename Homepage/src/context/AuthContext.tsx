@@ -1,13 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types';
-import { loginUser, getUserProfile } from '../api';
+import { loginUser, registerUser, getUserProfile } from '../api';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (phone: string, name?: string) => Promise<void>;
+  login: (phone: string, password: string) => Promise<void>;
+  register: (phone: string, name: string, surname: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -28,13 +29,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (savedUser) {
         const parsed = JSON.parse(savedUser) as User;
         setUser(parsed);
-        // Refresh from server
         try {
           const fresh = await getUserProfile(parsed.phone);
           setUser(fresh);
           await AsyncStorage.setItem('currentUser', JSON.stringify(fresh));
         } catch {
-          // Use cached
+          // use cached
         }
       }
     } catch {
@@ -44,15 +44,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const login = async (phone: string, name?: string) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    const result = await loginUser(cleanPhone, name);
+  const login = async (phone: string, password: string) => {
+    const result = await loginUser(phone, password);
     const userData = result.user || (result as unknown as User);
     setUser(userData);
     await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
-    if (result.token) {
-      await AsyncStorage.setItem('userToken', result.token);
-    }
+    if (result.token) await AsyncStorage.setItem('userToken', result.token);
+  };
+
+  const register = async (phone: string, name: string, surname: string, password: string) => {
+    const result = await registerUser(phone, name, surname, password);
+    const userData = result.user || (result as unknown as User);
+    setUser(userData);
+    await AsyncStorage.setItem('currentUser', JSON.stringify(userData));
+    if (result.token) await AsyncStorage.setItem('userToken', result.token);
   };
 
   const logout = async () => {
@@ -77,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading,
       isAuthenticated: !!user,
       login,
+      register,
       logout,
       refreshUser,
     }}>

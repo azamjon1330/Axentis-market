@@ -20,9 +20,18 @@ api.interceptors.request.use(async (config) => {
 });
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
-export const loginUser = async (phone: string, name?: string): Promise<{ user: User; token?: string }> => {
-  const endpoint = name ? ENDPOINTS.registerUser : ENDPOINTS.loginUser;
-  const res = await api.post(endpoint, { phone, name });
+export const loginUser = async (phone: string, password: string): Promise<{ user: User; token?: string }> => {
+  const res = await api.post(ENDPOINTS.loginUser, { phone, password });
+  return res.data;
+};
+
+export const registerUser = async (
+  phone: string,
+  name: string,
+  surname: string,
+  password: string,
+): Promise<{ user: User; token?: string }> => {
+  const res = await api.post(ENDPOINTS.registerUser, { phone, name, surname, password });
   return res.data;
 };
 

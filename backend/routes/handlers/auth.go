@@ -29,8 +29,10 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 		var req struct {
 			Phone       string `json:"phone" binding:"required"`
 			Name        string `json:"name"`
-			Mode        string `json:"mode"` // "public" или "private"
-			PrivateCode string `json:"privateCode"` // Код приватной компании (если mode = "private")
+			Surname     string `json:"surname"`
+			Password    string `json:"password"`
+			Mode        string `json:"mode"`
+			PrivateCode string `json:"privateCode"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -38,58 +40,63 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Устанавливаем mode по умолчанию на "public", если не указан
 		if req.Mode == "" {
 			req.Mode = "public"
 		}
-
-		// Проверяем режим
 		if req.Mode != "public" && req.Mode != "private" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Mode must be 'public' or 'private'"})
 			return
 		}
 
 		var privateCompanyID *int64
-
-		// Если режим приватный, проверяем код и получаем ID компании
 		if req.Mode == "private" {
 			if req.PrivateCode == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Private code is required for private mode"})
 				return
 			}
-
 			var companyID int64
-			err := db.QueryRow(`
-				SELECT id FROM companies 
-				WHERE private_code = $1 AND mode = 'private'
-			`, req.PrivateCode).Scan(&companyID)
-
+			err := db.QueryRow(`SELECT id FROM companies WHERE private_code = $1 AND mode = 'private'`, req.PrivateCode).Scan(&companyID)
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Invalid private code"})
 				return
 			}
-
 			if err != nil {
-				log.Printf("❌ RegisterUser: Failed to verify private code: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify private code"})
 				return
 			}
-
 			privateCompanyID = &companyID
-			log.Printf("✅ User registering with private company ID: %d", companyID)
+		}
+
+		// Хешируем пароль если передан
+		var passwordHash *string
+		if req.Password != "" {
+			hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+				return
+			}
+			h := string(hashed)
+			passwordHash = &h
+		}
+
+		fullName := req.Name
+		if req.Surname != "" {
+			fullName = req.Name + " " + req.Surname
 		}
 
 		var userID int64
 		err := db.QueryRow(`
-			INSERT INTO users (phone, name, mode, private_company_id, cart, likes, receipts)
-			VALUES ($1, $2, $3, $4, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb)
-			ON CONFLICT (phone) DO UPDATE SET 
-				name = EXCLUDED.name, 
-				mode = EXCLUDED.mode, 
+			INSERT INTO users (phone, name, surname, password_hash, mode, private_company_id, cart, likes, receipts)
+			VALUES ($1, $2, $3, $4, $5, $6, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb)
+			ON CONFLICT (phone) DO UPDATE SET
+				name = EXCLUDED.name,
+				surname = EXCLUDED.surname,
+				password_hash = COALESCE(EXCLUDED.password_hash, users.password_hash),
+				mode = EXCLUDED.mode,
 				private_company_id = EXCLUDED.private_company_id,
 				updated_at = NOW()
 			RETURNING id
-		`, req.Phone, req.Name, req.Mode, privateCompanyID).Scan(&userID)
+		`, req.Phone, fullName, req.Surname, passwordHash, req.Mode, privateCompanyID).Scan(&userID)
 
 		if err != nil {
 			log.Printf("❌ RegisterUser: Failed to create user: %v", err)
@@ -100,18 +107,17 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 		response := gin.H{
 			"success": true,
 			"user": gin.H{
-				"id":    userID,
-				"phone": req.Phone,
-				"name":  req.Name,
-				"mode":  req.Mode,
+				"id":      userID,
+				"phone":   req.Phone,
+				"name":    fullName,
+				"surname": req.Surname,
+				"mode":    req.Mode,
 			},
 		}
-
 		if privateCompanyID != nil {
 			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
 		}
-
-		log.Printf("✅ User registered: ID=%d, Phone=%s, Mode=%s", userID, req.Phone, req.Mode)
+		log.Printf("✅ User registered: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}
 }
@@ -121,8 +127,9 @@ func LoginUser(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Phone       string `json:"phone" binding:"required"`
-			Mode        string `json:"mode"` // "public" или "private"
-			PrivateCode string `json:"privateCode"` // Код приватной компании (если mode = "private")
+			Password    string `json:"password"`
+			Mode        string `json:"mode"`
+			PrivateCode string `json:"privateCode"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -130,94 +137,81 @@ func LoginUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Устанавливаем mode по умолчанию на "public", если не указан
 		if req.Mode == "" {
 			req.Mode = "public"
 		}
-
-		// Проверяем режим
 		if req.Mode != "public" && req.Mode != "private" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Mode must be 'public' or 'private'"})
 			return
 		}
 
 		var privateCompanyID *int64
-
-		// Если режим приватный, проверяем код и получаем ID компании
 		if req.Mode == "private" {
 			if req.PrivateCode == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Private code is required for private mode"})
 				return
 			}
-
 			var companyID int64
-			err := db.QueryRow(`
-				SELECT id FROM companies 
-				WHERE private_code = $1 AND mode = 'private'
-			`, req.PrivateCode).Scan(&companyID)
-
+			err := db.QueryRow(`SELECT id FROM companies WHERE private_code = $1 AND mode = 'private'`, req.PrivateCode).Scan(&companyID)
 			if err == sql.ErrNoRows {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Invalid private code"})
 				return
 			}
-
 			if err != nil {
-				log.Printf("❌ LoginUser: Failed to verify private code: %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify private code"})
 				return
 			}
-
 			privateCompanyID = &companyID
 		}
 
 		var userID int64
-		var name sql.NullString
+		var name, surname sql.NullString
 		var existingMode string
-		var existingCompanyID sql.NullInt64
+		var passwordHash sql.NullString
 
 		err := db.QueryRow(`
-			SELECT id, name, mode, private_company_id 
-			FROM users 
-			WHERE phone = $1
-		`, req.Phone).Scan(&userID, &name, &existingMode, &existingCompanyID)
+			SELECT id, name, surname, mode, password_hash
+			FROM users WHERE phone = $1
+		`, req.Phone).Scan(&userID, &name, &surname, &existingMode, &passwordHash)
 
 		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Пользователь не найден"})
 			return
 		}
-
 		if err != nil {
 			log.Printf("❌ LoginUser: Database error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка входа"})
 			return
 		}
 
-		// Обновляем режим и компанию пользователя при логине
-		_, err = db.Exec(`
-			UPDATE users 
-			SET mode = $1, private_company_id = $2, updated_at = NOW() 
-			WHERE id = $3
-		`, req.Mode, privateCompanyID, userID)
-
-		if err != nil {
-			log.Printf("❌ LoginUser: Failed to update user mode: %v", err)
+		// Проверяем пароль если он есть в базе
+		if passwordHash.Valid && passwordHash.String != "" && req.Password != "" {
+			if err := bcrypt.CompareHashAndPassword([]byte(passwordHash.String), []byte(req.Password)); err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный пароль"})
+				return
+			}
+		} else if passwordHash.Valid && passwordHash.String != "" && req.Password == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Введите пароль"})
+			return
 		}
+
+		_, _ = db.Exec(`UPDATE users SET mode = $1, private_company_id = $2, updated_at = NOW() WHERE id = $3`,
+			req.Mode, privateCompanyID, userID)
 
 		response := gin.H{
 			"success": true,
 			"user": gin.H{
-				"id":    userID,
-				"phone": req.Phone,
-				"name":  name.String,
-				"mode":  req.Mode,
+				"id":      userID,
+				"phone":   req.Phone,
+				"name":    name.String,
+				"surname": surname.String,
+				"mode":    req.Mode,
 			},
 		}
-
 		if privateCompanyID != nil {
 			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
 		}
-
-		log.Printf("✅ User logged in: ID=%d, Phone=%s, Mode=%s", userID, req.Phone, req.Mode)
+		log.Printf("✅ User logged in: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}
 }

@@ -11,10 +11,11 @@ export const SOCKET_URL = API_HOST;
 export const APP_CONFIG = {
   name: 'Axentis Market',
   version: '1.0.0',
-  defaultCity: 'Москва',
+  defaultCity: 'Ташкент',
   deliveryCost: 30000,
   freeDeliveryFrom: 0,
-  currency: '₽',
-  supportPhone: '+74951234567',
+  currency: 'сум',
+  phonePrefix: '+998',
+  supportPhone: '+998712345678',
   supportEmail: 'support@axentis.uz',
 };

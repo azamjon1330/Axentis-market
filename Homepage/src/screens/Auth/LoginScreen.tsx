@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
-  Alert, Animated,
+  Alert, Animated, Dimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,96 +10,158 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
-type Step = 'phone' | 'name';
+const { width } = Dimensions.get('window');
+
+type Tab = 'login' | 'register';
+
+// +998 (UZ) format: +998 XX XXX XX XX
+function formatUzPhone(val: string): string {
+  const digits = val.replace(/\D/g, '');
+  // Remove leading 998 if typed
+  const local = digits.startsWith('998') ? digits.slice(3) : digits;
+  if (local.length === 0) return '';
+  if (local.length <= 2) return `+998 ${local}`;
+  if (local.length <= 5) return `+998 ${local.slice(0, 2)} ${local.slice(2)}`;
+  if (local.length <= 7) return `+998 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5)}`;
+  if (local.length <= 9) return `+998 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5, 7)} ${local.slice(7)}`;
+  return `+998 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5, 7)} ${local.slice(7, 9)}`;
+}
+
+function getCleanPhone(formatted: string): string {
+  const digits = formatted.replace(/\D/g, '');
+  if (digits.startsWith('998')) return digits;
+  return '998' + digits;
+}
 
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
-  const { login } = useAuth();
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const { login, register } = useAuth();
 
-  const formatPhone = (val: string) => {
-    const digits = val.replace(/\D/g, '');
-    if (digits.length === 0) return '';
-    if (digits.length <= 1) return `+7 (${digits}`;
-    if (digits.length <= 4) return `+7 (${digits.slice(1, 4)}`;
-    if (digits.length <= 7) return `+7 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}`;
-    if (digits.length <= 9) return `+7 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 9)}`;
-    return `+7 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7, 9)}-${digits.slice(9, 11)}`;
+  const [tab, setTab] = useState<Tab>('login');
+  const tabAnim = useRef(new Animated.Value(0)).current;
+
+  // Login fields
+  const [loginPhone, setLoginPhone] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginPassVisible, setLoginPassVisible] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Register fields
+  const [regName, setRegName] = useState('');
+  const [regSurname, setRegSurname] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirm, setRegConfirm] = useState('');
+  const [regPassVisible, setRegPassVisible] = useState(false);
+  const [regConfirmVisible, setRegConfirmVisible] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+
+  const switchTab = (t: Tab) => {
+    setTab(t);
+    Animated.spring(tabAnim, {
+      toValue: t === 'login' ? 0 : 1,
+      useNativeDriver: false,
+      tension: 60,
+      friction: 10,
+    }).start();
   };
 
-  const handlePhoneChange = (text: string) => {
-    if (!text.startsWith('+7')) {
-      if (text === '' || text === '+') { setPhone(''); return; }
-      const digits = text.replace(/\D/g, '');
-      setPhone(formatPhone('7' + digits));
-      return;
-    }
-    setPhone(formatPhone(text));
+  const handleLoginPhoneChange = (text: string) => {
+    if (text === '' || text === '+') { setLoginPhone(''); return; }
+    const digits = text.replace(/\D/g, '');
+    setLoginPhone(formatUzPhone(digits));
   };
 
-  const cleanPhone = phone.replace(/\D/g, '');
-  const isPhoneValid = cleanPhone.length === 11;
-  const isNameValid = name.trim().length >= 2;
+  const handleRegPhoneChange = (text: string) => {
+    if (text === '' || text === '+') { setRegPhone(''); return; }
+    const digits = text.replace(/\D/g, '');
+    setRegPhone(formatUzPhone(digits));
+  };
 
-  const handleContinue = async () => {
-    if (!isPhoneValid) return;
-    setIsLoading(true);
+  const loginPhoneDigits = loginPhone.replace(/\D/g, '');
+  const isLoginPhoneValid = loginPhoneDigits.length >= 9;
+  const isLoginValid = isLoginPhoneValid && loginPassword.length >= 4;
+
+  const regPhoneDigits = regPhone.replace(/\D/g, '');
+  const isRegPhoneValid = regPhoneDigits.length >= 9;
+  const isRegValid =
+    regName.trim().length >= 2 &&
+    regSurname.trim().length >= 2 &&
+    isRegPhoneValid &&
+    regPassword.length >= 6 &&
+    regPassword === regConfirm;
+
+  const handleLogin = async () => {
+    if (!isLoginValid) return;
+    setLoginLoading(true);
     try {
-      // Try login first; if user doesn't exist, ask for name
-      await login(cleanPhone);
-      // Success - user exists
+      const phone = getCleanPhone(loginPhone);
+      await login(phone, loginPassword);
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || '';
-      if (msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('не найден') || err?.response?.status === 404) {
-        // New user
-        setIsNewUser(true);
-        Animated.sequence([
-          Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-          Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        ]).start();
-        setStep('name');
+      const msg = err?.response?.data?.error || err?.message || 'Ошибка входа';
+      if (err?.response?.status === 404) {
+        Alert.alert('Не найден', 'Пользователь не зарегистрирован. Создайте аккаунт.', [
+          { text: 'Регистрация', onPress: () => switchTab('register') },
+          { text: 'ОК', style: 'cancel' },
+        ]);
       } else {
-        Alert.alert('Ошибка', msg || 'Не удалось войти. Попробуйте позже.');
+        Alert.alert('Ошибка', msg);
       }
     } finally {
-      setIsLoading(false);
+      setLoginLoading(false);
     }
   };
 
   const handleRegister = async () => {
-    if (!isNameValid) return;
-    setIsLoading(true);
+    if (!isRegValid) {
+      if (regPassword !== regConfirm) {
+        Alert.alert('Ошибка', 'Пароли не совпадают');
+        return;
+      }
+      if (regPassword.length < 6) {
+        Alert.alert('Ошибка', 'Пароль должен быть не менее 6 символов');
+        return;
+      }
+      return;
+    }
+    setRegLoading(true);
     try {
-      await login(cleanPhone, name.trim());
+      const phone = getCleanPhone(regPhone);
+      await register(phone, regName.trim(), regSurname.trim(), regPassword);
     } catch (err: any) {
-      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось зарегистрироваться.');
+      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось создать аккаунт');
     } finally {
-      setIsLoading(false);
+      setRegLoading(false);
     }
   };
+
+  const indicatorLeft = tabAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [4, (width - 48) / 2 + 4],
+  });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
+
       <LinearGradient
-        colors={isDark ? ['#1A1A3E', '#0F0F1E'] : ['#EEE8FF', '#F5F5F7']}
-        style={styles.topGradient}
+        colors={isDark ? ['#1A0A3E', '#0A0A1E'] : ['#EDE8FF', '#F5F3FF']}
+        style={StyleSheet.absoluteFill}
       />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}
+        style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Logo area */}
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Logo */}
           <View style={styles.logoArea}>
-            <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-              <Ionicons name="storefront" size={40} color="#FFFFFF" />
+            <View style={[styles.logoBox, { backgroundColor: colors.primary }]}>
+              <Ionicons name="storefront" size={36} color="#fff" />
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Axentis Market</Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
@@ -109,91 +171,220 @@ export default function LoginScreen() {
 
           {/* Card */}
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Animated.View style={{ opacity: fadeAnim }}>
-              {step === 'phone' ? (
-                <>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Вход в аккаунт</Text>
-                  <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                    Введите ваш номер телефона
-                  </Text>
-                  <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                    <Ionicons name="call-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      value={phone}
-                      onChangeText={handlePhoneChange}
-                      placeholder="+7 (___) ___-__-__"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="phone-pad"
-                      maxLength={18}
-                      autoFocus
+            {/* Tab switcher */}
+            <View style={[styles.tabBar, { backgroundColor: colors.inputBg }]}>
+              <Animated.View
+                style={[styles.tabIndicator, { backgroundColor: colors.primary, left: indicatorLeft }]}
+              />
+              <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('login')} activeOpacity={0.8}>
+                <Text style={[styles.tabText, { color: tab === 'login' ? '#fff' : colors.textSecondary }]}>
+                  Войти
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('register')} activeOpacity={0.8}>
+                <Text style={[styles.tabText, { color: tab === 'register' ? '#fff' : colors.textSecondary }]}>
+                  Регистрация
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {tab === 'login' ? (
+              <View style={{ marginTop: 24 }}>
+                <Text style={[styles.formTitle, { color: colors.text }]}>Вход в аккаунт</Text>
+
+                {/* Phone */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Номер телефона</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="call-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={loginPhone}
+                    onChangeText={handleLoginPhoneChange}
+                    placeholder="+998 XX XXX XX XX"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="phone-pad"
+                    maxLength={17}
+                  />
+                  {loginPhone.length > 0 && (
+                    <TouchableOpacity onPress={() => setLoginPhone('')}>
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Password */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Пароль</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={loginPassword}
+                    onChangeText={setLoginPassword}
+                    placeholder="Введите пароль"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!loginPassVisible}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setLoginPassVisible(v => !v)}>
+                    <Ionicons
+                      name={loginPassVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={18}
+                      color={colors.textMuted}
                     />
-                    {phone.length > 0 && (
-                      <TouchableOpacity onPress={() => setPhone('')}>
-                        <Ionicons name="close-circle" size={20} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.btn,
-                      { backgroundColor: isPhoneValid ? colors.primary : colors.border },
-                    ]}
-                    onPress={handleContinue}
-                    disabled={!isPhoneValid || isLoading}
-                    activeOpacity={0.8}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.btnText}>Продолжить</Text>
-                    )}
                   </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity onPress={() => { setStep('phone'); setIsNewUser(false); }} style={styles.backRow}>
-                    <Ionicons name="chevron-back" size={20} color={colors.primary} />
-                    <Text style={[styles.backText, { color: colors.primary }]}>Назад</Text>
-                  </TouchableOpacity>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>Регистрация</Text>
-                  <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-                    Введите ваше имя для создания аккаунта
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.btn, { backgroundColor: isLoginValid ? colors.primary : colors.border }]}
+                  onPress={handleLogin}
+                  disabled={!isLoginValid || loginLoading}
+                  activeOpacity={0.85}
+                >
+                  {loginLoading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.btnText}>Войти</Text>
+                  }
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => switchTab('register')} style={styles.switchHint}>
+                  <Text style={[styles.switchText, { color: colors.textSecondary }]}>
+                    Нет аккаунта?{' '}
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Зарегистрироваться</Text>
                   </Text>
-                  <View style={[styles.phoneBadge, { backgroundColor: colors.inputBg }]}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-                    <Text style={[styles.phoneBadgeText, { color: colors.text }]}>{phone}</Text>
-                  </View>
-                  <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                    <Ionicons name="person-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: colors.text }]}
-                      value={name}
-                      onChangeText={setName}
-                      placeholder="Ваше имя"
-                      placeholderTextColor={colors.textMuted}
-                      autoCapitalize="words"
-                      autoFocus
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ marginTop: 24 }}>
+                <Text style={[styles.formTitle, { color: colors.text }]}>Создать аккаунт</Text>
+
+                {/* Name */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Имя</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={regName}
+                    onChangeText={setRegName}
+                    placeholder="Ваше имя"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                  />
+                </View>
+
+                {/* Surname */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Фамилия</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={regSurname}
+                    onChangeText={setRegSurname}
+                    placeholder="Ваша фамилия"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                  />
+                </View>
+
+                {/* Phone */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Номер телефона</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="call-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={regPhone}
+                    onChangeText={handleRegPhoneChange}
+                    placeholder="+998 XX XXX XX XX"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="phone-pad"
+                    maxLength={17}
+                  />
+                  {regPhone.length > 0 && (
+                    <TouchableOpacity onPress={() => setRegPhone('')}>
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Password */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Пароль</Text>
+                <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={regPassword}
+                    onChangeText={setRegPassword}
+                    placeholder="Минимум 6 символов"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!regPassVisible}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setRegPassVisible(v => !v)}>
+                    <Ionicons
+                      name={regPassVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={18}
+                      color={colors.textMuted}
                     />
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.btn,
-                      { backgroundColor: isNameValid ? colors.primary : colors.border },
-                    ]}
-                    onPress={handleRegister}
-                    disabled={!isNameValid || isLoading}
-                    activeOpacity={0.8}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.btnText}>Создать аккаунт</Text>
-                    )}
                   </TouchableOpacity>
-                </>
-              )}
-            </Animated.View>
+                </View>
+
+                {/* Confirm password */}
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Повторите пароль</Text>
+                <View style={[
+                  styles.inputRow,
+                  {
+                    backgroundColor: colors.inputBg,
+                    borderColor: regConfirm.length > 0 && regConfirm !== regPassword
+                      ? colors.error
+                      : colors.border,
+                  },
+                ]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={regConfirm}
+                    onChangeText={setRegConfirm}
+                    placeholder="Повторите пароль"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!regConfirmVisible}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity onPress={() => setRegConfirmVisible(v => !v)}>
+                    <Ionicons
+                      name={regConfirmVisible ? 'eye-off-outline' : 'eye-outline'}
+                      size={18}
+                      color={
+                        regConfirm.length > 0 && regConfirm !== regPassword
+                          ? colors.error
+                          : colors.textMuted
+                      }
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {regConfirm.length > 0 && regConfirm !== regPassword && (
+                  <Text style={[styles.errorHint, { color: colors.error }]}>Пароли не совпадают</Text>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.btn, { backgroundColor: isRegValid ? colors.primary : colors.border, marginTop: 8 }]}
+                  onPress={handleRegister}
+                  disabled={!isRegValid || regLoading}
+                  activeOpacity={0.85}
+                >
+                  {regLoading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.btnText}>Создать аккаунт</Text>
+                  }
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={() => switchTab('login')} style={styles.switchHint}>
+                  <Text style={[styles.switchText, { color: colors.textSecondary }]}>
+                    Уже есть аккаунт?{' '}
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Войти</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
@@ -208,63 +399,75 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
-  keyboardView: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: 80 },
-  logoArea: { alignItems: 'center', marginBottom: 40 },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 60 },
+  logoArea: { alignItems: 'center', marginBottom: 32 },
+  logoBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
     shadowColor: '#7B5CF0',
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
     elevation: 8,
   },
-  appName: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
-  tagline: { fontSize: 15, marginTop: 6 },
+  appName: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  tagline: { fontSize: 14, marginTop: 4 },
   card: {
     borderRadius: 24,
     borderWidth: 1,
-    padding: 24,
+    padding: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 20,
-    elevation: 4,
+    elevation: 5,
   },
-  cardTitle: { fontSize: 22, fontWeight: '700', marginBottom: 6 },
-  cardSubtitle: { fontSize: 14, marginBottom: 24, lineHeight: 20 },
-  inputWrap: {
+  tabBar: {
+    flexDirection: 'row',
+    borderRadius: 14,
+    padding: 4,
+    position: 'relative',
+    height: 46,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    top: 4,
+    width: '50%',
+    height: 38,
+    borderRadius: 11,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  tabText: { fontSize: 14, fontWeight: '600' },
+  formTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  label: { fontSize: 13, fontWeight: '500', marginBottom: 6 },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    height: 54,
-    marginBottom: 20,
+    paddingHorizontal: 12,
+    height: 50,
+    marginBottom: 14,
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, fontSize: 16, height: '100%' },
+  inputIcon: { marginRight: 8 },
+  input: { flex: 1, fontSize: 15, height: '100%' },
   btn: {
-    height: 54,
+    height: 52,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 4,
   },
-  btnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  switchHint: { alignItems: 'center', marginTop: 16 },
+  switchText: { fontSize: 13 },
+  errorHint: { fontSize: 12, marginTop: -10, marginBottom: 10 },
   disclaimer: { textAlign: 'center', fontSize: 12, marginTop: 24, lineHeight: 18 },
-  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  backText: { fontSize: 14, fontWeight: '500' },
-  phoneBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  phoneBadgeText: { fontSize: 14, fontWeight: '500' },
 });
