@@ -20,6 +20,8 @@ services:
       dockerfile: Dockerfile
     container_name: axentis-market-backend
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     env_file:
       - ./backend/.env
     depends_on:
@@ -37,9 +39,7 @@ services:
     container_name: axentis-market-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
-    depends_on:
-      - backend
+      - "5173:80"
     networks:
       - axentis-network
 
