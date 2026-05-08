@@ -4,6 +4,7 @@ export interface User {
   id: number;
   phone: string;
   name: string;
+  surname?: string;
   avatarUrl?: string;
   mode?: 'public' | 'private';
   privateCompanyId?: number;
@@ -190,6 +191,7 @@ export type RootStackParamList = {
   AddressSelect: undefined;
   PaymentCards: undefined;
   CompanyStore: { companyId: number };
+  CompanyDetail: { companyId: number };
 };
 
 export type MainTabParamList = {

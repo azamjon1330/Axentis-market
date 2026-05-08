@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
-  FlatList, Dimensions, ActivityIndicator, Alert, Share,
+  FlatList, Dimensions, ActivityIndicator, Alert, Share, TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { getProductDetail, getProductReviews, getProductReviewStats, toggleFavorite, checkFavorite, getSimilarProducts } from '../../api';
+import {
+  getProductDetail, getProductReviews, getProductReviewStats,
+  toggleFavorite, checkFavorite, getSimilarProducts,
+  submitReview, voteReview,
+} from '../../api';
 import { Product, Review, ReviewStats, RootStackParamList } from '../../types';
 import { UPLOADS_URL } from '../../constants/Api';
 import ProductCard from '../../components/common/ProductCard';
@@ -38,6 +42,10 @@ export default function ProductDetailScreen() {
   const [addedToCart, setAddedToCart] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [votedReviews, setVotedReviews] = useState<Record<number, 'like' | 'dislike'>>({});
+  const [newRating, setNewRating] = useState(5);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const imgRef = useRef<ScrollView>(null);
 
   const inCart = items.some(i => i.productId === productId);
@@ -102,6 +110,45 @@ export default function ProductDetailScreen() {
   const handleShare = async () => {
     if (!product) return;
     await Share.share({ message: `${product.name} — ${(product.sellingPrice || product.price).toLocaleString('ru-RU')} сум` });
+  };
+
+  const handleVote = async (reviewId: number, voteType: 'like' | 'dislike') => {
+    if (!user) return;
+    if (votedReviews[reviewId]) return;
+    try {
+      await voteReview(reviewId, user.phone, voteType);
+      setVotedReviews(prev => ({ ...prev, [reviewId]: voteType }));
+      setReviews(prev => prev.map(r => {
+        if (r.id !== reviewId) return r;
+        return {
+          ...r,
+          likes: voteType === 'like' ? r.likes + 1 : r.likes,
+          dislikes: voteType === 'dislike' ? r.dislikes + 1 : r.dislikes,
+        };
+      }));
+    } catch { /* ignore */ }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!user || !product) return;
+    setIsSubmittingReview(true);
+    try {
+      const review = await submitReview({
+        product_id: productId,
+        user_phone: user.phone,
+        user_name: user.name,
+        rating: newRating,
+        comment: newComment.trim() || undefined,
+      });
+      setReviews(prev => [review, ...prev]);
+      setNewComment('');
+      setNewRating(5);
+      Alert.alert('Спасибо!', 'Ваш отзыв добавлен');
+    } catch (err: any) {
+      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить отзыв');
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   if (isLoading) {
@@ -226,7 +273,7 @@ export default function ProductDetailScreen() {
               {stats?.averageRating?.toFixed(1) || '4.8'}
             </Text>
             <Text style={[styles.ratingCount, { color: colors.textMuted }]}>
-              · {stats?.totalReviews ? `Более ${stats.totalReviews} отзывов` : 'Более 1000 покупок'}
+              · {stats?.totalReviews ? `${stats.totalReviews} отзывов` : 'Нет отзывов'}
             </Text>
           </View>
 
@@ -266,7 +313,7 @@ export default function ProductDetailScreen() {
           <View style={[styles.deliveryBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
             <Text style={[styles.deliveryText, { color: colors.text }]}>
-              Курьером, 24 мая — <Text style={{ color: colors.success }}>бесплатно</Text>
+              Курьером · <Text style={{ color: colors.success }}>Доставка доступна</Text>
             </Text>
           </View>
 
@@ -275,11 +322,12 @@ export default function ProductDetailScreen() {
             <Text style={[styles.sectionLabel, { color: colors.text }]}>О товаре</Text>
             <Text
               style={[styles.desc, { color: colors.textSecondary }]}
-              numberOfLines={showFullDesc ? undefined : 3}
+              numberOfLines={showFullDesc ? undefined : 4}
             >
-              {product.name} — это качественный товар от проверенного продавца.
-              Категория: {product.category || 'Общее'}. Артикул: {product.barcode || product.id}.
-              Доступное количество: {product.quantity} шт.
+              {product.description
+                ? product.description
+                : `${product.name}. Категория: ${product.category || 'Общее'}. Артикул: ${product.barcode || product.id}. Доступно: ${product.quantity} шт.`
+              }
             </Text>
             <TouchableOpacity onPress={() => setShowFullDesc(p => !p)}>
               <Text style={[styles.showMore, { color: colors.primary }]}>
@@ -288,13 +336,78 @@ export default function ProductDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Company */}
+          {product.companyId ? (
+            <TouchableOpacity
+              style={[styles.companyRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => navigation.navigate('CompanyStore', { companyId: product.companyId })}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.companyIcon, { backgroundColor: colors.primary + '20' }]}>
+                <Ionicons name="storefront-outline" size={20} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.companyLabel, { color: colors.textMuted }]}>Продавец</Text>
+                <Text style={[styles.companyName, { color: colors.text }]}>
+                  {product.companyName || `Магазин #${product.companyId}`}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+
+          {/* Write Review */}
+          {user ? (
+            <View style={[styles.writeReviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>Написать отзыв</Text>
+              <View style={styles.starRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <TouchableOpacity key={s} onPress={() => setNewRating(s)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    <Ionicons
+                      name={s <= newRating ? 'star' : 'star-outline'}
+                      size={30}
+                      color={colors.star}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={[styles.reviewInput, {
+                  backgroundColor: colors.inputBg,
+                  color: colors.text,
+                  borderColor: colors.border,
+                }]}
+                placeholder="Поделитесь впечатлениями..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={3}
+                value={newComment}
+                onChangeText={setNewComment}
+              />
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                onPress={handleSubmitReview}
+                disabled={isSubmittingReview}
+                activeOpacity={0.85}
+              >
+                {isSubmittingReview ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.submitBtnText}>Отправить отзыв</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           {/* Reviews */}
-          {reviews.length > 0 && (
-            <View style={styles.reviewsSection}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>
-                Отзывы ({reviews.length})
-              </Text>
-              {reviews.slice(0, 3).map((review) => (
+          <View style={styles.reviewsSection}>
+            <Text style={[styles.sectionLabel, { color: colors.text }]}>
+              Отзывы {reviews.length > 0 ? `(${reviews.length})` : ''}
+            </Text>
+            {reviews.length === 0 ? (
+              <Text style={[styles.noReviews, { color: colors.textMuted }]}>Нет отзывов. Будьте первым!</Text>
+            ) : (
+              reviews.map((review) => (
                 <View
                   key={review.id}
                   style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -317,13 +430,56 @@ export default function ProductDetailScreen() {
                       {new Date(review.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
                     </Text>
                   </View>
-                  {review.comment && (
+                  {review.comment ? (
                     <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{review.comment}</Text>
-                  )}
+                  ) : null}
+                  {/* Like / Dislike */}
+                  <View style={styles.voteRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.voteBtn,
+                        { backgroundColor: votedReviews[review.id] === 'like' ? colors.primary + '20' : colors.inputBg },
+                      ]}
+                      onPress={() => handleVote(review.id, 'like')}
+                      disabled={!!votedReviews[review.id]}
+                    >
+                      <Ionicons
+                        name="thumbs-up-outline"
+                        size={14}
+                        color={votedReviews[review.id] === 'like' ? colors.primary : colors.textMuted}
+                      />
+                      <Text style={[
+                        styles.voteCount,
+                        { color: votedReviews[review.id] === 'like' ? colors.primary : colors.textMuted },
+                      ]}>
+                        {review.likes}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.voteBtn,
+                        { backgroundColor: votedReviews[review.id] === 'dislike' ? colors.error + '20' : colors.inputBg },
+                      ]}
+                      onPress={() => handleVote(review.id, 'dislike')}
+                      disabled={!!votedReviews[review.id]}
+                    >
+                      <Ionicons
+                        name="thumbs-down-outline"
+                        size={14}
+                        color={votedReviews[review.id] === 'dislike' ? colors.error : colors.textMuted}
+                      />
+                      <Text style={[
+                        styles.voteCount,
+                        { color: votedReviews[review.id] === 'dislike' ? colors.error : colors.textMuted },
+                      ]}>
+                        {review.dislikes}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              ))}
-            </View>
-          )}
+              ))
+            )}
+          </View>
 
           {/* Similar */}
           {similar.length > 0 && (
@@ -448,12 +604,7 @@ const styles = StyleSheet.create({
   colorSection: { marginBottom: 16 },
   sectionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
   colorRow: { flexDirection: 'row', gap: 10 },
-  colorCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 2,
-  },
+  colorCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2 },
   colorSelected: { transform: [{ scale: 1.15 }] },
   deliveryBox: {
     flexDirection: 'row',
@@ -465,10 +616,52 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   deliveryText: { fontSize: 14 },
-  descSection: { marginBottom: 20 },
+  descSection: { marginBottom: 16 },
   desc: { fontSize: 14, lineHeight: 21 },
   showMore: { fontSize: 13, fontWeight: '500', marginTop: 6 },
+  companyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  companyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  companyLabel: { fontSize: 11, marginBottom: 2 },
+  companyName: { fontSize: 15, fontWeight: '600' },
+  writeReviewCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    gap: 12,
+  },
+  starRow: { flexDirection: 'row', gap: 6 },
+  reviewInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    fontSize: 14,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  submitBtn: {
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   reviewsSection: { marginBottom: 20 },
+  noReviews: { fontSize: 14, marginTop: 4 },
   reviewCard: {
     borderRadius: 14,
     borderWidth: 1,
@@ -487,7 +680,17 @@ const styles = StyleSheet.create({
   reviewName: { fontSize: 14, fontWeight: '600' },
   reviewStars: { flexDirection: 'row', gap: 2, marginTop: 2 },
   reviewDate: { fontSize: 12 },
-  reviewComment: { fontSize: 14, lineHeight: 20 },
+  reviewComment: { fontSize: 14, lineHeight: 20, marginBottom: 10 },
+  voteRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
+  voteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  voteCount: { fontSize: 12, fontWeight: '600' },
   similarSection: { marginBottom: 20 },
   similarCard: {
     width: 130,

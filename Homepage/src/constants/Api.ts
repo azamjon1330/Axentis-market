@@ -40,4 +40,6 @@ export const ENDPOINTS = {
   reviews: '/reviews',
   reviewVote: (id: number) => `/reviews/${id}/vote`,
   paymentCards: (phone: string) => `/payment-cards/${phone}`,
+  companySubscribe: (id: number) => `/companies/${id}/subscribe`,
+  companyUnsubscribe: (id: number) => `/companies/${id}/unsubscribe`,
 };

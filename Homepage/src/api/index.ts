@@ -235,6 +235,15 @@ export const getCompanyDetail = async (id: number): Promise<Company> => {
   return res.data;
 };
 
+// ─── Company Subscribe ────────────────────────────────────────────────────────
+export const subscribeToCompany = async (companyId: number, userPhone: string): Promise<void> => {
+  await api.post(ENDPOINTS.companySubscribe(companyId), { user_phone: userPhone });
+};
+
+export const unsubscribeFromCompany = async (companyId: number, userPhone: string): Promise<void> => {
+  await api.post(ENDPOINTS.companyUnsubscribe(companyId), { user_phone: userPhone });
+};
+
 // ─── User Profile ─────────────────────────────────────────────────────────────
 export const getUserProfile = async (phone: string): Promise<User> => {
   const res = await api.get(ENDPOINTS.userProfile(phone));

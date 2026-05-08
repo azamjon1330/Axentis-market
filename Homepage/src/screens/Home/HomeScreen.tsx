@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
   Image, RefreshControl, ActivityIndicator, Dimensions, Animated,
@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { getProducts, getCategories, getAds } from '../../api';
+import { getLocalSubs } from '../Company/CompanyStoreScreen';
 import { Product, Category, Ad } from '../../types';
 import { RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
@@ -52,8 +53,24 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [subscribedIds, setSubscribedIds] = useState<number[]>([]);
   const bannerRef = useRef<ScrollView>(null);
   const bannerTimer = useRef<ReturnType<typeof setInterval>>();
+
+  // Products weighted by subscription: subscribed company products appear 2x more often
+  const weightedProducts = useMemo(() => {
+    if (subscribedIds.length === 0) return products;
+    const subbed = products.filter(p => subscribedIds.includes(p.companyId));
+    const others = products.filter(p => !subscribedIds.includes(p.companyId));
+    const result: Product[] = [];
+    let s = 0, o = 0;
+    while (s < subbed.length || o < others.length) {
+      if (s < subbed.length) result.push(subbed[s++]);
+      if (s < subbed.length && s < subbed.length) result.push(subbed[s++]);
+      if (o < others.length) result.push(others[o++]);
+    }
+    return result;
+  }, [products, subscribedIds]);
 
   const loadData = useCallback(async () => {
     try {
@@ -79,6 +96,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadData();
+    getLocalSubs().then(setSubscribedIds);
   }, [loadData]);
 
   useEffect(() => {
@@ -314,7 +332,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
         <View style={styles.productsGrid}>
-          {products.slice(0, 6).map((item) => (
+          {weightedProducts.slice(0, 6).map((item) => (
             <ProductCard
               key={item.id}
               product={item}
