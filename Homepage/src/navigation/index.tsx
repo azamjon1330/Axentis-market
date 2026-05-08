@@ -12,7 +12,6 @@ import { RootStackParamList, MainTabParamList } from '../types';
 // Screens
 import LoginScreen from '../screens/Auth/LoginScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
-import CatalogScreen from '../screens/Catalog/CatalogScreen';
 import CategoryProductsScreen from '../screens/Catalog/CategoryProductsScreen';
 import CartScreen from '../screens/Cart/CartScreen';
 import FavoritesScreen from '../screens/Favorites/FavoritesScreen';
@@ -73,16 +72,6 @@ function MainTabs() {
           tabBarLabel: 'Главная',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Catalog"
-        component={CatalogScreen}
-        options={{
-          tabBarLabel: 'Каталог',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
           ),
         }}
       />
