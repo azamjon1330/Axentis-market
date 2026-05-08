@@ -9,10 +9,17 @@
       "Bash(python3 -m json.tool)",
       "Bash(curl -s \"http://109.123.253.238:3000/api/cart/79161234567\")",
       "Bash(curl -s \"http://109.123.253.238:3000/api/orders?limit=2\")",
-      "PowerShell(New-Item -ItemType Directory -Path \"D:\\\\app\\\\Birzumda\\\\Homepage\\\\assets\" -Force)"
+      "PowerShell(New-Item -ItemType Directory -Path \"D:\\\\app\\\\Birzumda\\\\Homepage\\\\assets\" -Force)",
+      "PowerShell(Resolve-DnsName axentis.uz -Type A)",
+      "Bash(bash deploy.sh)",
+      "Bash(where sshpass *)",
+      "Read(//c/Program Files/PuTTY/**)",
+      "Bash(python3 -)",
+      "PowerShell(python --version)"
     ],
     "additionalDirectories": [
-      "D:\\app\\Birzumda\\Homepage\\.git"
+      "D:\\app\\Birzumda\\Homepage\\.git",
+      "\\dev"
     ]
   }
 }
