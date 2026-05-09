@@ -131,6 +131,7 @@ export interface Review {
   likes: number;
   dislikes: number;
   createdAt: string;
+  userVote?: 'like' | 'dislike' | null;
 }
 
 export interface ReviewStats {

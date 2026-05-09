@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
-import { getFavorites, toggleFavorite } from '../../api';
+import { useFavorites } from '../../context/FavoritesContext';
 import { Product, RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
 
@@ -17,41 +16,18 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function FavoritesScreen() {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
   const navigation = useNavigation<Nav>();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { products, isLoading, toggle, refresh } = useFavorites();
   const [refreshing, setRefreshing] = useState(false);
-
-  const load = useCallback(async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const data = await getFavorites(user.phone);
-      setProducts(data);
-    } catch {
-      setProducts([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => { load(); }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await refresh();
     setRefreshing(false);
   };
 
   const handleRemoveFavorite = async (product: Product) => {
-    if (!user) return;
-    try {
-      await toggleFavorite(user.phone, product.id);
-      setProducts(prev => prev.filter(p => p.id !== product.id));
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось удалить из избранного');
-    }
+    await toggle(product.id);
   };
 
   if (isLoading) {

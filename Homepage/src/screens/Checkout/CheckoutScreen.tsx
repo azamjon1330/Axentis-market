@@ -14,7 +14,7 @@ import { createOrder } from '../../api';
 import { RootStackParamList } from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type DeliveryType = 'delivery' | 'pickup';
+type DeliveryType = 'delivery';
 type PaymentMethod = 'cash' | 'card';
 type CardSubtype = 'uzcard' | 'humo' | 'visa' | 'mastercard';
 
@@ -67,17 +67,19 @@ export default function CheckoutScreen() {
       const companyItems = groups[Number(firstCompanyId)];
 
       const orderData = {
-        companyId: Number(firstCompanyId),
+        companyId: Number(firstCompanyId) || undefined,
         customerName: recipientName || user.name,
         customerPhone: user.phone,
         items: companyItems.map(i => ({
           productId: i.productId,
+          productName: i.product?.name || 'Товар',
           quantity: i.quantity,
           price: i.product?.sellingPrice || i.product?.price || 0,
+          imageUrl: i.product?.images?.[0] || undefined,
         })),
         totalAmount: total + deliveryCost,
-        deliveryType: deliveryType,
-        deliveryAddress: deliveryType === 'delivery' ? address : undefined,
+        deliveryType: 'delivery' as DeliveryType,
+        deliveryAddress: address,
         deliveryCost: deliveryCost,
         paymentMethod: paymentMethod,
         cardSubtype: paymentMethod === 'card' ? cardSubtype : undefined,
@@ -156,41 +158,14 @@ export default function CheckoutScreen() {
         {step === 0 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Способ доставки</Text>
-              {[
-                { key: 'delivery' as DeliveryType, label: 'Курьером', sublabel: '24 мая, с 10:00 до 13:00', price: 'Бесплатно' },
-                { key: 'pickup' as DeliveryType, label: 'Пункт выдачи', sublabel: 'Завтра, с 10:00', price: 'Бесплатно' },
-              ].map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[
-                    styles.optionRow,
-                    {
-                      borderColor: deliveryType === opt.key ? colors.primary : colors.border,
-                      backgroundColor: deliveryType === opt.key ? colors.primary + '10' : colors.surface,
-                    },
-                  ]}
-                  onPress={() => setDeliveryType(opt.key)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[
-                    styles.radioOuter,
-                    { borderColor: deliveryType === opt.key ? colors.primary : colors.border },
-                  ]}>
-                    {deliveryType === opt.key && (
-                      <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.optionLabel, { color: colors.text }]}>{opt.label}</Text>
-                    <Text style={[styles.optionSub, { color: colors.textMuted }]}>{opt.sublabel}</Text>
-                  </View>
-                  <Text style={[styles.optionPrice, { color: colors.success }]}>{opt.price}</Text>
-                </TouchableOpacity>
-              ))}
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
+              <View style={[styles.deliveryBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '40' }]}>
+                <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
+                <Text style={[styles.deliveryBadgeText, { color: colors.primary }]}>Курьерская доставка · Бесплатно</Text>
+              </View>
             </View>
 
-            {deliveryType === 'delivery' && (
+            {true && (
               <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
                 <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
@@ -336,7 +311,7 @@ export default function CheckoutScreen() {
               <View style={styles.confirmRow}>
                 <Ionicons name="bicycle-outline" size={16} color={colors.textSecondary} />
                 <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
-                  {deliveryType === 'delivery' ? `Курьером, ${address}` : 'Самовывоз'}
+                  Курьером{address ? `, ${address}` : ''}
                 </Text>
               </View>
             </View>
@@ -456,6 +431,15 @@ const styles = StyleSheet.create({
   optionLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
   optionSub: { fontSize: 12, marginTop: 2 },
   optionPrice: { fontSize: 13, fontWeight: '600' },
+  deliveryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  deliveryBadgeText: { fontSize: 14, fontWeight: '600' },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',

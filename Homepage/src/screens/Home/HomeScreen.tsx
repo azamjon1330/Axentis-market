@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import { getProducts, getCategories } from '../../api';
 import { getLocalSubs } from '../Company/CompanyStoreScreen';
 import { Product, Category, RootStackParamList } from '../../types';
@@ -41,6 +42,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { count: cartCount } = useCart();
+  const { isFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation<Nav>();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -221,7 +223,8 @@ export default function HomeScreen() {
             <ProductCard
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-              onFavorite={() => {}}
+              onFavorite={() => toggleFav(item.id, item)}
+              isFavorite={isFavorite(item.id)}
             />
           </View>
         )}

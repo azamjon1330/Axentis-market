@@ -64,10 +64,11 @@ const mapReview = (r: any): Review => ({
   likes: r.likes ?? 0,
   dislikes: r.dislikes ?? 0,
   createdAt: r.createdAt ?? r.created_at,
+  userVote: r.user_vote ?? null,
 });
 
-export const getProductReviews = async (id: number): Promise<Review[]> => {
-  const res = await api.get(ENDPOINTS.productReviews(id));
+export const getProductReviews = async (id: number, userPhone?: string): Promise<Review[]> => {
+  const res = await api.get(ENDPOINTS.productReviews(id), { params: userPhone ? { user_phone: userPhone } : undefined });
   const raw = Array.isArray(res.data) ? res.data : (res.data?.reviews || []);
   return raw.map(mapReview);
 };
@@ -217,14 +218,42 @@ export const createOrder = async (data: {
   return res.data;
 };
 
+const mapOrder = (o: any): Order => ({
+  id: o.id,
+  companyId: o.companyId ?? o.company_id ?? 0,
+  customerName: o.customerName ?? o.customer_name ?? '',
+  customerPhone: o.customerPhone ?? o.customer_phone ?? '',
+  address: o.address,
+  items: Array.isArray(o.items) ? o.items.map((i: any) => ({
+    productId: i.productId ?? i.product_id ?? 0,
+    productName: i.productName ?? i.product_name ?? i.name ?? 'Товар',
+    quantity: i.quantity ?? 1,
+    price: i.price ?? 0,
+    imageUrl: i.imageUrl ?? i.image_url,
+  })) : [],
+  totalAmount: o.totalAmount ?? o.total_amount ?? 0,
+  status: o.status ?? 'pending',
+  comment: o.comment,
+  orderCode: o.orderCode ?? o.order_code ?? '',
+  deliveryCost: o.deliveryCost ?? o.delivery_cost,
+  deliveryType: o.deliveryType ?? o.delivery_type,
+  recipientName: o.recipientName ?? o.recipient_name,
+  deliveryAddress: o.deliveryAddress ?? o.delivery_address,
+  paymentMethod: o.paymentMethod ?? o.payment_method,
+  cardSubtype: o.cardSubtype ?? o.card_subtype,
+  createdAt: o.createdAt ?? o.created_at ?? '',
+  updatedAt: o.updatedAt ?? o.updated_at ?? o.createdAt ?? o.created_at ?? '',
+});
+
 export const getUserOrders = async (phone: string, status?: string): Promise<Order[]> => {
   const res = await api.get(ENDPOINTS.orders, { params: { customer_phone: phone, status } });
-  return Array.isArray(res.data) ? res.data : (res.data?.orders || []);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.orders || []);
+  return raw.map(mapOrder);
 };
 
 export const getOrderDetail = async (id: number): Promise<Order> => {
   const res = await api.get(ENDPOINTS.orderDetail(id));
-  return res.data;
+  return mapOrder(res.data);
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -278,6 +307,16 @@ export const getCompanyDetail = async (id: number): Promise<Company> => {
   return res.data;
 };
 
+export const getCompanyStats = async (id: number): Promise<{
+  subscribers: number;
+  total_products: number;
+  total_sales: number;
+  views: number;
+}> => {
+  const res = await api.get(ENDPOINTS.companyStats(id));
+  return res.data;
+};
+
 // ─── Company Subscribe ────────────────────────────────────────────────────────
 export const subscribeToCompany = async (companyId: number, userPhone: string): Promise<void> => {
   await api.post(ENDPOINTS.companySubscribe(companyId), { user_phone: userPhone });
@@ -301,7 +340,7 @@ export const getPaymentCards = async (phone: string): Promise<PaymentCard[]> => 
 
 export const addPaymentCard = async (data: {
   userPhone: string;
-  cardNumberLast4: string;
+  cardNumber: string;
   cardExpiry: string;
   cardHolderFirstName: string;
   cardHolderLastName: string;

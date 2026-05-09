@@ -10,10 +10,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useFavorites } from '../../context/FavoritesContext';
 import {
   getProductDetail, getProductReviews, getProductReviewStats,
-  toggleFavorite, checkFavorite, getSimilarProducts,
-  submitReview, voteReview,
+  getSimilarProducts, submitReview, voteReview,
 } from '../../api';
 import { Product, Review, ReviewStats, RootStackParamList } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -27,6 +27,7 @@ export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { addItem, items } = useCart();
+  const { isFavorite: ctxIsFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { productId } = route.params;
@@ -36,16 +37,16 @@ export default function ProductDetailScreen() {
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [imgIndex, setImgIndex] = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
-  const [votedReviews, setVotedReviews] = useState<Record<number, 'like' | 'dislike'>>({});
+  const [votedReviews, setVotedReviews] = useState<Record<number, 'like' | 'dislike' | null>>({});
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [imgErrors, setImgErrors] = useState<Record<number, boolean>>({});
   const imgRef = useRef<ScrollView>(null);
 
   const inCart = items.some(i => i.productId === productId);
@@ -59,21 +60,22 @@ export default function ProductDetailScreen() {
     try {
       const [prodData, revData, statsData, simData] = await Promise.allSettled([
         getProductDetail(productId),
-        getProductReviews(productId),
+        getProductReviews(productId, user?.phone),
         getProductReviewStats(productId),
         getSimilarProducts(productId),
       ]);
       if (prodData.status === 'fulfilled') setProduct(prodData.value);
-      if (revData.status === 'fulfilled') setReviews(revData.value);
+      if (revData.status === 'fulfilled') {
+        setReviews(revData.value);
+        const initialVotes: Record<number, 'like' | 'dislike' | null> = {};
+        revData.value.forEach(r => {
+          if (r.userVote) initialVotes[r.id] = r.userVote;
+        });
+        setVotedReviews(initialVotes);
+      }
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (simData.status === 'fulfilled') setSimilar(simData.value.slice(0, 6));
 
-      if (user && prodData.status === 'fulfilled') {
-        try {
-          const fav = await checkFavorite(user.phone, productId);
-          setIsFavorite(fav);
-        } catch { /* ignore */ }
-      }
     } catch {
       // ignore
     } finally {
@@ -81,12 +83,9 @@ export default function ProductDetailScreen() {
     }
   };
 
-  const handleFavorite = async () => {
+  const handleFavorite = () => {
     if (!user) return;
-    try {
-      const res = await toggleFavorite(user.phone, productId);
-      setIsFavorite(res.added);
-    } catch { /* ignore */ }
+    toggleFav(productId, product ?? undefined);
   };
 
   const handleAddToCart = async () => {
@@ -124,19 +123,38 @@ export default function ProductDetailScreen() {
 
   const handleVote = async (reviewId: number, voteType: 'like' | 'dislike') => {
     if (!user) return;
-    if (votedReviews[reviewId]) return;
+    const currentVote = votedReviews[reviewId] ?? null;
+
+    // Optimistic UI update
+    const newVote = currentVote === voteType ? null : voteType;
+    setVotedReviews(prev => ({ ...prev, [reviewId]: newVote }));
+    setReviews(prev => prev.map(r => {
+      if (r.id !== reviewId) return r;
+      let likes = r.likes;
+      let dislikes = r.dislikes;
+      if (currentVote === 'like') likes = Math.max(0, likes - 1);
+      if (currentVote === 'dislike') dislikes = Math.max(0, dislikes - 1);
+      if (newVote === 'like') likes = likes + 1;
+      if (newVote === 'dislike') dislikes = dislikes + 1;
+      return { ...r, likes, dislikes };
+    }));
+
     try {
       await voteReview(reviewId, user.phone, voteType);
-      setVotedReviews(prev => ({ ...prev, [reviewId]: voteType }));
+    } catch {
+      // Revert on failure
+      setVotedReviews(prev => ({ ...prev, [reviewId]: currentVote }));
       setReviews(prev => prev.map(r => {
         if (r.id !== reviewId) return r;
-        return {
-          ...r,
-          likes: voteType === 'like' ? r.likes + 1 : r.likes,
-          dislikes: voteType === 'dislike' ? r.dislikes + 1 : r.dislikes,
-        };
+        let likes = r.likes;
+        let dislikes = r.dislikes;
+        if (newVote === 'like') likes = Math.max(0, likes - 1);
+        if (newVote === 'dislike') dislikes = Math.max(0, dislikes - 1);
+        if (currentVote === 'like') likes = likes + 1;
+        if (currentVote === 'dislike') dislikes = dislikes + 1;
+        return { ...r, likes, dislikes };
       }));
-    } catch { /* ignore */ }
+    }
   };
 
   const handleSubmitReview = async () => {
@@ -199,9 +217,9 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
           <TouchableOpacity onPress={handleFavorite} style={[styles.topBtn, { backgroundColor: colors.surface }]}>
             <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
+              name={ctxIsFavorite(productId) ? 'heart' : 'heart-outline'}
               size={20}
-              color={isFavorite ? colors.error : colors.text}
+              color={ctxIsFavorite(productId) ? colors.error : colors.text}
             />
           </TouchableOpacity>
         </View>
@@ -222,12 +240,19 @@ export default function ProductDetailScreen() {
                 }}
               >
                 {images.map((img, i) => (
-                  <Image
-                    key={i}
-                    source={{ uri: getImageUrl(img) || '' }}
-                    style={[styles.mainImg, { width }]}
-                    resizeMode="contain"
-                  />
+                  imgErrors[i] ? (
+                    <View key={i} style={[styles.noImg, { width }]}>
+                      <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
+                    </View>
+                  ) : (
+                    <Image
+                      key={i}
+                      source={{ uri: getImageUrl(img) || '' }}
+                      style={[styles.mainImg, { width }]}
+                      resizeMode="contain"
+                      onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
+                    />
+                  )
                 ))}
               </ScrollView>
               {images.length > 1 && (
@@ -451,10 +476,9 @@ export default function ProductDetailScreen() {
                         { backgroundColor: votedReviews[review.id] === 'like' ? colors.primary + '20' : colors.inputBg },
                       ]}
                       onPress={() => handleVote(review.id, 'like')}
-                      disabled={!!votedReviews[review.id]}
                     >
                       <Ionicons
-                        name="thumbs-up-outline"
+                        name={votedReviews[review.id] === 'like' ? 'thumbs-up' : 'thumbs-up-outline'}
                         size={14}
                         color={votedReviews[review.id] === 'like' ? colors.primary : colors.textMuted}
                       />
@@ -471,10 +495,9 @@ export default function ProductDetailScreen() {
                         { backgroundColor: votedReviews[review.id] === 'dislike' ? colors.error + '20' : colors.inputBg },
                       ]}
                       onPress={() => handleVote(review.id, 'dislike')}
-                      disabled={!!votedReviews[review.id]}
                     >
                       <Ionicons
-                        name="thumbs-down-outline"
+                        name={votedReviews[review.id] === 'dislike' ? 'thumbs-down' : 'thumbs-down-outline'}
                         size={14}
                         color={votedReviews[review.id] === 'dislike' ? colors.error : colors.textMuted}
                       />

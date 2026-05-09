@@ -29,10 +29,9 @@ export default function PaymentCardsScreen() {
   const [saving, setSaving] = useState(false);
 
   const [cardType, setCardType] = useState<'uzcard' | 'humo' | 'visa' | 'mastercard'>('uzcard');
-  const [last4, setLast4] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [holderName, setHolderName] = useState('');
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -50,34 +49,37 @@ export default function PaymentCardsScreen() {
 
   const resetForm = () => {
     setCardType('uzcard');
-    setLast4('');
+    setCardNumber('');
     setExpiry('');
-    setFirstName('');
-    setLastName('');
+    setHolderName('');
   };
 
   const handleSave = async () => {
     if (!user) return;
-    if (last4.length !== 4 || !/^\d{4}$/.test(last4)) {
-      Alert.alert('Ошибка', 'Введите последние 4 цифры номера карты');
+    const digits = cardNumber.replace(/\s/g, '');
+    if (digits.length !== 16 || !/^\d{16}$/.test(digits)) {
+      Alert.alert('Ошибка', 'Введите полный 16-значный номер карты');
       return;
     }
     if (!/^\d{2}\/\d{2}$/.test(expiry)) {
       Alert.alert('Ошибка', 'Введите срок в формате ММ/ГГ');
       return;
     }
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Ошибка', 'Введите имя и фамилию держателя карты');
+    if (!holderName.trim()) {
+      Alert.alert('Ошибка', 'Введите имя держателя карты');
       return;
     }
+    const nameParts = holderName.trim().split(/\s+/);
+    const first = nameParts[0];
+    const last = nameParts.slice(1).join(' ') || ' ';
     setSaving(true);
     try {
       const card = await addPaymentCard({
         userPhone: user.phone,
-        cardNumberLast4: last4,
+        cardNumber: digits,
         cardExpiry: expiry,
-        cardHolderFirstName: firstName.trim(),
-        cardHolderLastName: lastName.trim(),
+        cardHolderFirstName: first,
+        cardHolderLastName: last,
         cardType,
       });
       setCards(prev => [...prev, card]);
@@ -116,6 +118,12 @@ export default function PaymentCardsScreen() {
     } catch {
       Alert.alert('Ошибка', 'Не удалось установить карту по умолчанию');
     }
+  };
+
+  const handleCardNumberChange = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, 16);
+    const formatted = digits.replace(/(.{4})/g, '$1 ').trim();
+    setCardNumber(formatted);
   };
 
   const handleExpiryChange = (text: string) => {
@@ -247,15 +255,15 @@ export default function PaymentCardsScreen() {
               ))}
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Последние 4 цифры</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Номер карты</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="1234"
+              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border, letterSpacing: 2 }]}
+              placeholder="1234 5678 9012 3456"
               placeholderTextColor={colors.textMuted}
-              value={last4}
-              onChangeText={(t) => setLast4(t.replace(/\D/g, '').slice(0, 4))}
+              value={cardNumber}
+              onChangeText={handleCardNumberChange}
               keyboardType="number-pad"
-              maxLength={4}
+              maxLength={19}
             />
 
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Срок действия</Text>
@@ -272,20 +280,10 @@ export default function PaymentCardsScreen() {
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Имя держателя</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="Имя"
+              placeholder="Имя Фамилия"
               placeholderTextColor={colors.textMuted}
-              value={firstName}
-              onChangeText={setFirstName}
-              autoCapitalize="words"
-            />
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Фамилия держателя</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="Фамилия"
-              placeholderTextColor={colors.textMuted}
-              value={lastName}
-              onChangeText={setLastName}
+              value={holderName}
+              onChangeText={setHolderName}
               autoCapitalize="words"
             />
 

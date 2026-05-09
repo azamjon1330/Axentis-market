@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
+import { FavoritesProvider } from './src/context/FavoritesContext';
 import Navigation from './src/navigation';
 
 SplashScreen.preventAutoHideAsync();
@@ -24,7 +25,9 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <CartProvider>
-            <Navigation />
+            <FavoritesProvider>
+              <Navigation />
+            </FavoritesProvider>
           </CartProvider>
         </AuthProvider>
       </ThemeProvider>

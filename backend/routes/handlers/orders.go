@@ -17,20 +17,37 @@ import (
 func GetOrders(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		companyID := c.Query("companyId")
+		customerPhone := c.Query("customer_phone")
 
-		log.Printf("📦 GetOrders called for companyId=%s", companyID)
+		log.Printf("📦 GetOrders called for companyId=%s customerPhone=%s", companyID, customerPhone)
 
 		// Инициализируем пустой массив чтобы избежать null
 		orders := make([]map[string]interface{}, 0)
 
-		rows, err := db.Query(`
-			SELECT id, customer_name, customer_phone, address, items, 
-		       total_amount, delivery_cost, delivery_type, recipient_name, 
-		       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
-			FROM orders
-			WHERE company_id = $1
-			ORDER BY created_at DESC
-		`, companyID)
+		var rows *sql.Rows
+		var err error
+
+		if customerPhone != "" {
+			// Mobile app: filter by customer phone
+			rows, err = db.Query(`
+				SELECT id, customer_name, customer_phone, address, items,
+				       total_amount, delivery_cost, delivery_type, recipient_name,
+				       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
+				FROM orders
+				WHERE customer_phone = $1
+				ORDER BY created_at DESC
+			`, customerPhone)
+		} else {
+			// Company panel: filter by company id
+			rows, err = db.Query(`
+				SELECT id, customer_name, customer_phone, address, items,
+				       total_amount, delivery_cost, delivery_type, recipient_name,
+				       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
+				FROM orders
+				WHERE company_id = $1
+				ORDER BY created_at DESC
+			`, companyID)
+		}
 
 		if err != nil {
 			log.Printf("❌ GetOrders: Ошибка запроса БД: %v", err)

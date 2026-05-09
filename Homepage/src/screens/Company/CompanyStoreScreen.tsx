@@ -10,7 +10,8 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { getCompanyDetail, getProducts, subscribeToCompany, unsubscribeFromCompany } from '../../api';
+import { useFavorites } from '../../context/FavoritesContext';
+import { getCompanyDetail, getProducts, getCompanyStats, subscribeToCompany, unsubscribeFromCompany } from '../../api';
 import { Company, Product, RootStackParamList } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
@@ -36,6 +37,7 @@ export { getLocalSubs, saveLocalSubs };
 export default function CompanyStoreScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { isFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { companyId } = route.params;
@@ -45,15 +47,18 @@ export default function CompanyStoreScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [companyStats, setCompanyStats] = useState<{ subscribers: number; total_products: number; total_sales: number } | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [compRes, prodRes] = await Promise.allSettled([
+      const [compRes, prodRes, statsRes] = await Promise.allSettled([
         getCompanyDetail(companyId),
         getProducts({ companyId }),
+        getCompanyStats(companyId),
       ]);
       if (compRes.status === 'fulfilled') setCompany(compRes.value);
       if (prodRes.status === 'fulfilled') setProducts(prodRes.value);
+      if (statsRes.status === 'fulfilled') setCompanyStats(statsRes.value);
 
       const subs = await getLocalSubs();
       setIsSubscribed(subs.includes(companyId));
@@ -86,6 +91,11 @@ export default function CompanyStoreScreen() {
     } finally {
       setIsSubscribing(false);
     }
+  };
+
+  const handleFavorite = (product: Product) => {
+    if (!user) return;
+    toggleFav(product.id, product);
   };
 
   const logoUri = getImageUrl(company?.logoUrl);
@@ -147,9 +157,19 @@ export default function CompanyStoreScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  <Text style={[styles.productCount, { color: colors.textSecondary }]}>
-                    {products.length} товаров
-                  </Text>
+                  <View style={styles.statsRow}>
+                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                      {companyStats?.total_products ?? products.length} товаров
+                    </Text>
+                    <Text style={[styles.statSep, { color: colors.textMuted }]}>·</Text>
+                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                      {companyStats?.subscribers ?? 0} подписчиков
+                    </Text>
+                    <Text style={[styles.statSep, { color: colors.textMuted }]}>·</Text>
+                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
+                      {companyStats?.total_sales ?? 0} заказов
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -203,7 +223,8 @@ export default function CompanyStoreScreen() {
             <ProductCard
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-              onFavorite={() => {}}
+              onFavorite={() => handleFavorite(item)}
+              isFavorite={isFavorite(item.id)}
             />
           </View>
         )}
@@ -253,7 +274,9 @@ const styles = StyleSheet.create({
   companyName: { fontSize: 18, fontWeight: '700' },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addressText: { fontSize: 12, flex: 1 },
-  productCount: { fontSize: 13 },
+  statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 2 },
+  statItem: { fontSize: 12 },
+  statSep: { fontSize: 12 },
   companyDesc: { fontSize: 14, lineHeight: 20 },
   subscribeBtn: {
     flexDirection: 'row',

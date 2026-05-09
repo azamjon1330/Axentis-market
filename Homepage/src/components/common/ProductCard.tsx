@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Product } from '../../types';
@@ -18,6 +18,18 @@ interface Props {
 
 const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite, horizontal }) => {
   const { colors } = useTheme();
+  const [imgError, setImgError] = useState(false);
+  const [hImgError, setHImgError] = useState(false);
+  const heartScale = useRef(new Animated.Value(1)).current;
+
+  const handleFavorite = () => {
+    if (!onFavorite) return;
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.5, useNativeDriver: true, speed: 80, bounciness: 20 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, speed: 30 }),
+    ]).start();
+    onFavorite();
+  };
 
   const imageUri = getImageUrl(product.images?.[0]);
 
@@ -35,8 +47,8 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         activeOpacity={0.85}
       >
         <View style={[styles.hImageBox, { backgroundColor: colors.cardAlt }]}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.hImage} resizeMode="contain" />
+          {imageUri && !hImgError ? (
+            <Image source={{ uri: imageUri }} style={styles.hImage} resizeMode="contain" onError={() => setHImgError(true)} />
           ) : (
             <Ionicons name="cube-outline" size={36} color={colors.textMuted} />
           )}
@@ -61,12 +73,14 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
             <Text style={[styles.sold, { color: colors.textMuted }]}>{product.soldCount} продаж</Text>
           )}
           {onFavorite && (
-            <TouchableOpacity onPress={onFavorite} style={styles.favBtnH} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons
-                name={isFavorite ? 'heart' : 'heart-outline'}
-                size={18}
-                color={isFavorite ? colors.error : colors.textSecondary}
-              />
+            <TouchableOpacity onPress={handleFavorite} style={styles.favBtnH} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <Ionicons
+                  name={isFavorite ? 'heart' : 'heart-outline'}
+                  size={18}
+                  color={isFavorite ? colors.error : colors.textSecondary}
+                />
+              </Animated.View>
             </TouchableOpacity>
           )}
         </View>
@@ -81,8 +95,8 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
       activeOpacity={0.85}
     >
       <View style={[styles.imageBox, { backgroundColor: colors.cardAlt }]}>
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+        {imageUri && !imgError ? (
+          <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" onError={() => setImgError(true)} />
         ) : (
           <Ionicons name="cube-outline" size={44} color={colors.textMuted} />
         )}
@@ -93,15 +107,17 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         )}
         {onFavorite && (
           <TouchableOpacity
-            onPress={onFavorite}
+            onPress={handleFavorite}
             style={[styles.favIcon, { backgroundColor: colors.surface + 'E0' }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={15}
-              color={isFavorite ? colors.error : colors.textSecondary}
-            />
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <Ionicons
+                name={isFavorite ? 'heart' : 'heart-outline'}
+                size={15}
+                color={isFavorite ? colors.error : colors.textSecondary}
+              />
+            </Animated.View>
           </TouchableOpacity>
         )}
       </View>

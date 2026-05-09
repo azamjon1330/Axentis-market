@@ -47,13 +47,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateItem = async (productId: number, quantity: number, color?: string) => {
     if (!user) return;
-    await setCartItem({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
-    await refresh();
+    // Optimistic update — no full refresh
+    setItems(prev => prev.map(item =>
+      item.productId === productId && (item.selected_color || '') === (color || '')
+        ? { ...item, quantity }
+        : item
+    ));
+    try {
+      await setCartItem({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
+    } catch {
+      await refresh();
+    }
   };
 
   const removeItem = async (itemId: number) => {
-    await removeCartItem(itemId);
     setItems(prev => prev.filter(i => i.id !== itemId));
+    try {
+      await removeCartItem(itemId);
+    } catch {
+      await refresh();
+    }
   };
 
   const clearAllItems = async () => {
@@ -62,7 +75,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
   };
 
-  const count = items.reduce((sum, item) => sum + item.quantity, 0);
+  const count = items.length;
   const total = items.reduce((sum, item) => {
     const price = item.product?.discountedPrice || item.product?.sellingPrice || item.product?.price || 0;
     return sum + price * item.quantity;

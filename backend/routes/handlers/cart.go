@@ -14,16 +14,17 @@ type CartItem struct {
 	ID            int       `json:"id"`
 	UserPhone     string    `json:"user_phone"`
 	ProductID     int64     `json:"product_id"`
+	CompanyID     int64     `json:"company_id"`
 	Quantity      int       `json:"quantity"`
 	SelectedColor string    `json:"selected_color,omitempty"`
 	SelectedSize  string    `json:"selected_size,omitempty"`
 	AddedAt       time.Time `json:"added_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
-	
+
 	// Дополнительная информация о товаре (для удобства фронтенда)
-	ProductName   string    `json:"product_name,omitempty"`
-	ProductPrice  float64   `json:"product_price,omitempty"`
-	ProductImages []string  `json:"product_images,omitempty"`
+	ProductName   string   `json:"product_name,omitempty"`
+	ProductPrice  float64  `json:"product_price,omitempty"`
+	ProductImages []string `json:"product_images,omitempty"`
 }
 
 // GetUserCart - получить корзину пользователя
@@ -36,12 +37,13 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.Query(`
-			SELECT 
-				ci.id, ci.user_phone, ci.product_id, ci.quantity, 
+			SELECT
+				ci.id, ci.user_phone, ci.product_id, ci.quantity,
 				COALESCE(ci.selected_color, '') as selected_color,
 				COALESCE(ci.selected_size, '') as selected_size,
 				ci.added_at, ci.updated_at,
-				p.name, p.selling_price, COALESCE(p.images::text, '[]') as images
+				p.name, p.selling_price, COALESCE(p.images::text, '[]') as images,
+				p.company_id
 			FROM cart_items ci
 			JOIN products p ON ci.product_id = p.id
 			WHERE ci.user_phone = $1
@@ -64,6 +66,7 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				&item.SelectedColor, &item.SelectedSize,
 				&item.AddedAt, &item.UpdatedAt,
 				&item.ProductName, &item.ProductPrice, &imagesJSON,
+				&item.CompanyID,
 			)
 			if err != nil {
 				continue

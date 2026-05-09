@@ -45,4 +45,5 @@ export const ENDPOINTS = {
   paymentCardDefault: (id: number) => `/payment-cards/${id}/default`,
   companySubscribe: (id: number) => `/companies/${id}/subscribe`,
   companyUnsubscribe: (id: number) => `/companies/${id}/unsubscribe`,
+  companyStats: (id: number) => `/companies/${id}/stats`,
 };

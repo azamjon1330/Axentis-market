@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useFavorites } from '../context/FavoritesContext';
 import { RootStackParamList, MainTabParamList } from '../types';
 
 // Screens
@@ -34,6 +35,20 @@ function CartTabIcon({ color, focused }: { color: string; focused: boolean }) {
   return (
     <View>
       <Ionicons name={focused ? 'bag' : 'bag-outline'} size={24} color={color} />
+      {count > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function FavoritesTabIcon({ color, focused }: { color: string; focused: boolean }) {
+  const { count } = useFavorites();
+  return (
+    <View>
+      <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
@@ -89,9 +104,7 @@ function MainTabs() {
         component={FavoritesScreen}
         options={{
           tabBarLabel: 'Избранное',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'heart' : 'heart-outline'} size={24} color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) => <FavoritesTabIcon color={color} focused={focused} />,
         }}
       />
       <Tab.Screen
