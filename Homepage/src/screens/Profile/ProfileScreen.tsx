@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Alert, Switch, Image, ActivityIndicator,
+  Alert, Switch, Image, ActivityIndicator, Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage, Language } from '../../context/LanguageContext';
 import { RootStackParamList } from '../../types';
 import { API_BASE_URL } from '../../config';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -29,13 +30,15 @@ interface MenuItem {
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
   const { user, logout, refreshUser } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
   const navigation = useNavigation<Nav>();
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showLangModal, setShowLangModal] = useState(false);
 
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Нет доступа', 'Разрешите доступ к фотогалерее в настройках');
+      Alert.alert(t('noGalleryAccess'), t('allowGallery'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -65,61 +68,67 @@ export default function ProfileScreen() {
         await refreshUser();
       }
     } catch {
-      Alert.alert('Ошибка', 'Не удалось загрузить фото');
+      Alert.alert(t('uploadError'), t('uploadFail'));
     } finally {
       setUploadingAvatar(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Выйти из аккаунта', 'Вы уверены, что хотите выйти?', [
-      { text: 'Отмена', style: 'cancel' },
-      { text: 'Выйти', style: 'destructive', onPress: logout },
+    Alert.alert(t('logoutConfirmTitle'), t('logoutConfirmMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('logoutBtn'), style: 'destructive', onPress: logout },
     ]);
+  };
+
+  const handleSelectLanguage = async (lang: Language) => {
+    await setLanguage(lang);
+    setShowLangModal(false);
   };
 
   const MENU_ITEMS: MenuItem[] = [
     {
       id: 'orders',
       icon: 'receipt-outline',
-      label: 'Мои заказы',
+      label: t('myOrders'),
       onPress: () => navigation.navigate('AllOrders'),
     },
     {
       id: 'favorites',
       icon: 'heart-outline',
-      label: 'Избранное',
+      label: t('favorites'),
       onPress: () => navigation.navigate('Main' as any, { screen: 'Favorites' }),
     },
     {
       id: 'notifications',
       icon: 'notifications-outline',
-      label: 'Уведомления',
+      label: t('notifications'),
       onPress: () => navigation.navigate('Notifications'),
     },
     {
       id: 'address',
       icon: 'location-outline',
-      label: 'Адреса доставки',
-      onPress: () => Alert.alert('Скоро', 'Функция в разработке'),
+      label: t('deliveryAddresses'),
+      onPress: () => Alert.alert(t('comingSoon'), t('inDevelopment')),
     },
     {
       id: 'cards',
       icon: 'card-outline',
-      label: 'Способы оплаты',
+      label: t('paymentMethods'),
       onPress: () => navigation.navigate('PaymentCards'),
+    },
+    {
+      id: 'language',
+      icon: 'language-outline',
+      label: t('language'),
+      sublabel: language === 'ru' ? 'Русский' : "O'zbek",
+      onPress: () => setShowLangModal(true),
     },
     {
       id: 'support',
       icon: 'headset-outline',
-      label: 'Поддержка',
-      onPress: () => Alert.alert('Поддержка', 'Свяжитесь с нами:\ninfo@axentis.uz'),
-    },
-    {
-      id: 'settings',
-      icon: 'settings-outline',
-      label: 'Настройки',
-      onPress: () => Alert.alert('Скоро', 'Функция в разработке'),
+      label: t('support'),
+      onPress: () => Alert.alert(t('support'), t('supportContact')),
     },
   ];
 
@@ -127,12 +136,17 @@ export default function ProfileScreen() {
     return name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   };
 
+  const langOptions: { code: Language; label: string; flag: string }[] = [
+    { code: 'uz', label: "O'zbek", flag: '🇺🇿' },
+    { code: 'ru', label: 'Русский', flag: '🇷🇺' },
+  ];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Профиль</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('profileTitle')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -156,7 +170,7 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.userName, { color: colors.text }]}>{user?.name || 'Пользователь'}</Text>
+              <Text style={[styles.userName, { color: colors.text }]}>{user?.name || t('defaultUser')}</Text>
               <Text style={[styles.userPhone, { color: colors.textSecondary }]}>
                 {user?.phone ? `+${user.phone}` : ''}
               </Text>
@@ -171,7 +185,7 @@ export default function ProfileScreen() {
               <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={isDark ? '#FFD700' : colors.primary} />
             </View>
             <Text style={[styles.menuLabel, { color: colors.text }]}>
-              {isDark ? 'Тёмная тема' : 'Светлая тема'}
+              {isDark ? t('darkTheme') : t('lightTheme')}
             </Text>
           </View>
           <Switch
@@ -194,7 +208,12 @@ export default function ProfileScreen() {
                 <View style={[styles.menuIconBg, { backgroundColor: (item.color || colors.primary) + '15' }]}>
                   <Ionicons name={item.icon as any} size={20} color={item.color || colors.primary} />
                 </View>
-                <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.menuLabel, { color: colors.text }]}>{item.label}</Text>
+                  {item.sublabel && (
+                    <Text style={[styles.menuSublabel, { color: colors.textSecondary }]}>{item.sublabel}</Text>
+                  )}
+                </View>
                 {item.badge && (
                   <View style={[styles.badge, { backgroundColor: colors.badge }]}>
                     <Text style={styles.badgeText}>{item.badge}</Text>
@@ -216,12 +235,51 @@ export default function ProfileScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="log-out-outline" size={20} color={colors.error} />
-          <Text style={[styles.logoutText, { color: colors.error }]}>Выйти из аккаунта</Text>
+          <Text style={[styles.logoutText, { color: colors.error }]}>{t('logout')}</Text>
         </TouchableOpacity>
 
-        <Text style={[styles.version, { color: colors.textMuted }]}>Версия 1.0.0</Text>
+        <Text style={[styles.version, { color: colors.textMuted }]}>{t('version')} 1.0.0</Text>
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* Language Modal */}
+      <Modal
+        visible={showLangModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLangModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLangModal(false)}
+        >
+          <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+            <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('language')}</Text>
+            {langOptions.map((opt) => {
+              const isActive = language === opt.code;
+              return (
+                <TouchableOpacity
+                  key={opt.code}
+                  style={[
+                    styles.langOption,
+                    { borderColor: isActive ? colors.primary : colors.border },
+                    isActive && { backgroundColor: colors.primary + '12' },
+                  ]}
+                  onPress={() => handleSelectLanguage(opt.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.langFlag}>{opt.flag}</Text>
+                  <Text style={[styles.langOptionLabel, { color: colors.text }]}>{opt.label}</Text>
+                  {isActive && <Ionicons name="checkmark-circle" size={22} color={colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+            <View style={{ height: 20 }} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -293,7 +351,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
+  menuLabel: { fontSize: 15, fontWeight: '500' },
+  menuSublabel: { fontSize: 12, marginTop: 2 },
   badge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -312,4 +371,35 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 15, fontWeight: '600' },
   version: { textAlign: 'center', fontSize: 12, marginTop: 4 },
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingTop: 12,
+    gap: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  langOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
+  },
+  langFlag: { fontSize: 28 },
+  langOptionLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
 });

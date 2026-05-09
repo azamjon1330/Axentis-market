@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ function getCleanPhone(formatted: string): string {
 export default function LoginScreen() {
   const { colors, isDark } = useTheme();
   const { login, register } = useAuth();
+  const { t } = useLanguage();
 
   const [tab, setTab] = useState<Tab>('login');
   const tabAnim = useRef(new Animated.Value(0)).current;
@@ -98,14 +100,14 @@ export default function LoginScreen() {
       const phone = getCleanPhone(loginPhone);
       await login(phone, loginPassword);
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Ошибка входа';
+      const msg = err?.response?.data?.error || err?.message || t('loginError');
       if (err?.response?.status === 404) {
-        Alert.alert('Не найден', 'Пользователь не зарегистрирован. Создайте аккаунт.', [
-          { text: 'Регистрация', onPress: () => switchTab('register') },
-          { text: 'ОК', style: 'cancel' },
+        Alert.alert(t('userNotFound'), t('userNotRegistered'), [
+          { text: t('register'), onPress: () => switchTab('register') },
+          { text: 'OK', style: 'cancel' },
         ]);
       } else {
-        Alert.alert('Ошибка', msg);
+        Alert.alert(t('error'), msg);
       }
     } finally {
       setLoginLoading(false);
@@ -129,7 +131,7 @@ export default function LoginScreen() {
       const phone = getCleanPhone(regPhone);
       await register(phone, regName.trim(), regSurname.trim(), regPassword);
     } catch (err: any) {
-      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось создать аккаунт');
+      Alert.alert(t('error'), err?.response?.data?.error || t('registerError'));
     } finally {
       setRegLoading(false);
     }
@@ -165,7 +167,7 @@ export default function LoginScreen() {
             </View>
             <Text style={[styles.appName, { color: colors.text }]}>Axentis Market</Text>
             <Text style={[styles.tagline, { color: colors.textSecondary }]}>
-              Всё, что нужно — рядом
+              {t('tagline')}
             </Text>
           </View>
 
@@ -178,22 +180,22 @@ export default function LoginScreen() {
               />
               <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('login')} activeOpacity={0.8}>
                 <Text style={[styles.tabText, { color: tab === 'login' ? '#fff' : colors.textSecondary }]}>
-                  Войти
+                  {t('login')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.tabBtn} onPress={() => switchTab('register')} activeOpacity={0.8}>
                 <Text style={[styles.tabText, { color: tab === 'register' ? '#fff' : colors.textSecondary }]}>
-                  Регистрация
+                  {t('register')}
                 </Text>
               </TouchableOpacity>
             </View>
 
             {tab === 'login' ? (
               <View style={{ marginTop: 24 }}>
-                <Text style={[styles.formTitle, { color: colors.text }]}>Вход в аккаунт</Text>
+                <Text style={[styles.formTitle, { color: colors.text }]}>{t('loginTitle')}</Text>
 
                 {/* Phone */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Номер телефона</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('phoneNumber')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="call-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
@@ -213,14 +215,14 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Password */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Пароль</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('password')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     value={loginPassword}
                     onChangeText={setLoginPassword}
-                    placeholder="Введите пароль"
+                    placeholder={t('enterPassword')}
                     placeholderTextColor={colors.textMuted}
                     secureTextEntry={!loginPassVisible}
                     autoCapitalize="none"
@@ -242,51 +244,51 @@ export default function LoginScreen() {
                 >
                   {loginLoading
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.btnText}>Войти</Text>
+                    : <Text style={styles.btnText}>{t('login')}</Text>
                   }
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => switchTab('register')} style={styles.switchHint}>
                   <Text style={[styles.switchText, { color: colors.textSecondary }]}>
-                    Нет аккаунта?{' '}
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Зарегистрироваться</Text>
+                    {t('noAccount')}{' '}
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('createAccount')}</Text>
                   </Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={{ marginTop: 24 }}>
-                <Text style={[styles.formTitle, { color: colors.text }]}>Создать аккаунт</Text>
+                <Text style={[styles.formTitle, { color: colors.text }]}>{t('registerTitle')}</Text>
 
                 {/* Name */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Имя</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('firstName')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     value={regName}
                     onChangeText={setRegName}
-                    placeholder="Ваше имя"
+                    placeholder={t('yourFirstName')}
                     placeholderTextColor={colors.textMuted}
                     autoCapitalize="words"
                   />
                 </View>
 
                 {/* Surname */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Фамилия</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('lastName')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="person-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     value={regSurname}
                     onChangeText={setRegSurname}
-                    placeholder="Ваша фамилия"
+                    placeholder={t('yourLastName')}
                     placeholderTextColor={colors.textMuted}
                     autoCapitalize="words"
                   />
                 </View>
 
                 {/* Phone */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Номер телефона</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('phoneNumber')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="call-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
@@ -306,14 +308,14 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Password */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Пароль</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('password')}</Text>
                 <View style={[styles.inputRow, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                   <Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: colors.text }]}
                     value={regPassword}
                     onChangeText={setRegPassword}
-                    placeholder="Минимум 6 символов"
+                    placeholder={t('minChars')}
                     placeholderTextColor={colors.textMuted}
                     secureTextEntry={!regPassVisible}
                     autoCapitalize="none"
@@ -328,7 +330,7 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Confirm password */}
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Повторите пароль</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>{t('confirmPassword')}</Text>
                 <View style={[
                   styles.inputRow,
                   {
@@ -343,7 +345,7 @@ export default function LoginScreen() {
                     style={[styles.input, { color: colors.text }]}
                     value={regConfirm}
                     onChangeText={setRegConfirm}
-                    placeholder="Повторите пароль"
+                    placeholder={t('repeatPassword')}
                     placeholderTextColor={colors.textMuted}
                     secureTextEntry={!regConfirmVisible}
                     autoCapitalize="none"
@@ -362,7 +364,7 @@ export default function LoginScreen() {
                 </View>
 
                 {regConfirm.length > 0 && regConfirm !== regPassword && (
-                  <Text style={[styles.errorHint, { color: colors.error }]}>Пароли не совпадают</Text>
+                  <Text style={[styles.errorHint, { color: colors.error }]}>{t('passwordMismatch')}</Text>
                 )}
 
                 <TouchableOpacity
@@ -373,14 +375,14 @@ export default function LoginScreen() {
                 >
                   {regLoading
                     ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.btnText}>Создать аккаунт</Text>
+                    : <Text style={styles.btnText}>{t('registerTitle')}</Text>
                   }
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={() => switchTab('login')} style={styles.switchHint}>
                   <Text style={[styles.switchText, { color: colors.textSecondary }]}>
-                    Уже есть аккаунт?{' '}
-                    <Text style={{ color: colors.primary, fontWeight: '600' }}>Войти</Text>
+                    {t('haveAccount')}{' '}
+                    <Text style={{ color: colors.primary, fontWeight: '600' }}>{t('signIn')}</Text>
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -388,8 +390,8 @@ export default function LoginScreen() {
           </View>
 
           <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
-            Продолжая, вы соглашаетесь с{' '}
-            <Text style={{ color: colors.primary }}>условиями сервиса</Text>
+            {t('terms')}{' '}
+            <Text style={{ color: colors.primary }}>{t('termsLink')}</Text>
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

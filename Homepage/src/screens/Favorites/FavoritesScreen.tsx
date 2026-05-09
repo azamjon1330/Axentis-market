@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  ActivityIndicator, RefreshControl,
+  ActivityIndicator, RefreshControl, Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { Product, RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
 
@@ -18,6 +19,7 @@ export default function FavoritesScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<Nav>();
   const { products, isLoading, toggle, refresh } = useFavorites();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -43,9 +45,9 @@ export default function FavoritesScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Избранное</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('favoritesTitle')}</Text>
         {products.length > 0 && (
-          <Text style={[styles.countLabel, { color: colors.textSecondary }]}>{products.length} товаров</Text>
+          <Text style={[styles.countLabel, { color: colors.textSecondary }]}>{products.length} {t('items')}</Text>
         )}
       </View>
 
@@ -54,9 +56,9 @@ export default function FavoritesScreen() {
           <View style={[styles.emptyIconBg, { backgroundColor: colors.error + '15' }]}>
             <Ionicons name="heart-outline" size={64} color={colors.error} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Список пуст</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('listEmpty')}</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Нажмите на сердечко на карточке товара, чтобы сохранить его здесь
+            {t('favoritesHint')}
           </Text>
           <TouchableOpacity
             style={[styles.browseBtn, { backgroundColor: colors.primary }]}
@@ -64,7 +66,7 @@ export default function FavoritesScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="storefront-outline" size={18} color="#FFF" />
-            <Text style={styles.browseBtnText}>К покупкам</Text>
+            <Text style={styles.browseBtnText}>{t('goToHome')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -79,12 +81,14 @@ export default function FavoritesScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
           }
           renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-              onFavorite={() => handleRemoveFavorite(item)}
-              isFavorite={true}
-            />
+            <View style={{ flex: 1 }}>
+              <ProductCard
+                product={item}
+                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                onFavorite={() => handleRemoveFavorite(item)}
+                isFavorite={true}
+              />
+            </View>
           )}
           ListFooterComponent={<View style={{ height: 20 }} />}
         />

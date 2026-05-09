@@ -10,6 +10,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme } from '../../context/ThemeContext';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { CartItem, RootStackParamList } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
 
@@ -19,6 +20,7 @@ export default function CartScreen() {
   const { colors, isDark } = useTheme();
   const { items, count, total, isLoading, updateItem, removeItem, clearAllItems, refresh } = useCart();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigation = useNavigation<Nav>();
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,9 +70,9 @@ export default function CartScreen() {
   };
 
   const handleClearCart = () => {
-    Alert.alert('Очистить корзину', 'Удалить все товары из корзины?', [
-      { text: 'Отмена', style: 'cancel' },
-      { text: 'Очистить', style: 'destructive', onPress: clearAllItems },
+    Alert.alert(t('clearCart'), t('clearCartMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('clear'), style: 'destructive', onPress: clearAllItems },
     ]);
   };
 
@@ -163,7 +165,7 @@ export default function CartScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Корзина</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('cartTitle')}</Text>
         {items.length > 0 && (
           <TouchableOpacity
             onPress={handleClearCart}
@@ -180,9 +182,9 @@ export default function CartScreen() {
           <View style={[styles.emptyIconBg, { backgroundColor: colors.primary + '15' }]}>
             <Ionicons name="bag-outline" size={64} color={colors.primary} />
           </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Корзина пуста</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('emptyCart')}</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Здесь пока пусто — добавьте что-нибудь из магазина
+            {t('emptyCartHint')}
           </Text>
           <TouchableOpacity
             style={[styles.shopBtn, { backgroundColor: colors.primary }]}
@@ -190,7 +192,7 @@ export default function CartScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="storefront-outline" size={18} color="#FFF" />
-            <Text style={styles.shopBtnText}>К покупкам</Text>
+            <Text style={styles.shopBtnText}>{t('goToHome')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -210,7 +212,7 @@ export default function CartScreen() {
           <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.totalRow}>
               <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>
-                Итого · {count} шт.
+                {t('total')} · {count} шт.
               </Text>
               <Text style={[styles.bottomTotal, { color: colors.text }]}>{formatPrice(total)}</Text>
             </View>
@@ -219,7 +221,7 @@ export default function CartScreen() {
               onPress={() => navigation.navigate('Checkout')}
               activeOpacity={0.85}
             >
-              <Text style={styles.checkoutBtnText}>Оформить заказ</Text>
+              <Text style={styles.checkoutBtnText}>{t('checkout')}</Text>
             </TouchableOpacity>
           </View>
         </>

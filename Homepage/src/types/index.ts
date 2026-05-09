@@ -179,6 +179,7 @@ export interface Discount {
 
 // Navigation param types
 export type RootStackParamList = {
+  LanguageSelection: undefined;
   Login: undefined;
   Main: undefined;
   ProductDetail: { productId: number };
@@ -197,7 +198,6 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Home: undefined;
-  Catalog: undefined;
   Cart: undefined;
   Favorites: undefined;
   Profile: undefined;

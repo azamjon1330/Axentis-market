@@ -12,6 +12,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getProducts, getCategories } from '../../api';
 import { getLocalSubs } from '../Company/CompanyStoreScreen';
 import { Product, Category, RootStackParamList } from '../../types';
@@ -43,6 +44,7 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { count: cartCount } = useCart();
   const { isFavorite, toggle: toggleFav } = useFavorites();
+  const { t } = useLanguage();
   const navigation = useNavigation<Nav>();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -176,7 +178,7 @@ export default function HomeScreen() {
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Поиск товаров"
+            placeholder={t('searchPlaceholder')}
             placeholderTextColor={colors.textMuted}
             value={search}
             onChangeText={setSearch}
@@ -207,7 +209,7 @@ export default function HomeScreen() {
           <View style={styles.empty}>
             <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {search.trim() ? 'Товары не найдены' : 'Нет товаров'}
+              {search.trim() ? t('notFound') : t('noProducts')}
             </Text>
           </View>
         }
@@ -248,7 +250,7 @@ export default function HomeScreen() {
       >
         {/* Drawer header */}
         <View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.drawerTitle, { color: colors.text }]}>Каталог</Text>
+          <Text style={[styles.drawerTitle, { color: colors.text }]}>{t('catalogTitle')}</Text>
           <TouchableOpacity onPress={closeDrawer} style={[styles.closeBtn, { backgroundColor: colors.inputBg }]}>
             <Ionicons name="close" size={20} color={colors.text} />
           </TouchableOpacity>
@@ -263,7 +265,7 @@ export default function HomeScreen() {
           <View style={[styles.drawerIcon, { backgroundColor: colors.primary + '20' }]}>
             <Ionicons name="apps-outline" size={20} color={colors.primary} />
           </View>
-          <Text style={[styles.drawerRowText, { color: colors.text }]}>Все товары</Text>
+          <Text style={[styles.drawerRowText, { color: colors.text }]}>{t('allProducts')}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 

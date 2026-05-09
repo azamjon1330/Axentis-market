@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useFavorites } from '../context/FavoritesContext';
+import { useLanguage } from '../context/LanguageContext';
 import { RootStackParamList, MainTabParamList } from '../types';
 
 // Screens
@@ -23,10 +24,10 @@ import OrderConfirmedScreen from '../screens/Checkout/OrderConfirmedScreen';
 import OrdersScreen from '../screens/Orders/OrdersScreen';
 import OrderDetailScreen from '../screens/Orders/OrderDetailScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
-import CatalogScreen from '../screens/Catalog/CatalogScreen';
 import SearchScreen from '../screens/Search/SearchScreen';
 import CompanyStoreScreen from '../screens/Company/CompanyStoreScreen';
 import PaymentCardsScreen from '../screens/Profile/PaymentCardsScreen';
+import LanguageSelectionScreen from '../screens/Language/LanguageSelectionScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -60,7 +61,8 @@ function FavoritesTabIcon({ color, focused }: { color: string; focused: boolean 
 }
 
 function MainTabs() {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Tab.Navigator
@@ -86,19 +88,9 @@ function MainTabs() {
         name="Home"
         component={HomeScreen}
         options={{
-          tabBarLabel: 'Главная',
+          tabBarLabel: t('home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="Catalog"
-        component={CatalogScreen}
-        options={{
-          tabBarLabel: 'Каталог',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
           ),
         }}
       />
@@ -106,7 +98,7 @@ function MainTabs() {
         name="Cart"
         component={CartScreen}
         options={{
-          tabBarLabel: 'Корзина',
+          tabBarLabel: t('cart'),
           tabBarIcon: ({ color, focused }) => <CartTabIcon color={color} focused={focused} />,
         }}
       />
@@ -114,7 +106,7 @@ function MainTabs() {
         name="Favorites"
         component={FavoritesScreen}
         options={{
-          tabBarLabel: 'Избранное',
+          tabBarLabel: t('favorites'),
           tabBarIcon: ({ color, focused }) => <FavoritesTabIcon color={color} focused={focused} />,
         }}
       />
@@ -122,7 +114,7 @@ function MainTabs() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: 'Профиль',
+          tabBarLabel: t('profile'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={24} color={color} />
           ),
@@ -135,8 +127,9 @@ function MainTabs() {
 export default function Navigation() {
   const { colors, isDark } = useTheme();
   const { isAuthenticated, isLoading } = useAuth();
+  const { hasChosenLanguage, isLanguageLoading } = useLanguage();
 
-  if (isLoading) return null;
+  if (isLoading || isLanguageLoading) return null;
 
   return (
     <NavigationContainer
@@ -153,7 +146,9 @@ export default function Navigation() {
       }}
     >
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!isAuthenticated ? (
+        {!hasChosenLanguage ? (
+          <Stack.Screen name="LanguageSelection" component={LanguageSelectionScreen} />
+        ) : !isAuthenticated ? (
           <Stack.Screen name="Login" component={LoginScreen} />
         ) : (
           <>

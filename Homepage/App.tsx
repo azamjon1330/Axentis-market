@@ -7,6 +7,7 @@ import { ThemeProvider } from './src/context/ThemeContext';
 import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 import Navigation from './src/navigation';
 
 SplashScreen.preventAutoHideAsync();
@@ -23,13 +24,15 @@ export default function App() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <ThemeProvider>
-        <AuthProvider>
-          <CartProvider>
-            <FavoritesProvider>
-              <Navigation />
-            </FavoritesProvider>
-          </CartProvider>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <CartProvider>
+              <FavoritesProvider>
+                <Navigation />
+              </FavoritesProvider>
+            </CartProvider>
+          </AuthProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

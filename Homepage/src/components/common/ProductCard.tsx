@@ -1,12 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Product } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 48) / 2;
 
 interface Props {
   product: Product;
@@ -90,7 +88,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
 
   return (
     <TouchableOpacity
-      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border, width: CARD_WIDTH }]}
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
       onPress={onPress}
       activeOpacity={0.85}
     >
@@ -140,6 +138,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
 
 const styles = StyleSheet.create({
   card: {
+    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
