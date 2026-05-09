@@ -83,6 +83,15 @@ export default function OrderConfirmedScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.homeBtn, { backgroundColor: colors.surface, borderColor: colors.primary + '60' }]}
+          onPress={() => navigation.navigate('AllOrders')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="receipt-outline" size={18} color={colors.primary} />
+          <Text style={[styles.homeBtnText, { color: colors.primary }]}>Мои заказы</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.homeBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Main' as any }] })}
           activeOpacity={0.8}
@@ -139,6 +148,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
   },
   homeBtnText: { fontSize: 16, fontWeight: '600' },
 });

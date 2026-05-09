@@ -39,14 +39,18 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
+    setError(null);
     try {
       const data = await getUserOrders(user.phone);
       setOrders(data);
-    } catch {
+    } catch (e: any) {
+      console.error('OrdersScreen load error:', e?.response?.data || e?.message || e);
+      setError('Не удалось загрузить заказы');
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -177,6 +181,19 @@ export default function OrdersScreen() {
         <View style={styles.centered}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <Ionicons name="wifi-outline" size={48} color={colors.textMuted} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Ошибка загрузки</Text>
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>{error}</Text>
+          <TouchableOpacity
+            onPress={load}
+            style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.retryBtnText}>Повторить</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={filtered}
@@ -266,4 +283,11 @@ const styles = StyleSheet.create({
   deliveryInfo: { fontSize: 13 },
   emptyTitle: { fontSize: 18, fontWeight: '600' },
   emptyText: { fontSize: 14, textAlign: 'center' },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  retryBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 });

@@ -201,19 +201,19 @@ export const checkFavorite = async (phone: string, productId: number): Promise<b
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
 export const createOrder = async (data: {
-  company_id: number;
-  customer_name: string;
-  customer_phone: string;
-  items: { product_id: number; quantity: number; price: number }[];
-  total_amount: number;
-  delivery_type: 'pickup' | 'delivery';
-  delivery_address?: string;
-  delivery_cost?: number;
-  payment_method: 'cash' | 'card';
-  card_subtype?: string;
-  recipient_name?: string;
+  companyId?: number;
+  customerName: string;
+  customerPhone: string;
+  items: { productId: number; productName?: string; quantity: number; price: number; imageUrl?: string }[];
+  totalAmount: number;
+  deliveryType: 'pickup' | 'delivery';
+  deliveryAddress?: string;
+  deliveryCost?: number;
+  paymentMethod: 'cash' | 'card';
+  cardSubtype?: string;
+  recipientName?: string;
   comment?: string;
-}): Promise<Order> => {
+}): Promise<{ id: number; orderCode: string; createdAt: string }> => {
   const res = await api.post(ENDPOINTS.orders, data);
   return res.data;
 };

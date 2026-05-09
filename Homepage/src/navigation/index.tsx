@@ -23,6 +23,7 @@ import OrderConfirmedScreen from '../screens/Checkout/OrderConfirmedScreen';
 import OrdersScreen from '../screens/Orders/OrdersScreen';
 import OrderDetailScreen from '../screens/Orders/OrderDetailScreen';
 import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
+import CatalogScreen from '../screens/Catalog/CatalogScreen';
 import SearchScreen from '../screens/Search/SearchScreen';
 import CompanyStoreScreen from '../screens/Company/CompanyStoreScreen';
 import PaymentCardsScreen from '../screens/Profile/PaymentCardsScreen';
@@ -88,6 +89,16 @@ function MainTabs() {
           tabBarLabel: 'Главная',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'home' : 'home-outline'} size={24} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Catalog"
+        component={CatalogScreen}
+        options={{
+          tabBarLabel: 'Каталог',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
           ),
         }}
       />
