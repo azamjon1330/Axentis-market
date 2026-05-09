@@ -476,6 +476,9 @@ export const orders = {
     customerName: string;
     customerPhone: string;
     deliveryAddress?: string;
+    deliveryType?: string;
+    paymentMethod?: string;
+    cardSubtype?: string;
     notes?: string;
   }) => {
     return apiCall('/orders', {

@@ -155,6 +155,69 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   const [cartTab, setCartTab] = useState<'cart' | 'orders'>('cart');
 
+  // Checkout flow state
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'delivery' | 'payment'>('cart');
+  const [checkoutDeliveryType, setCheckoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
+  const [checkoutDeliveryAddress, setCheckoutDeliveryAddress] = useState('');
+  const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'cash' | 'card'>('cash');
+  const [savedPaymentCards, setSavedPaymentCards] = useState<any[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
+  const [showAddCardForm, setShowAddCardForm] = useState(false);
+  const [newCard, setNewCard] = useState({ number: '', expiry: '', firstName: '', lastName: '', cvc: '', type: '' });
+  const [savingCard, setSavingCard] = useState(false);
+
+  const detectCardType = (num: string): string => {
+    const prefix4 = num.slice(0, 4);
+    if (prefix4 === '9860') return 'humo';
+    if (prefix4 === '8600') return 'uzcard';
+    if (num[0] === '4') return 'visa';
+    if (num[0] === '5') return 'mastercard';
+    return '';
+  };
+
+  const loadSavedCards = async () => {
+    if (!userPhone) return;
+    try {
+      const res = await fetch(`/api/payment-cards/${userPhone}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSavedPaymentCards(Array.isArray(data) ? data : []);
+        if (Array.isArray(data) && data.length > 0) {
+          const defaultCard = data.find((c: any) => c.is_default) || data[0];
+          setSelectedCardId(defaultCard.id);
+        }
+      }
+    } catch {}
+  };
+
+  const handleSaveNewCard = async () => {
+    if (!userPhone || !newCard.number || !newCard.firstName || !newCard.lastName) return;
+    setSavingCard(true);
+    try {
+      const cardType = detectCardType(newCard.number) || newCard.type;
+      const res = await fetch('/api/payment-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userPhone,
+          cardNumber: newCard.number.replace(/\s/g, ''),
+          cardExpiry: newCard.expiry,
+          cardHolderFirstName: newCard.firstName,
+          cardHolderLastName: newCard.lastName,
+          cardType,
+          isDefault: savedPaymentCards.length === 0
+        })
+      });
+      if (res.ok) {
+        await loadSavedCards();
+        setShowAddCardForm(false);
+        setNewCard({ number: '', expiry: '', firstName: '', lastName: '', cvc: '', type: '' });
+      }
+    } catch {} finally {
+      setSavingCard(false);
+    }
+  };
+
   // 🔄 HISTORY API HANDLER
   useEffect(() => {
     // Initial state - preserve page: 'home' context
@@ -211,6 +274,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     if (showCart) return;
     window.history.pushState({ view: 'cart', page: 'home' }, '', '#cart');
     setShowCart(true);
+    setCheckoutStep('cart');
     window.scrollTo(0, 0);
   };
 
@@ -750,23 +814,22 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     handleOpenProduct(product);
   };
 
-  const handleCheckout = async () => {
-    if (isCheckingOut) return; 
-    setIsCheckingOut(true);
-
+  const handleCheckout = () => {
     if (Object.keys(cart).length === 0) {
       alert('Корзина пуста!');
-      setIsCheckingOut(false);
       return;
     }
-
     if (paymentMode === 'demo_online' || paymentMode === 'real_online') {
-      console.log('💳 [Checkout] Opening payment page, mode:', paymentMode);
       setShowCart(false);
       setShowPayment(true);
-      setIsCheckingOut(false);
       return;
     }
+    setCheckoutStep('delivery');
+  };
+
+  const handlePlaceOrder = async () => {
+    if (isCheckingOut) return;
+    setIsCheckingOut(true);
 
     let totalAmount = 0;
     const purchasedItems: any[] = [];
@@ -774,102 +837,77 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     for (const [productIdStr, purchasedQty] of Object.entries(cart)) {
       const productId = Number(productIdStr);
       const product = products.find((p: Product) => p.id === productId);
-      
       if (!product) continue;
-      
       if (product.quantity < purchasedQty) {
         alert(`Недостаточно товара "${product.name}". Доступно: ${product.quantity} шт.`);
         setIsCheckingOut(false);
         return;
       }
-      
       const priceWithMarkup = getPriceWithMarkup(product);
       const markupPercent = product.markupPercent || 0;
-      const markupAmount = priceWithMarkup - product.price; 
-      
+      const markupAmount = priceWithMarkup - product.price;
       totalAmount += priceWithMarkup * purchasedQty;
       purchasedItems.push({
         id: product.id,
         name: product.name,
         quantity: purchasedQty,
-        price: product.price, 
-        price_with_markup: priceWithMarkup, 
-        markupPercent: markupPercent, 
-        markupAmount: markupAmount, 
-        total: priceWithMarkup * purchasedQty, 
-        color: product.hasColorOptions 
-          ? (selectedColors[productId] || 'Любой') 
-          : null, 
+        price: product.price,
+        price_with_markup: priceWithMarkup,
+        markupPercent,
+        markupAmount,
+        total: priceWithMarkup * purchasedQty,
+        color: product.hasColorOptions ? (selectedColors[productId] || 'Любой') : null,
         image_url: product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null,
-        company_id: product.company_id // Добавляем company_id для определения владельца заказа
+        company_id: product.company_id
       });
     }
 
-    if (purchasedItems.length === 0) {
-      setIsCheckingOut(false);
-      return;
-    }
+    if (purchasedItems.length === 0) { setIsCheckingOut(false); return; }
 
     try {
-      // Определяем companyId из первого купленного товара
       const firstPurchasedItem = purchasedItems[0];
       const companyId = firstPurchasedItem?.company_id || userCompanyId || '1';
-      
-      console.log('📦 [HomePage] Создание заказа для companyId:', companyId, 'Товаров:', purchasedItems.length);
-      
-      const result = await api.orders.create({ 
-        companyId: companyId,
+
+      const selectedCard = checkoutPaymentMethod === 'card' && savedPaymentCards.find(c => c.id === selectedCardId);
+      const cardSubtype = selectedCard ? selectedCard.card_type : undefined;
+
+      const result = await api.orders.create({
+        companyId,
         customerName: userName || 'Гость',
         customerPhone: userPhone || '',
-        items: purchasedItems, // Send as array, backend will handle JSON conversion
-        totalAmount: totalAmount 
+        items: purchasedItems,
+        totalAmount,
+        deliveryType: checkoutDeliveryType,
+        deliveryAddress: checkoutDeliveryType === 'delivery' ? checkoutDeliveryAddress : undefined,
+        paymentMethod: checkoutPaymentMethod,
+        cardSubtype
       });
 
       const orderCode = result.orderCode || result.order_code || `ORD-${result.id}`;
-      const orderId = result.id; 
+      const orderId = result.id;
 
-      const newOrder = {
+      setMyOrders(prev => [{
         code: orderCode,
         total: totalAmount,
         itemsCount: purchasedItems.length,
         date: getUzbekistanISOString(),
-        items: purchasedItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.total,
-          color: item.color 
-        })),
-        status: 'pending', 
-        orderId: orderId 
-      };
-      
-      setMyOrders(prev => [newOrder, ...prev]);
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color })),
+        status: 'pending',
+        orderId
+      }, ...prev]);
 
       setCart({});
-      console.log('✅ [Cart] Заказ оформлен, корзина очищена!');
-      
       await loadProducts();
       setShowCart(false);
-
+      setCheckoutStep('cart');
       setConfirmedOrder({
         code: orderCode,
         total: totalAmount,
         itemsCount: purchasedItems.length,
-        items: purchasedItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.total,
-          color: item.color 
-        }))
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color }))
       });
       setShowOrderConfirmation(true);
-      
-      // Auto-switch to orders tab and keep cart open (or open it if closed) to show the new order
       setCartTab('orders');
-      // If we want to show it immediately inside the sidebar:
-      // setShowCart(true); 
     } catch (error) {
       console.error('Error processing checkout:', error);
       alert('Ошибка при оформлении заказа');
@@ -1155,7 +1193,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-4 relative z-10">
+      <div className="w-full px-4 py-4 relative z-10">
         
         {/* Catalog Panel */}
       <CatalogPanel 
@@ -1278,8 +1316,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       {/* Shopping Cart Sidebar */}
       {showCart && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60]" onClick={handleCloseCart}>
-          <div 
-            className={`absolute right-0 top-0 h-full w-full max-w-md shadow-xl transition-colors duration-500 ${
+          <div
+            className={`absolute right-0 top-0 h-full w-full shadow-xl transition-colors duration-500 ${
               isNight ? 'bg-slate-800' : 'bg-white'
             }`}
             onClick={(e) => e.stopPropagation()}
@@ -1339,6 +1377,216 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               {/* Cart Content */}
               {cartTab === 'cart' ? (
                 <>
+                  {/* Checkout step: Delivery */}
+                  {checkoutStep === 'delivery' && (
+                    <div className="flex-1 overflow-y-auto p-4 pb-6">
+                      <div className="flex items-center gap-2 mb-5">
+                        <button onClick={() => setCheckoutStep('cart')} className="p-1 rounded-full hover:bg-gray-100">
+                          <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                        <span className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-800'}`}>Доставка</span>
+                      </div>
+                      {/* Steps indicator */}
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
+                        <div className="flex-1 h-1 rounded-full bg-gray-300" />
+                        <div className="flex-1 h-1 rounded-full bg-gray-300" />
+                      </div>
+                      <p className={`text-sm font-semibold mb-3 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Тип доставки</p>
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        {(['delivery', 'pickup'] as const).map(type => (
+                          <button key={type} onClick={() => setCheckoutDeliveryType(type)}
+                            className={`py-3 rounded-xl border-2 font-medium text-sm transition-all ${
+                              checkoutDeliveryType === type
+                                ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
+                            }`}>
+                            {type === 'delivery' ? 'Доставка' : 'Самовывоз'}
+                          </button>
+                        ))}
+                      </div>
+                      {checkoutDeliveryType === 'delivery' && (
+                        <div className="mb-5">
+                          <p className={`text-sm font-semibold mb-2 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Адрес доставки</p>
+                          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isNight ? 'border-slate-600 bg-slate-700' : 'border-gray-200 bg-gray-50'}`}>
+                            <input
+                              type="text"
+                              placeholder="Введите адрес..."
+                              value={checkoutDeliveryAddress}
+                              onChange={e => setCheckoutDeliveryAddress(e.target.value)}
+                              className={`flex-1 bg-transparent outline-none text-sm ${isNight ? 'text-white placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'}`}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <button
+                        onClick={() => { setCheckoutStep('payment'); loadSavedCards(); }}
+                        disabled={checkoutDeliveryType === 'delivery' && !checkoutDeliveryAddress.trim()}
+                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Далее
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Checkout step: Payment */}
+                  {checkoutStep === 'payment' && (
+                    <div className="flex-1 overflow-y-auto p-4 pb-6">
+                      <div className="flex items-center gap-2 mb-5">
+                        <button onClick={() => setCheckoutStep('delivery')} className="p-1 rounded-full hover:bg-gray-100">
+                          <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                        <span className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-800'}`}>Оплата</span>
+                      </div>
+                      {/* Steps indicator */}
+                      <div className="flex items-center gap-2 mb-6">
+                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
+                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
+                        <div className="flex-1 h-1 rounded-full bg-gray-300" />
+                      </div>
+
+                      <p className={`text-sm font-semibold mb-3 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Способ оплаты</p>
+                      <div className="space-y-2 mb-5">
+                        {(['card', 'cash'] as const).map(method => (
+                          <button key={method} onClick={() => setCheckoutPaymentMethod(method)}
+                            className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 transition-all ${
+                              checkoutPaymentMethod === method
+                                ? 'border-purple-500 bg-purple-50'
+                                : isNight ? 'border-slate-600' : 'border-gray-200'
+                            }`}>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                              checkoutPaymentMethod === method ? 'border-purple-600' : 'border-gray-300'
+                            }`}>
+                              {checkoutPaymentMethod === method && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                            </div>
+                            <span className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-800'}`}>
+                              {method === 'card' ? 'Банковская карта' : 'Наличными при получении'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Card selection */}
+                      {checkoutPaymentMethod === 'card' && (
+                        <div className="mb-5">
+                          {savedPaymentCards.length > 0 && !showAddCardForm ? (
+                            <>
+                              <p className={`text-sm font-semibold mb-2 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Сохранённая карта</p>
+                              {savedPaymentCards.map(card => (
+                                <button key={card.id} onClick={() => setSelectedCardId(card.id)}
+                                  className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 mb-2 transition-all ${
+                                    selectedCardId === card.id ? 'border-purple-500 bg-purple-50' : isNight ? 'border-slate-600' : 'border-gray-200'
+                                  }`}>
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCardId === card.id ? 'border-purple-600' : 'border-gray-300'}`}>
+                                    {selectedCardId === card.id && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                                  </div>
+                                  <div className="flex-1 text-left">
+                                    <div className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-800'}`}>
+                                      {(card.card_type || '').toUpperCase()} •••• {card.card_number_last4}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{card.card_holder_name}</div>
+                                  </div>
+                                </button>
+                              ))}
+                              <button onClick={() => setShowAddCardForm(true)}
+                                className="w-full py-2 text-sm text-purple-600 font-medium border border-purple-200 rounded-xl mt-1">
+                                + Добавить карту
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <p className={`text-sm font-semibold mb-3 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Тип карты</p>
+                              <div className="grid grid-cols-4 gap-2 mb-4">
+                                {(['visa', 'mastercard', 'uzcard', 'humo'] as const).map(ct => (
+                                  <button key={ct} onClick={() => setNewCard(prev => ({ ...prev, type: ct }))}
+                                    className={`py-2 rounded-lg border-2 text-xs font-bold transition-all ${
+                                      newCard.type === ct ? 'border-purple-500 bg-purple-50 text-purple-700' : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
+                                    }`}>
+                                    {ct === 'visa' ? 'Visa' : ct === 'mastercard' ? 'MC' : ct === 'uzcard' ? 'UZCard' : 'Humo'}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="space-y-3">
+                                <div>
+                                  <p className={`text-xs mb-1 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>Номер карты</p>
+                                  <input type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000"
+                                    value={newCard.number}
+                                    onChange={e => {
+                                      const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+                                      const formatted = raw.replace(/(.{4})/g, '$1 ').trim();
+                                      const autoType = detectCardType(raw);
+                                      setNewCard(prev => ({ ...prev, number: formatted, type: autoType || prev.type }));
+                                    }}
+                                    className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <p className={`text-xs mb-1 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>Срок действия</p>
+                                    <input type="text" inputMode="numeric" placeholder="MM/YY" maxLength={5}
+                                      value={newCard.expiry}
+                                      onChange={e => {
+                                        let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                        if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2);
+                                        setNewCard(prev => ({ ...prev, expiry: v }));
+                                      }}
+                                      className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                    />
+                                  </div>
+                                  {newCard.type !== 'humo' && (
+                                    <div>
+                                      <p className={`text-xs mb-1 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>CVC</p>
+                                      <input type="text" inputMode="numeric" placeholder="•••" maxLength={4}
+                                        value={newCard.cvc}
+                                        onChange={e => setNewCard(prev => ({ ...prev, cvc: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                                        className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <p className={`text-xs mb-1 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>Имя</p>
+                                    <input type="text" placeholder="Имя"
+                                      value={newCard.firstName}
+                                      onChange={e => setNewCard(prev => ({ ...prev, firstName: e.target.value }))}
+                                      className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className={`text-xs mb-1 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>Фамилия</p>
+                                    <input type="text" placeholder="Фамилия"
+                                      value={newCard.lastName}
+                                      onChange={e => setNewCard(prev => ({ ...prev, lastName: e.target.value }))}
+                                      className={`w-full px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                    />
+                                  </div>
+                                </div>
+                                <button onClick={handleSaveNewCard} disabled={savingCard || !newCard.number || !newCard.firstName || !newCard.lastName}
+                                  className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50">
+                                  {savingCard ? 'Сохранение...' : 'Сохранить карту'}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
+                      <div className={`py-3 px-4 rounded-xl mb-4 ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                        <div className="flex justify-between items-center">
+                          <span className={`text-sm ${isNight ? 'text-gray-300' : 'text-gray-600'}`}>Итого:</span>
+                          <span className={`text-lg font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>{formatPrice(getTotalCart())}</span>
+                        </div>
+                      </div>
+
+                      <button onClick={handlePlaceOrder} disabled={isCheckingOut || (checkoutPaymentMethod === 'card' && savedPaymentCards.length > 0 && !selectedCardId)}
+                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50 flex items-center justify-center">
+                        {isCheckingOut ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : 'Оформить заказ'}
+                      </button>
+                    </div>
+                  )}
+
+                  {checkoutStep === 'cart' && (<>
                   <div className="flex-1 overflow-y-auto p-4">
                     {Object.keys(cart).length === 0 ? (
                       <div className="text-center py-10">
@@ -1408,17 +1656,13 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       </div>
                       <button
                         onClick={handleCheckout}
-                        disabled={isCheckingOut}
-                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
+                        className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors flex justify-center items-center"
                       >
-                        {isCheckingOut ? (
-                          <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                        ) : (
-                          'Оформить заказ'
-                        )}
+                        Оформить заказ
                       </button>
                     </div>
                   )}
+                  </>)}
                 </>
               ) : (
                 // ORDERS TAB

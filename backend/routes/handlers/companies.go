@@ -124,13 +124,18 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			Latitude            sql.NullFloat64
 			Longitude           sql.NullFloat64
 			DeliveryEnabled     bool
+			DeliveryRadiusKm    sql.NullFloat64
+			DeliveryRadiusLat   sql.NullFloat64
+			DeliveryRadiusLng   sql.NullFloat64
 		}
 
 		err := db.QueryRow(`
-			SELECT id, name, phone, mode, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled
+			SELECT id, name, phone, mode, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled,
+			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
-			&company.LogoURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled)
+			&company.LogoURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
+			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
@@ -163,6 +168,13 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 		}
 		if company.Longitude.Valid {
 			result["longitude"] = company.Longitude.Float64
+		}
+		result["deliveryRadiusKm"] = company.DeliveryRadiusKm.Float64
+		if company.DeliveryRadiusLat.Valid {
+			result["deliveryRadiusLat"] = company.DeliveryRadiusLat.Float64
+		}
+		if company.DeliveryRadiusLng.Valid {
+			result["deliveryRadiusLng"] = company.DeliveryRadiusLng.Float64
 		}
 
 		// Получаем средний рейтинг компании
@@ -230,6 +242,9 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 			ProductsDescription string   `json:"productsDescription"`
 			Latitude            *float64 `json:"latitude"`
 			Longitude           *float64 `json:"longitude"`
+			DeliveryRadiusKm    *float64 `json:"deliveryRadiusKm"`
+			DeliveryRadiusLat   *float64 `json:"deliveryRadiusLat"`
+			DeliveryRadiusLng   *float64 `json:"deliveryRadiusLng"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -286,6 +301,21 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 		if req.Longitude != nil {
 			query += fmt.Sprintf(", longitude = $%d", argCount)
 			args = append(args, *req.Longitude)
+			argCount++
+		}
+		if req.DeliveryRadiusKm != nil {
+			query += fmt.Sprintf(", delivery_radius_km = $%d", argCount)
+			args = append(args, *req.DeliveryRadiusKm)
+			argCount++
+		}
+		if req.DeliveryRadiusLat != nil {
+			query += fmt.Sprintf(", delivery_radius_lat = $%d", argCount)
+			args = append(args, *req.DeliveryRadiusLat)
+			argCount++
+		}
+		if req.DeliveryRadiusLng != nil {
+			query += fmt.Sprintf(", delivery_radius_lng = $%d", argCount)
+			args = append(args, *req.DeliveryRadiusLng)
 			argCount++
 		}
 

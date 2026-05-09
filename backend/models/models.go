@@ -19,7 +19,10 @@ type Company struct {
 	LocationLng          *float64  `json:"locationLng,omitempty"`          // 🗺️ Долгота
 	LocationAddress      *string   `json:"locationAddress,omitempty"`      // 🗺️ Адрес из карт
 	Description          *string   `json:"description,omitempty"`
-	ProductsDescription  *string   `json:"productsDescription,omitempty"` // 📝 Описание товаров компании
+	ProductsDescription  *string   `json:"productsDescription,omitempty"`
+	DeliveryRadiusKm     float64   `json:"deliveryRadiusKm"`
+	DeliveryRadiusLat    *float64  `json:"deliveryRadiusLat,omitempty"`
+	DeliveryRadiusLng    *float64  `json:"deliveryRadiusLng,omitempty"`
 	CreatedAt            time.Time `json:"createdAt"`
 	UpdatedAt            time.Time `json:"updatedAt"`
 }

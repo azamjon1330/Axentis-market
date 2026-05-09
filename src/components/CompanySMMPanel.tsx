@@ -70,6 +70,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     district: ''
   });
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [deliveryRadius, setDeliveryRadius] = useState({ km: 0, lat: 0, lng: 0 });
+  const [savingRadius, setSavingRadius] = useState(false);
 
   useEffect(() => {
     loadCompanyProfile();
@@ -146,6 +148,11 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         logo_image: fullLogoUrl,
         region: data.region || '',
         district: data.district || ''
+      });
+      setDeliveryRadius({
+        km: data.deliveryRadiusKm || 0,
+        lat: data.deliveryRadiusLat || data.latitude || 41.2995,
+        lng: data.deliveryRadiusLng || data.longitude || 69.2401
       });
       
       setLoading(false);
@@ -229,6 +236,22 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     } catch (error) {
       console.error('❌ Ошибка сохранения профиля:', error);
       toast.error(`${t.saveProfileError} ${error instanceof Error ? error.message : 'Unknown error'}`, { id: 'save-profile' });
+    }
+  };
+
+  const handleSaveDeliveryRadius = async () => {
+    setSavingRadius(true);
+    try {
+      await api.companies.update(companyId.toString(), {
+        deliveryRadiusKm: deliveryRadius.km,
+        deliveryRadiusLat: deliveryRadius.lat || formData.latitude,
+        deliveryRadiusLng: deliveryRadius.lng || formData.longitude
+      } as any);
+      toast.success('Зона доставки сохранена');
+    } catch {
+      toast.error('Ошибка сохранения зоны доставки');
+    } finally {
+      setSavingRadius(false);
     }
   };
 
@@ -517,6 +540,50 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Зона доставки */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+            <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-purple-600" />
+              Зона доставки
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Укажите радиус (в км) в котором ваша компания осуществляет доставку. Если радиус не указан — доставка принимается из любого места.
+            </p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">Радиус доставки (км)</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={0.5}
+                  value={deliveryRadius.km}
+                  onChange={e => setDeliveryRadius(prev => ({ ...prev, km: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-purple-400"
+                  placeholder="например: 10"
+                />
+              </div>
+              <div className="flex-1 text-center pt-5">
+                {deliveryRadius.km > 0
+                  ? <span className="text-sm text-purple-700 font-medium">Доставка до {deliveryRadius.km} км</span>
+                  : <span className="text-sm text-gray-400">Не ограничено</span>
+                }
+              </div>
+            </div>
+            {formData.latitude && formData.longitude && (
+              <p className="text-xs text-gray-400 mb-3">
+                Центр зоны: широта {(deliveryRadius.lat || formData.latitude).toFixed(5)}, долгота {(deliveryRadius.lng || formData.longitude).toFixed(5)}
+              </p>
+            )}
+            <button
+              onClick={handleSaveDeliveryRadius}
+              disabled={savingRadius}
+              className="w-full py-2.5 rounded-xl bg-purple-600 text-white font-medium text-sm disabled:opacity-50"
+            >
+              {savingRadius ? 'Сохранение...' : 'Сохранить зону доставки'}
+            </button>
           </div>
         </div>
       )}
