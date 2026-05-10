@@ -70,10 +70,25 @@ export default function CartScreen() {
   };
 
   const handleClearCart = () => {
-    Alert.alert(t('clearCart'), t('clearCartMsg'), [
-      { text: t('cancel'), style: 'cancel' },
-      { text: t('clear'), style: 'destructive', onPress: clearAllItems },
-    ]);
+    Alert.alert(
+      t('clearCart'),
+      t('clearCartMsg'),
+      [
+        { text: t('no'), style: 'cancel' },
+        {
+          text: t('clear'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllItems();
+            } catch {
+              Alert.alert(t('error'), t('error'));
+            }
+          },
+        },
+      ],
+      { cancelable: true },
+    );
   };
 
   const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
@@ -180,7 +195,7 @@ export default function CartScreen() {
       {items.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={[styles.emptyIconBg, { backgroundColor: colors.primary + '15' }]}>
-            <Ionicons name="bag-outline" size={64} color={colors.primary} />
+            <Ionicons name="cart-outline" size={64} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('emptyCart')}</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>

@@ -78,9 +78,10 @@ const translations = {
 
     // Cart screen
     cartTitle: 'Корзина',
-    clearCart: 'Очистить корзину',
-    clearCartMsg: 'Удалить все товары из корзины?',
-    clear: 'Очистить',
+    clearCart: 'Удалить все товары',
+    clearCartMsg: 'Все товары будут удалены из корзины. Продолжить?',
+    clear: 'Да, удалить',
+    no: 'Нет',
     checkout: 'Оформить заказ',
     total: 'Итого',
     emptyCart: 'Корзина пуста',
@@ -178,9 +179,10 @@ const translations = {
 
     // Cart screen
     cartTitle: 'Savat',
-    clearCart: 'Savatni tozalash',
-    clearCartMsg: "Barcha mahsulotlarni savatdan o'chirish?",
-    clear: 'Tozalash',
+    clearCart: "Barcha mahsulotlarni o'chirish",
+    clearCartMsg: "Barcha mahsulotlar savatdan o'chiriladi. Davom etasizmi?",
+    clear: 'Ha, o\'chirish',
+    no: "Yo'q",
     checkout: 'Buyurtma berish',
     total: 'Jami',
     emptyCart: 'Savat bo\'sh',

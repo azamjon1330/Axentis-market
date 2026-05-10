@@ -126,18 +126,27 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 				}
 			}
 			
-			// Try price_with_markup first, fallback to total
+			// Try price_with_markup (snake_case), then priceWithMarkup (camelCase), then total
 			if pwmVal, ok := item["price_with_markup"]; ok {
 				if pwmFloat, ok := pwmVal.(float64); ok {
 					priceWithMarkup = pwmFloat
 				}
-			} else if totalVal, ok := item["total"]; ok {
-				if totalFloat, ok := totalVal.(float64); ok {
-					// Total is for all items, divide by quantity
-					priceWithMarkup = totalFloat / float64(quantity)
+			}
+			if priceWithMarkup == 0 {
+				if pwmVal, ok := item["priceWithMarkup"]; ok {
+					if pwmFloat, ok := pwmVal.(float64); ok {
+						priceWithMarkup = pwmFloat
+					}
 				}
 			}
-			
+			if priceWithMarkup == 0 {
+				if totalVal, ok := item["total"]; ok {
+					if totalFloat, ok := totalVal.(float64); ok && quantity > 0 {
+						priceWithMarkup = totalFloat / float64(quantity)
+					}
+				}
+			}
+
 			// Fallback: if no markup price, assume same as purchase price
 			if priceWithMarkup == 0 {
 				priceWithMarkup = price
@@ -188,12 +197,18 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 			log.Printf("✅ Product %d: decreased by %d", productID, quantity)
 		}
 
+		// Если не удалось рассчитать revenue из items — берём сохранённый total_amount заказа
+		if totalRevenue == 0 && order.TotalAmount > 0 {
+			totalRevenue = order.TotalAmount
+			log.Printf("⚠️ ConfirmOrder: totalRevenue was 0, falling back to order.TotalAmount=%.2f", totalRevenue)
+		}
+
 		// Создаём одну запись продажи для всего заказа с enriched items
 		enrichedItemsBytes, _ := json.Marshal(enrichedItems)
 		_, err = tx.Exec(`
-			INSERT INTO sales (company_id, items, total_amount, payment_method)
-			VALUES ($1, $2, $3, $4)
-		`, order.CompanyID, enrichedItemsBytes, totalRevenue, "cash")
+			INSERT INTO sales (company_id, items, total_amount, markup_profit, payment_method)
+			VALUES ($1, $2::jsonb, $3, $4, $5)
+		`, order.CompanyID, enrichedItemsBytes, totalRevenue, totalMarkup, "cash")
 
 		if err != nil {
 			log.Printf("❌ ConfirmOrder: Failed to create sale record: %v", err)

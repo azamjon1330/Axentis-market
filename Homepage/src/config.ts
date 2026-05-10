@@ -1,6 +1,6 @@
 // ─── AXENTIS MARKET — BACKEND CONFIG ─────────────────────────────────────────
 // Menyu izmenit': pomenay tol'ko etu stroku
-const API_HOST = 'http://109.123.253.238';
+const API_HOST = 'https://axentis.uz';
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 export const API_BASE_URL = `${API_HOST}/api`;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Dimensions, Animated,
-  TextInput, TouchableWithoutFeedback,
+  ActivityIndicator, RefreshControl, Animated,
+  TextInput, TouchableWithoutFeedback, useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +18,6 @@ import { getLocalSubs } from '../Company/CompanyStoreScreen';
 import { Product, Category, RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
 
-const { width } = Dimensions.get('window');
-const DRAWER_WIDTH = width * 0.75;
 const LIMIT = 20;
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -40,6 +38,9 @@ const CATEGORY_ICONS: Record<string, string> = {
 const getIcon = (name: string) => CATEGORY_ICONS[name] || 'grid-outline';
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
+  const DRAWER_WIDTH = Math.min(width * 0.82, 340);
+
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { count: cartCount } = useCart();
@@ -245,7 +246,7 @@ export default function HomeScreen() {
       <Animated.View
         style={[
           styles.drawer,
-          { backgroundColor: colors.surface, transform: [{ translateX: drawerX }] },
+          { backgroundColor: colors.surface, width: DRAWER_WIDTH, transform: [{ translateX: drawerX }] },
         ]}
       >
         {/* Drawer header */}
@@ -340,7 +341,6 @@ const styles = StyleSheet.create({
   drawer: {
     position: 'absolute',
     top: 0, left: 0, bottom: 0,
-    width: DRAWER_WIDTH,
     zIndex: 20,
     shadowColor: '#000',
     shadowOpacity: 0.3,

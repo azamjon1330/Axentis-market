@@ -36,7 +36,7 @@ function CartTabIcon({ color, focused }: { color: string; focused: boolean }) {
   const { count } = useCart();
   return (
     <View>
-      <Ionicons name={focused ? 'bag' : 'bag-outline'} size={24} color={color} />
+      <Ionicons name={focused ? 'cart' : 'cart-outline'} size={24} color={color} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
