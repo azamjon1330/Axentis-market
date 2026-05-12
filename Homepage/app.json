@@ -13,14 +13,18 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.axentis.homepage"
+      "bundleIdentifier": "com.axentis.homepage",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Нам нужен доступ к вашему местоположению для выбора адреса доставки."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F0F1E"
       },
-      "package": "com.axentis.homepage"
+      "package": "com.axentis.homepage",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
     },
     "web": {
       "favicon": "./assets/favicon.png"

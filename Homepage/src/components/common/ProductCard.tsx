@@ -138,7 +138,6 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',

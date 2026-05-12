@@ -27,6 +27,7 @@ export interface Company {
   description?: string;
   latitude?: number;
   longitude?: number;
+  deliveryRadius?: number;
   createdAt: string;
   updatedAt: string;
 }

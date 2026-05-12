@@ -222,7 +222,7 @@ export default function HomeScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={styles.cardWrap}>
+          <View style={{ width: (width - 24 - 12) / 2 }}>
             <ProductCard
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
@@ -328,7 +328,6 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   grid: { paddingHorizontal: 12, paddingBottom: 24 },
   row: { gap: 12, marginBottom: 0 },
-  cardWrap: { flex: 1 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   emptyText: { fontSize: 15 },
   loadMore: { paddingVertical: 20, alignItems: 'center' },

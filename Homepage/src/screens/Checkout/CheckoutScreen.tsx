@@ -1,24 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, Alert,
+  TextInput, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { createOrder } from '../../api';
-import { RootStackParamList } from '../../types';
+import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail } from '../../api';
+import { RootStackParamList, PaymentCard, Company } from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type DeliveryType = 'delivery';
 type PaymentMethod = 'cash' | 'card';
 type CardSubtype = 'uzcard' | 'humo' | 'visa' | 'mastercard';
 
 const STEPS = ['Доставка', 'Оплата', 'Подтверждение'];
+const DELIVERY_COST_PER_KM = 1500;
+const DEFAULT_FREE_RADIUS_KM = 2;
+
+const CARD_TYPES: { key: CardSubtype; label: string; color: string }[] = [
+  { key: 'visa', label: 'Visa', color: '#1A1F71' },
+  { key: 'mastercard', label: 'Mastercard', color: '#EB001B' },
+  { key: 'uzcard', label: 'Uzcard', color: '#1BA874' },
+  { key: 'humo', label: 'Humo', color: '#FF6B00' },
+];
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function CheckoutScreen() {
   const { colors, isDark } = useTheme();
@@ -27,47 +46,177 @@ export default function CheckoutScreen() {
   const navigation = useNavigation<Nav>();
 
   const [step, setStep] = useState(0);
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>('delivery');
   const [address, setAddress] = useState(user?.defaultDeliveryAddress || '');
   const [recipientName, setRecipientName] = useState(user?.defaultRecipientName || user?.name || '');
   const [recipientPhone, setRecipientPhone] = useState(user?.phone || '');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
-  const [cardSubtype, setCardSubtype] = useState<CardSubtype>('visa');
   const [comment, setComment] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [isPlacing, setIsPlacing] = useState(false);
 
-  const deliveryCost = deliveryType === 'delivery' ? 0 : 0;
+  // Location
+  const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
 
-  const groupByCompany = () => {
-    const groups: Record<number, typeof items> = {};
-    for (const item of items) {
-      const cid = item.product?.companyId || 1;
-      if (!groups[cid]) groups[cid] = [];
-      groups[cid].push(item);
+  // Company info for delivery radius
+  const [companyInfo, setCompanyInfo] = useState<Company | null>(null);
+
+  // Saved payment cards
+  const [savedCards, setSavedCards] = useState<PaymentCard[]>([]);
+  const [selectedCard, setSelectedCard] = useState<PaymentCard | null>(null);
+  const [cardsLoading, setCardsLoading] = useState(false);
+
+  // Inline card form (shown when no saved cards)
+  const [inlineCardType, setInlineCardType] = useState<CardSubtype>('uzcard');
+  const [inlineCardNumber, setInlineCardNumber] = useState('');
+  const [inlineExpiry, setInlineExpiry] = useState('');
+  const [inlineHolderName, setInlineHolderName] = useState('');
+  const [inlineCardSaved, setInlineCardSaved] = useState(false);
+  const [savingInlineCard, setSavingInlineCard] = useState(false);
+
+  useEffect(() => {
+    const companyId = items[0]?.product?.companyId;
+    if (companyId) {
+      getCompanyDetail(companyId).then(setCompanyInfo).catch(() => {});
     }
-    return groups;
+  }, [items]);
+
+  useEffect(() => {
+    if (!user) return;
+    setCardsLoading(true);
+    getPaymentCards(user.phone)
+      .then(cards => {
+        setSavedCards(cards);
+        const def = cards.find(c => c.isDefault) || cards[0];
+        if (def) setSelectedCard(def);
+      })
+      .catch(() => {})
+      .finally(() => setCardsLoading(false));
+  }, [user]);
+
+  const deliveryCost = useMemo(() => {
+    if (!deliveryCoords || !companyInfo?.latitude || !companyInfo?.longitude) return 0;
+    const dist = haversineKm(companyInfo.latitude, companyInfo.longitude, deliveryCoords.lat, deliveryCoords.lng);
+    const radius = companyInfo.deliveryRadius ?? DEFAULT_FREE_RADIUS_KM;
+    if (dist <= radius) return 0;
+    return Math.ceil(dist - radius) * DELIVERY_COST_PER_KM;
+  }, [deliveryCoords, companyInfo]);
+
+  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
+
+  const canContinue = useMemo(() => {
+    if (step === 1) {
+      if (paymentMethod === 'cash') return true;
+      if (paymentMethod === 'card') return !!selectedCard || inlineCardSaved;
+      return false;
+    }
+    return true;
+  }, [step, paymentMethod, selectedCard, inlineCardSaved]);
+
+  const handlePickLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Нет доступа', 'Разрешите доступ к геолокации в настройках устройства.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const { latitude, longitude } = loc.coords;
+      setDeliveryCoords({ lat: latitude, lng: longitude });
+      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+      if (geo.length > 0) {
+        const g = geo[0];
+        const parts = [g.street, g.name, g.district, g.city].filter(Boolean);
+        const streetName = parts.join(', ');
+        setAddress(streetName || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      }
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const openInMaps = () => {
+    if (deliveryCoords) {
+      Linking.openURL(`https://maps.google.com/?q=${deliveryCoords.lat},${deliveryCoords.lng}`);
+    } else if (address.trim()) {
+      Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(address.trim())}`);
+    }
   };
 
   const handleNext = () => {
-    if (step === 0) {
-      if (deliveryType === 'delivery' && !address.trim()) {
-        Alert.alert('Укажите адрес доставки');
-        return;
-      }
+    if (step === 0 && !address.trim()) {
+      Alert.alert('Укажите адрес доставки');
+      return;
     }
     if (step < 2) setStep(s => s + 1);
   };
+
+  const handleCardNumberChange = (text: string) => {
+    const digits = text.replace(/\D/g, '').slice(0, 16);
+    setInlineCardNumber(digits.replace(/(.{4})/g, '$1 ').trim());
+  };
+
+  const handleExpiryChange = (text: string) => {
+    const cleaned = text.replace(/\D/g, '');
+    setInlineExpiry(cleaned.length <= 2 ? cleaned : `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`);
+  };
+
+  const handleSaveInlineCard = async () => {
+    if (!user) return;
+    const digits = inlineCardNumber.replace(/\s/g, '');
+    if (digits.length !== 16) {
+      Alert.alert('Ошибка', 'Введите полный 16-значный номер карты');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(inlineExpiry)) {
+      Alert.alert('Ошибка', 'Введите срок в формате ММ/ГГ');
+      return;
+    }
+    if (!inlineHolderName.trim()) {
+      Alert.alert('Ошибка', 'Введите имя держателя карты');
+      return;
+    }
+    const nameParts = inlineHolderName.trim().split(/\s+/);
+    setSavingInlineCard(true);
+    try {
+      const card = await addPaymentCard({
+        userPhone: user.phone,
+        cardNumber: digits,
+        cardExpiry: inlineExpiry,
+        cardHolderFirstName: nameParts[0],
+        cardHolderLastName: nameParts.slice(1).join(' ') || ' ',
+        cardType: inlineCardType,
+      });
+      setSelectedCard(card);
+      setSavedCards(prev => [...prev, card]);
+      setInlineCardSaved(true);
+    } catch {
+      Alert.alert('Ошибка', 'Не удалось добавить карту');
+    } finally {
+      setSavingInlineCard(false);
+    }
+  };
+
+  const getCardColor = (type: string) =>
+    CARD_TYPES.find(ct => ct.key === type)?.color || colors.primary;
 
   const handlePlaceOrder = async () => {
     if (!user || items.length === 0) return;
     setIsPlacing(true);
     try {
-      const groups = groupByCompany();
-      const firstCompanyId = Object.keys(groups)[0];
-      const companyItems = groups[Number(firstCompanyId)];
+      const groups: Record<number, typeof items> = {};
+      for (const item of items) {
+        const cid = item.product?.companyId || 1;
+        if (!groups[cid]) groups[cid] = [];
+        groups[cid].push(item);
+      }
+      const firstCompanyId = Number(Object.keys(groups)[0]);
+      const companyItems = groups[firstCompanyId];
 
-      const orderData = {
-        companyId: Number(firstCompanyId) || undefined,
+      const order = await createOrder({
+        companyId: firstCompanyId || undefined,
         customerName: recipientName || user.name,
         customerPhone: user.phone,
         items: companyItems.map(i => ({
@@ -78,16 +227,14 @@ export default function CheckoutScreen() {
           imageUrl: i.product?.images?.[0] || undefined,
         })),
         totalAmount: total + deliveryCost,
-        deliveryType: 'delivery' as DeliveryType,
+        deliveryType: 'delivery',
         deliveryAddress: address,
-        deliveryCost: deliveryCost,
-        paymentMethod: paymentMethod,
-        cardSubtype: paymentMethod === 'card' ? cardSubtype : undefined,
-        recipientName: recipientName,
+        deliveryCost,
+        paymentMethod,
+        cardSubtype: paymentMethod === 'card' && selectedCard ? selectedCard.cardType : undefined,
+        recipientName,
         comment: comment || undefined,
-      };
-
-      const order = await createOrder(orderData);
+      });
       await clearAllItems();
       navigation.replace('OrderConfirmed', { orderId: order.id, orderCode: order.orderCode });
     } catch (err: any) {
@@ -97,29 +244,21 @@ export default function CheckoutScreen() {
     }
   };
 
-  const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
-
-  const CARD_TYPES: { key: CardSubtype; label: string; icon: string }[] = [
-    { key: 'visa', label: 'Visa', icon: '💳' },
-    { key: 'mastercard', label: 'Mastercard', icon: '💳' },
-    { key: 'uzcard', label: 'Uzcard', icon: '🏦' },
-    { key: 'humo', label: 'Humo', icon: '🏦' },
-  ];
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <TouchableOpacity onPress={() => step > 0 ? setStep(s => s - 1) : navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => step > 0 ? setStep(s => s - 1) : navigation.goBack()}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>Оформление заказа</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Step indicator */}
       <View style={styles.stepper}>
         {STEPS.map((label, i) => (
           <React.Fragment key={i}>
@@ -131,18 +270,12 @@ export default function CheckoutScreen() {
                   borderColor: i <= step ? colors.primary : colors.border,
                 },
               ]}>
-                {i < step ? (
-                  <Ionicons name="checkmark" size={14} color="#FFF" />
-                ) : (
-                  <Text style={[styles.stepNum, { color: i <= step ? '#FFF' : colors.textSecondary }]}>
-                    {i + 1}
-                  </Text>
-                )}
+                {i < step
+                  ? <Ionicons name="checkmark" size={14} color="#FFF" />
+                  : <Text style={[styles.stepNum, { color: i <= step ? '#FFF' : colors.textSecondary }]}>{i + 1}</Text>
+                }
               </View>
-              <Text style={[
-                styles.stepLabel,
-                { color: i <= step ? colors.primary : colors.textMuted },
-              ]}>
+              <Text style={[styles.stepLabel, { color: i <= step ? colors.primary : colors.textMuted }]}>
                 {label}
               </Text>
             </View>
@@ -154,33 +287,40 @@ export default function CheckoutScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* Step 0: Delivery */}
+
+        {/* ── Step 0: Delivery ── */}
         {step === 0 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
               <View style={[styles.deliveryBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '40' }]}>
                 <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
-                <Text style={[styles.deliveryBadgeText, { color: colors.primary }]}>Курьерская доставка · Бесплатно</Text>
+                <Text style={[styles.deliveryBadgeText, { color: colors.primary }]}>
+                  {deliveryCost > 0 ? `Доставка: ${formatPrice(deliveryCost)}` : 'Курьерская доставка · Бесплатно'}
+                </Text>
+              </View>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
+              <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
+                <TextInput
+                  style={[styles.input, { color: colors.text }]}
+                  value={address}
+                  onChangeText={text => { setAddress(text); setDeliveryCoords(null); }}
+                  placeholder="ул. Ленина, 10, кв. 25"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                />
+                <TouchableOpacity
+                  onPress={handlePickLocation}
+                  disabled={locating}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  {locating
+                    ? <ActivityIndicator size="small" color={colors.primary} />
+                    : <Ionicons name="navigate-outline" size={22} color={colors.primary} />
+                  }
+                </TouchableOpacity>
               </View>
             </View>
-
-            {true && (
-              <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
-                <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
-                  <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
-                  <TextInput
-                    style={[styles.input, { color: colors.text }]}
-                    value={address}
-                    onChangeText={setAddress}
-                    placeholder="ул. Ленина, 10, кв. 25"
-                    placeholderTextColor={colors.textMuted}
-                    multiline
-                  />
-                </View>
-              </View>
-            )}
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Получатель</Text>
@@ -200,7 +340,7 @@ export default function CheckoutScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={recipientPhone}
                   onChangeText={setRecipientPhone}
-                  placeholder="+7 (___) ___-__-__"
+                  placeholder="+998 (__) ___-__-__"
                   placeholderTextColor={colors.textMuted}
                   keyboardType="phone-pad"
                 />
@@ -224,15 +364,15 @@ export default function CheckoutScreen() {
           </>
         )}
 
-        {/* Step 1: Payment */}
+        {/* ── Step 1: Payment ── */}
         {step === 1 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Способ оплаты</Text>
-              {[
+              {([
                 { key: 'card' as PaymentMethod, label: 'Банковская карта', icon: 'card-outline' },
                 { key: 'cash' as PaymentMethod, label: 'Наличными при получении', icon: 'cash-outline' },
-              ].map((opt) => (
+              ] as const).map(opt => (
                 <TouchableOpacity
                   key={opt.key}
                   style={[
@@ -245,13 +385,8 @@ export default function CheckoutScreen() {
                   onPress={() => setPaymentMethod(opt.key)}
                   activeOpacity={0.8}
                 >
-                  <View style={[
-                    styles.radioOuter,
-                    { borderColor: paymentMethod === opt.key ? colors.primary : colors.border },
-                  ]}>
-                    {paymentMethod === opt.key && (
-                      <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />
-                    )}
+                  <View style={[styles.radioOuter, { borderColor: paymentMethod === opt.key ? colors.primary : colors.border }]}>
+                    {paymentMethod === opt.key && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
                   </View>
                   <Ionicons name={opt.icon as any} size={20} color={colors.textSecondary} style={{ marginHorizontal: 8 }} />
                   <Text style={[styles.optionLabel, { color: colors.text }]}>{opt.label}</Text>
@@ -261,41 +396,136 @@ export default function CheckoutScreen() {
 
             {paymentMethod === 'card' && (
               <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>Тип карты</Text>
-                <View style={styles.cardTypesGrid}>
-                  {CARD_TYPES.map((ct) => (
-                    <TouchableOpacity
-                      key={ct.key}
-                      style={[
-                        styles.cardTypeBtn,
-                        {
-                          backgroundColor: cardSubtype === ct.key ? colors.primary + '20' : colors.inputBg,
-                          borderColor: cardSubtype === ct.key ? colors.primary : colors.border,
-                        },
-                      ]}
-                      onPress={() => setCardSubtype(ct.key)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.cardTypeIcon}>{ct.icon}</Text>
-                      <Text style={[styles.cardTypeLabel, { color: cardSubtype === ct.key ? colors.primary : colors.text }]}>
-                        {ct.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                {cardsLoading ? (
+                  <ActivityIndicator color={colors.primary} style={{ paddingVertical: 8 }} />
+                ) : savedCards.length > 0 ? (
+                  <>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Выберите карту</Text>
+                    {savedCards.map(card => (
+                      <TouchableOpacity
+                        key={card.id}
+                        style={[
+                          styles.savedCardRow,
+                          {
+                            borderColor: selectedCard?.id === card.id ? colors.primary : colors.border,
+                            backgroundColor: selectedCard?.id === card.id ? colors.primary + '10' : colors.inputBg,
+                          },
+                        ]}
+                        onPress={() => setSelectedCard(card)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.radioOuter, { borderColor: selectedCard?.id === card.id ? colors.primary : colors.border }]}>
+                          {selectedCard?.id === card.id && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
+                        </View>
+                        <View style={[styles.cardDot, { backgroundColor: getCardColor(card.cardType) }]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.cardRowLabel, { color: colors.text }]}>
+                            {CARD_TYPES.find(ct => ct.key === card.cardType)?.label} **** {card.cardNumberLast4}
+                          </Text>
+                          <Text style={[styles.cardRowSub, { color: colors.textMuted }]}>
+                            {card.cardHolderFirstName} {card.cardHolderLastName}
+                          </Text>
+                        </View>
+                        {card.isDefault && (
+                          <View style={[styles.defaultBadge, { backgroundColor: colors.primary + '20' }]}>
+                            <Text style={[styles.defaultBadgeText, { color: colors.primary }]}>Основная</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Данные карты</Text>
+                    <View style={styles.cardTypesGrid}>
+                      {CARD_TYPES.map(ct => (
+                        <TouchableOpacity
+                          key={ct.key}
+                          style={[
+                            styles.cardTypeBtn,
+                            {
+                              backgroundColor: inlineCardType === ct.key ? ct.color + '20' : colors.inputBg,
+                              borderColor: inlineCardType === ct.key ? ct.color : colors.border,
+                            },
+                          ]}
+                          onPress={() => setInlineCardType(ct.key)}
+                          activeOpacity={0.8}
+                        >
+                          <View style={[styles.cardDot, { backgroundColor: ct.color }]} />
+                          <Text style={[styles.cardTypeLabel, { color: inlineCardType === ct.key ? ct.color : colors.text }]}>
+                            {ct.label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                      <Ionicons name="card-outline" size={18} color={colors.textSecondary} />
+                      <TextInput
+                        style={[styles.input, { color: colors.text, letterSpacing: 2 }]}
+                        placeholder="1234 5678 9012 3456"
+                        placeholderTextColor={colors.textMuted}
+                        value={inlineCardNumber}
+                        onChangeText={handleCardNumberChange}
+                        keyboardType="number-pad"
+                        maxLength={19}
+                      />
+                    </View>
+                    <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                      <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        placeholder="ММ/ГГ"
+                        placeholderTextColor={colors.textMuted}
+                        value={inlineExpiry}
+                        onChangeText={handleExpiryChange}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                      />
+                    </View>
+                    <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                      <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
+                      <TextInput
+                        style={[styles.input, { color: colors.text }]}
+                        placeholder="Имя Фамилия"
+                        placeholderTextColor={colors.textMuted}
+                        value={inlineHolderName}
+                        onChangeText={setInlineHolderName}
+                        autoCapitalize="words"
+                      />
+                    </View>
+                    {!inlineCardSaved ? (
+                      <TouchableOpacity
+                        style={[styles.saveCardBtn, { backgroundColor: colors.primary }]}
+                        onPress={handleSaveInlineCard}
+                        disabled={savingInlineCard}
+                        activeOpacity={0.85}
+                      >
+                        {savingInlineCard
+                          ? <ActivityIndicator color="#FFF" />
+                          : <Text style={styles.saveCardBtnText}>Сохранить карту</Text>
+                        }
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={[styles.savedBadge, { backgroundColor: colors.success + '20', borderColor: colors.success + '60' }]}>
+                        <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                        <Text style={[styles.savedBadgeText, { color: colors.success }]}>Карта сохранена</Text>
+                      </View>
+                    )}
+                  </>
+                )}
               </View>
             )}
           </>
         )}
 
-        {/* Step 2: Confirmation */}
+        {/* ── Step 2: Confirmation ── */}
         {step === 2 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Ваш заказ</Text>
-              {items.map((item) => (
+              {items.map(item => (
                 <View key={item.id} style={styles.orderItemRow}>
-                  <Text style={[styles.orderItemName, { color: colors.text }]} numberOfLines={1}>
+                  <Text style={[styles.orderItemName, { color: colors.text }]} numberOfLines={2}>
                     {item.product?.name}
                   </Text>
                   <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>× {item.quantity}</Text>
@@ -310,9 +540,14 @@ export default function CheckoutScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Доставка</Text>
               <View style={styles.confirmRow}>
                 <Ionicons name="bicycle-outline" size={16} color={colors.textSecondary} />
-                <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
-                  Курьером{address ? `, ${address}` : ''}
+                <Text style={[styles.confirmText, { color: colors.textSecondary, flex: 1 }]} numberOfLines={2}>
+                  {address || 'Адрес не указан'}
                 </Text>
+                {(deliveryCoords || address.trim()) && (
+                  <TouchableOpacity onPress={openInMaps} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="map-outline" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -321,19 +556,33 @@ export default function CheckoutScreen() {
               <View style={styles.confirmRow}>
                 <Ionicons name={paymentMethod === 'card' ? 'card-outline' : 'cash-outline'} size={16} color={colors.textSecondary} />
                 <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
-                  {paymentMethod === 'card' ? `Карта (${cardSubtype.toUpperCase()})` : 'Наличными'}
+                  {paymentMethod === 'cash'
+                    ? 'Наличными при получении'
+                    : selectedCard
+                      ? `${CARD_TYPES.find(ct => ct.key === selectedCard.cardType)?.label} **** ${selectedCard.cardNumberLast4}`
+                      : 'Банковская карта'
+                  }
                 </Text>
               </View>
             </View>
 
             <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Товары</Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(total)}</Text>
-              </View>
+              {items.map(item => (
+                <View key={item.id} style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.textSecondary, flex: 1 }]} numberOfLines={1}>
+                    {item.product?.name}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: colors.text }]}>
+                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} сум
+                  </Text>
+                </View>
+              ))}
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Доставка</Text>
-                <Text style={[styles.freeText, { color: colors.success }]}>Бесплатно</Text>
+                {deliveryCost > 0
+                  ? <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(deliveryCost)}</Text>
+                  : <Text style={[styles.freeText, { color: colors.success }]}>Бесплатно</Text>
+                }
               </View>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryRow}>
@@ -347,22 +596,21 @@ export default function CheckoutScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Bottom bar */}
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomTotal}>
           <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>Итого</Text>
           <Text style={[styles.bottomTotalValue, { color: colors.text }]}>{formatPrice(total + deliveryCost)}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.nextBtn, { backgroundColor: colors.primary }]}
-          onPress={step < 2 ? handleNext : handlePlaceOrder}
+          style={[styles.nextBtn, { backgroundColor: canContinue ? colors.primary : colors.border }]}
+          onPress={canContinue ? (step < 2 ? handleNext : handlePlaceOrder) : undefined}
           disabled={isPlacing}
           activeOpacity={0.85}
         >
           {isPlacing ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.nextBtnText}>
+            <Text style={[styles.nextBtnText, { color: canContinue ? '#FFF' : colors.textMuted }]}>
               {step < 2 ? 'Продолжить' : `Оплатить ${formatPrice(total + deliveryCost)}`}
             </Text>
           )}
@@ -411,6 +659,26 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
+  deliveryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  deliveryBadgeText: { fontSize: 14, fontWeight: '600' },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    minHeight: 50,
+    paddingVertical: 8,
+  },
+  input: { flex: 1, fontSize: 15 },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,27 +697,27 @@ const styles = StyleSheet.create({
   },
   radioInner: { width: 10, height: 10, borderRadius: 5 },
   optionLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
-  optionSub: { fontSize: 12, marginTop: 2 },
-  optionPrice: { fontSize: 13, fontWeight: '600' },
-  deliveryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  deliveryBadgeText: { fontSize: 14, fontWeight: '600' },
-  inputWrap: {
+  savedCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 14,
   },
-  input: { flex: 1, fontSize: 15 },
+  cardDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  cardRowLabel: { fontSize: 14, fontWeight: '600' },
+  cardRowSub: { fontSize: 12, marginTop: 2 },
+  defaultBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  defaultBadgeText: { fontSize: 11, fontWeight: '600' },
   cardTypesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   cardTypeBtn: {
     flexDirection: 'row',
@@ -460,30 +728,45 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
   },
-  cardTypeIcon: { fontSize: 18 },
   cardTypeLabel: { fontSize: 13, fontWeight: '600' },
-  orderItemRow: {
+  saveCardBtn: {
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveCardBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  savedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
   },
-  orderItemName: { flex: 1, fontSize: 14 },
-  orderItemQty: { fontSize: 13 },
+  savedBadgeText: { fontSize: 14, fontWeight: '600' },
+  orderItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  orderItemName: { flex: 1, fontSize: 14, lineHeight: 20 },
+  orderItemQty: { fontSize: 13, marginTop: 2 },
   orderItemPrice: { fontSize: 14, fontWeight: '600' },
   confirmRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  confirmText: { fontSize: 14, flex: 1 },
+  confirmText: { fontSize: 14, lineHeight: 20 },
   summaryCard: {
     borderRadius: 18,
     borderWidth: 1,
     padding: 16,
-    gap: 12,
+    gap: 10,
     marginBottom: 12,
   },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   summaryLabel: { fontSize: 14 },
   summaryValue: { fontSize: 14 },
   freeText: { fontSize: 14, fontWeight: '600' },
-  divider: { height: 1 },
+  divider: { height: 1, marginVertical: 2 },
   totalLabel: { fontSize: 16, fontWeight: '700' },
   totalValue: { fontSize: 18, fontWeight: '800' },
   bottomBar: {
@@ -505,5 +788,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  nextBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  nextBtnText: { fontSize: 15, fontWeight: '700' },
 });
