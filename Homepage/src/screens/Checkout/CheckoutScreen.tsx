@@ -65,13 +65,14 @@ export default function CheckoutScreen() {
   const [selectedCard, setSelectedCard] = useState<PaymentCard | null>(null);
   const [cardsLoading, setCardsLoading] = useState(false);
 
-  // Inline card form (shown when no saved cards)
+  // Inline card form (shown when no saved cards OR user clicks "Add new card")
   const [inlineCardType, setInlineCardType] = useState<CardSubtype>('uzcard');
   const [inlineCardNumber, setInlineCardNumber] = useState('');
   const [inlineExpiry, setInlineExpiry] = useState('');
   const [inlineHolderName, setInlineHolderName] = useState('');
   const [inlineCardSaved, setInlineCardSaved] = useState(false);
   const [savingInlineCard, setSavingInlineCard] = useState(false);
+  const [showAddCardForm, setShowAddCardForm] = useState(false);
 
   useEffect(() => {
     const companyId = items[0]?.product?.companyId;
@@ -106,11 +107,14 @@ export default function CheckoutScreen() {
   const canContinue = useMemo(() => {
     if (step === 1) {
       if (paymentMethod === 'cash') return true;
-      if (paymentMethod === 'card') return !!selectedCard || inlineCardSaved;
+      if (paymentMethod === 'card') {
+        if (showAddCardForm) return inlineCardSaved;
+        return !!selectedCard || inlineCardSaved;
+      }
       return false;
     }
     return true;
-  }, [step, paymentMethod, selectedCard, inlineCardSaved]);
+  }, [step, paymentMethod, selectedCard, inlineCardSaved, showAddCardForm]);
 
   const handlePickLocation = async () => {
     setLocating(true);
@@ -123,12 +127,18 @@ export default function CheckoutScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const { latitude, longitude } = loc.coords;
       setDeliveryCoords({ lat: latitude, lng: longitude });
-      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (geo.length > 0) {
-        const g = geo[0];
-        const parts = [g.street, g.name, g.district, g.city].filter(Boolean);
-        const streetName = parts.join(', ');
-        setAddress(streetName || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      try {
+        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (geo.length > 0) {
+          const g = geo[0];
+          const parts = [g.street, g.streetNumber, g.district, g.subregion, g.city, g.region].filter(Boolean);
+          setAddress(parts.join(', ') || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        } else {
+          setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+      } catch {
+        // reverseGeocode may fail on web (SDK 49+); coordinates still saved
+        setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
       }
     } catch {
       Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
@@ -229,6 +239,9 @@ export default function CheckoutScreen() {
         totalAmount: total + deliveryCost,
         deliveryType: 'delivery',
         deliveryAddress: address,
+        deliveryCoordinates: deliveryCoords
+          ? `${deliveryCoords.lat},${deliveryCoords.lng}`
+          : undefined,
         deliveryCost,
         paymentMethod,
         cardSubtype: paymentMethod === 'card' && selectedCard ? selectedCard.cardType : undefined,
@@ -411,7 +424,7 @@ export default function CheckoutScreen() {
                             backgroundColor: selectedCard?.id === card.id ? colors.primary + '10' : colors.inputBg,
                           },
                         ]}
-                        onPress={() => setSelectedCard(card)}
+                        onPress={() => { setSelectedCard(card); setShowAddCardForm(false); }}
                         activeOpacity={0.8}
                       >
                         <View style={[styles.radioOuter, { borderColor: selectedCard?.id === card.id ? colors.primary : colors.border }]}>
@@ -433,6 +446,97 @@ export default function CheckoutScreen() {
                         )}
                       </TouchableOpacity>
                     ))}
+
+                    {/* Add new card button */}
+                    <TouchableOpacity
+                      style={[styles.addCardBtn, { borderColor: colors.primary + '60', backgroundColor: colors.primary + '08' }]}
+                      onPress={() => { setShowAddCardForm(v => !v); setSelectedCard(null); setInlineCardSaved(false); }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name={showAddCardForm ? 'remove-circle-outline' : 'add-circle-outline'} size={20} color={colors.primary} />
+                      <Text style={[styles.addCardBtnText, { color: colors.primary }]}>
+                        {showAddCardForm ? 'Отмена' : 'Добавить новую карту'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {showAddCardForm && (
+                      <>
+                        <View style={styles.cardTypesGrid}>
+                          {CARD_TYPES.map(ct => (
+                            <TouchableOpacity
+                              key={ct.key}
+                              style={[
+                                styles.cardTypeBtn,
+                                {
+                                  backgroundColor: inlineCardType === ct.key ? ct.color + '20' : colors.inputBg,
+                                  borderColor: inlineCardType === ct.key ? ct.color : colors.border,
+                                },
+                              ]}
+                              onPress={() => setInlineCardType(ct.key)}
+                              activeOpacity={0.8}
+                            >
+                              <View style={[styles.cardDot, { backgroundColor: ct.color }]} />
+                              <Text style={[styles.cardTypeLabel, { color: inlineCardType === ct.key ? ct.color : colors.text }]}>
+                                {ct.label}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                          <Ionicons name="card-outline" size={18} color={colors.textSecondary} />
+                          <TextInput
+                            style={[styles.input, { color: colors.text, letterSpacing: 2 }]}
+                            placeholder="1234 5678 9012 3456"
+                            placeholderTextColor={colors.textMuted}
+                            value={inlineCardNumber}
+                            onChangeText={handleCardNumberChange}
+                            keyboardType="number-pad"
+                            maxLength={19}
+                          />
+                        </View>
+                        <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                          <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
+                          <TextInput
+                            style={[styles.input, { color: colors.text }]}
+                            placeholder="ММ/ГГ"
+                            placeholderTextColor={colors.textMuted}
+                            value={inlineExpiry}
+                            onChangeText={handleExpiryChange}
+                            keyboardType="number-pad"
+                            maxLength={5}
+                          />
+                        </View>
+                        <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                          <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
+                          <TextInput
+                            style={[styles.input, { color: colors.text }]}
+                            placeholder="Имя Фамилия"
+                            placeholderTextColor={colors.textMuted}
+                            value={inlineHolderName}
+                            onChangeText={setInlineHolderName}
+                            autoCapitalize="words"
+                          />
+                        </View>
+                        {!inlineCardSaved ? (
+                          <TouchableOpacity
+                            style={[styles.saveCardBtn, { backgroundColor: colors.primary }]}
+                            onPress={handleSaveInlineCard}
+                            disabled={savingInlineCard}
+                            activeOpacity={0.85}
+                          >
+                            {savingInlineCard
+                              ? <ActivityIndicator color="#FFF" />
+                              : <Text style={styles.saveCardBtnText}>Сохранить карту</Text>
+                            }
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={[styles.savedBadge, { backgroundColor: colors.success + '20', borderColor: colors.success + '60' }]}>
+                            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                            <Text style={[styles.savedBadgeText, { color: colors.success }]}>Карта сохранена</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
                   </>
                 ) : (
                   <>
@@ -718,6 +822,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   defaultBadgeText: { fontSize: 11, fontWeight: '600' },
+  addCardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    paddingVertical: 12,
+  },
+  addCardBtnText: { fontSize: 14, fontWeight: '600' },
   cardTypesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   cardTypeBtn: {
     flexDirection: 'row',

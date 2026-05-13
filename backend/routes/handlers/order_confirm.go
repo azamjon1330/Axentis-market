@@ -85,11 +85,14 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 		var totalMarkup float64
 
 		for _, item := range items {
-			// Extract product ID
+			// Extract product ID — frontend sends "productId", legacy stored as "id"
 			var productID int64
-			if idVal, ok := item["id"]; ok {
-				if idFloat, ok := idVal.(float64); ok {
-					productID = int64(idFloat)
+			for _, key := range []string{"productId", "product_id", "id"} {
+				if idVal, ok := item[key]; ok {
+					if idFloat, ok := idVal.(float64); ok && idFloat > 0 {
+						productID = int64(idFloat)
+						break
+					}
 				}
 			}
 			

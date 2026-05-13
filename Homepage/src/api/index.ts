@@ -208,6 +208,7 @@ export const createOrder = async (data: {
   totalAmount: number;
   deliveryType: 'pickup' | 'delivery';
   deliveryAddress?: string;
+  deliveryCoordinates?: string;
   deliveryCost?: number;
   paymentMethod: 'cash' | 'card';
   cardSubtype?: string;
