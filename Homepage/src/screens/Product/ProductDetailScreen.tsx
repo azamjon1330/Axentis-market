@@ -159,6 +159,15 @@ export default function ProductDetailScreen() {
 
   const handleSubmitReview = async () => {
     if (!user || !product) return;
+    if (!newComment.trim()) {
+      Alert.alert('Ошибка', 'Нельзя отправить пустой отзыв');
+      return;
+    }
+    const userReviewCount = reviews.filter(r => r.userPhone === user.phone).length;
+    if (userReviewCount >= 2) {
+      Alert.alert('Ограничение', 'Вы уже оставили максимальное количество отзывов (2) для этого товара');
+      return;
+    }
     setIsSubmittingReview(true);
     try {
       const review = await submitReview({
@@ -392,7 +401,7 @@ export default function ProductDetailScreen() {
           ) : null}
 
           {/* Write Review */}
-          {user ? (
+          {user && reviews.filter(r => r.userPhone === user.phone).length < 2 ? (
             <View style={[styles.writeReviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.sectionLabel, { color: colors.text }]}>Написать отзыв</Text>
               <View style={styles.starRow}>
