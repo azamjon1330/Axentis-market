@@ -448,19 +448,69 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 		var req struct {
 			Status string `json:"status" binding:"required"`
 		}
-
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		_, err := db.Exec(`
-			UPDATE orders SET status = $2, updated_at = NOW()
-			WHERE id = $1
-		`, id, req.Status)
-
+		tx, err := db.Begin()
 		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		// Read current status and items before updating
+		var currentStatus string
+		var itemsJSON []byte
+		if err := tx.QueryRow(`SELECT status, items FROM orders WHERE id = $1`, id).Scan(&currentStatus, &itemsJSON); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+
+		// Update the status
+		if _, err := tx.Exec(`UPDATE orders SET status = $2, updated_at = NOW() WHERE id = $1`, id, req.Status); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+			return
+		}
+
+		// Decrement stock once: only when transitioning from pending → any confirmed state
+		confirmedStatuses := map[string]bool{
+			"confirmed": true, "processing": true,
+			"shipped": true, "delivered": true, "completed": true,
+		}
+		if currentStatus == "pending" && confirmedStatuses[req.Status] {
+			var items []map[string]interface{}
+			if err := json.Unmarshal(itemsJSON, &items); err == nil {
+				for _, item := range items {
+					var productId int64
+					quantity := 1
+					if pid, ok := item["productId"].(float64); ok {
+						productId = int64(pid)
+					} else if pid, ok := item["product_id"].(float64); ok {
+						productId = int64(pid)
+					}
+					if q, ok := item["quantity"].(float64); ok {
+						quantity = int(q)
+					}
+					if productId > 0 {
+						if _, err := tx.Exec(`
+							UPDATE products
+							SET quantity   = GREATEST(0, quantity - $1),
+							    sold_count = sold_count + $1,
+							    updated_at = NOW()
+							WHERE id = $2
+						`, quantity, productId); err != nil {
+							log.Printf("⚠️ UpdateOrderStatus: stock update failed for product %d: %v", productId, err)
+						}
+					}
+				}
+				log.Printf("📦 UpdateOrderStatus: stock decremented for order %s → status=%s", id, req.Status)
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
 		}
 

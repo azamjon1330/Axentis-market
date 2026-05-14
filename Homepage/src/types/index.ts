@@ -186,7 +186,7 @@ export type RootStackParamList = {
   ProductDetail: { productId: number };
   CategoryProducts: { category: string; categoryName: string };
   OrderDetail: { orderId: number };
-  Checkout: undefined;
+  Checkout: { selectedCoords?: { lat: number; lng: number }; selectedAddress?: string } | undefined;
   OrderConfirmed: { orderId: number; orderCode: string };
   Search: undefined;
   AllOrders: undefined;
@@ -195,6 +195,7 @@ export type RootStackParamList = {
   PaymentCards: undefined;
   CompanyStore: { companyId: number };
   CompanyDetail: { companyId: number };
+  MapLocationPicker: { initialCoords?: { lat: number; lng: number } } | undefined;
 };
 
 export type MainTabParamList = {

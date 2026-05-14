@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  TextInput, ActivityIndicator, Alert, Linking,
+  TextInput, ActivityIndicator, Alert, Linking, Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -15,6 +14,7 @@ import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail } from '
 import { RootStackParamList, PaymentCard, Company } from '../../types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type RouteProps = RouteProp<RootStackParamList, 'Checkout'>;
 type PaymentMethod = 'cash' | 'card';
 type CardSubtype = 'uzcard' | 'humo' | 'visa' | 'mastercard';
 
@@ -44,6 +44,7 @@ export default function CheckoutScreen() {
   const { user } = useAuth();
   const { items, total, clearAllItems } = useCart();
   const navigation = useNavigation<Nav>();
+  const route = useRoute<RouteProps>();
 
   const [step, setStep] = useState(0);
   const [address, setAddress] = useState(user?.defaultDeliveryAddress || '');
@@ -55,7 +56,6 @@ export default function CheckoutScreen() {
 
   // Location
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
 
   // Company info for delivery radius
   const [companyInfo, setCompanyInfo] = useState<Company | null>(null);
@@ -73,6 +73,16 @@ export default function CheckoutScreen() {
   const [inlineCardSaved, setInlineCardSaved] = useState(false);
   const [savingInlineCard, setSavingInlineCard] = useState(false);
   const [showAddCardForm, setShowAddCardForm] = useState(false);
+
+  // Read coords/address returned from MapLocationPickerScreen
+  useEffect(() => {
+    if (route.params?.selectedCoords) {
+      setDeliveryCoords(route.params.selectedCoords);
+    }
+    if (route.params?.selectedAddress) {
+      setAddress(route.params.selectedAddress);
+    }
+  }, [route.params?.selectedCoords, route.params?.selectedAddress]);
 
   useEffect(() => {
     const companyId = items[0]?.product?.companyId;
@@ -116,35 +126,10 @@ export default function CheckoutScreen() {
     return true;
   }, [step, paymentMethod, selectedCard, inlineCardSaved, showAddCardForm]);
 
-  const handlePickLocation = async () => {
-    setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Нет доступа', 'Разрешите доступ к геолокации в настройках устройства.');
-        return;
-      }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const { latitude, longitude } = loc.coords;
-      setDeliveryCoords({ lat: latitude, lng: longitude });
-      try {
-        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
-        if (geo.length > 0) {
-          const g = geo[0];
-          const parts = [g.street, g.streetNumber, g.district, g.subregion, g.city, g.region].filter(Boolean);
-          setAddress(parts.join(', ') || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-        } else {
-          setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-        }
-      } catch {
-        // reverseGeocode may fail on web (SDK 49+); coordinates still saved
-        setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      }
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
-    } finally {
-      setLocating(false);
-    }
+  const handlePickLocation = () => {
+    navigation.navigate('MapLocationPicker', {
+      initialCoords: deliveryCoords ?? undefined,
+    });
   };
 
   const openInMaps = () => {
@@ -324,13 +309,9 @@ export default function CheckoutScreen() {
                 />
                 <TouchableOpacity
                   onPress={handlePickLocation}
-                  disabled={locating}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
-                  {locating
-                    ? <ActivityIndicator size="small" color={colors.primary} />
-                    : <Ionicons name="navigate-outline" size={22} color={colors.primary} />
-                  }
+                  <Ionicons name="map-outline" size={22} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -782,7 +763,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
     paddingVertical: 8,
   },
-  input: { flex: 1, fontSize: 15 },
+  input: { flex: 1, fontSize: 15, ...(Platform.OS === 'web' ? { outlineWidth: 0 } as any : {}) },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
