@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -14,54 +11,14 @@ import { RootStackParamList } from '../../types';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'MapLocationPicker'>;
 
-// Load MapView only on native to prevent web crash
-let MapView: any = null;
-if (Platform.OS !== 'web') {
-  MapView = require('react-native-maps').default;
-}
-
-const TASHKENT = {
-  latitude: 41.2995,
-  longitude: 69.2401,
-  latitudeDelta: 0.02,
-  longitudeDelta: 0.02,
-};
-
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<Nav>();
-  const route = useRoute<RouteProps>();
+  useRoute<RouteProps>();
 
-  const initialCoords = route.params?.initialCoords;
-  const [region, setRegion] = useState({
-    latitude: initialCoords?.lat ?? TASHKENT.latitude,
-    longitude: initialCoords?.lng ?? TASHKENT.longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
-  const [confirming, setConfirming] = useState(false);
   const [locating, setLocating] = useState(false);
 
-  const handleConfirm = async () => {
-    setConfirming(true);
-    const { latitude, longitude } = region;
-    let address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-    try {
-      const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (geo.length > 0) {
-        const g = geo[0];
-        const parts = [g.street, g.streetNumber, g.district, g.subregion, g.city, g.region].filter(Boolean);
-        if (parts.length > 0) address = parts.join(', ');
-      }
-    } catch {}
-    setConfirming(false);
-    navigation.navigate('Checkout', {
-      selectedCoords: { lat: latitude, lng: longitude },
-      selectedAddress: address,
-    });
-  };
-
-  const handleMyLocation = async () => {
+  const handlePickLocation = async () => {
     setLocating(true);
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -70,11 +27,20 @@ export default function MapLocationPickerScreen() {
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setRegion(r => ({
-        ...r,
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      }));
+      const { latitude, longitude } = loc.coords;
+      let address = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      try {
+        const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (geo.length > 0) {
+          const g = geo[0];
+          const parts = [g.street, g.streetNumber, g.district, g.subregion, g.city, g.region].filter(Boolean);
+          if (parts.length > 0) address = parts.join(', ');
+        }
+      } catch {}
+      navigation.navigate('Checkout', {
+        selectedCoords: { lat: latitude, lng: longitude },
+        selectedAddress: address,
+      });
     } catch {
       Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
     } finally {
@@ -82,43 +48,11 @@ export default function MapLocationPickerScreen() {
     }
   };
 
-  // Web fallback — GPS only
-  if (Platform.OS === 'web' || !MapView) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={[styles.header, { backgroundColor: colors.background }]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Выберите адрес доставки</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={styles.webCenter}>
-          <Ionicons name="location-outline" size={64} color={colors.primary} />
-          <Text style={[styles.webTitle, { color: colors.text }]}>Определить моё местоположение</Text>
-          <TouchableOpacity
-            style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-            onPress={handleMyLocation}
-            disabled={locating}
-            activeOpacity={0.85}
-          >
-            {locating
-              ? <ActivityIndicator color="#FFF" />
-              : <Text style={styles.confirmBtnText}>Использовать текущую геолокацию</Text>
-            }
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Header — floats above map */}
-      <View style={[styles.header, { backgroundColor: colors.surface }]}>
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
@@ -126,48 +60,21 @@ export default function MapLocationPickerScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Full-screen map */}
-      <MapView
-        style={StyleSheet.absoluteFill}
-        initialRegion={region}
-        onRegionChangeComplete={setRegion}
-        showsUserLocation
-        showsMyLocationButton={false}
-      />
-
-      {/* Fixed center pin — tip sits at screen center */}
-      <View style={styles.pinWrap} pointerEvents="none">
-        <Ionicons name="location" size={44} color={colors.primary} />
-        <View style={[styles.pinShadow, { backgroundColor: colors.primary + '35' }]} />
-      </View>
-
-      {/* My-location button */}
-      <TouchableOpacity
-        style={[styles.locateBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        onPress={handleMyLocation}
-        disabled={locating}
-        activeOpacity={0.8}
-      >
-        {locating
-          ? <ActivityIndicator size="small" color={colors.primary} />
-          : <Ionicons name="locate-outline" size={22} color={colors.primary} />
-        }
-      </TouchableOpacity>
-
-      {/* Bottom bar */}
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <Text style={[styles.coordsText, { color: colors.textSecondary }]} numberOfLines={1}>
-          {region.latitude.toFixed(5)},  {region.longitude.toFixed(5)}
+      <View style={styles.center}>
+        <Ionicons name="location-outline" size={72} color={colors.primary} />
+        <Text style={[styles.title, { color: colors.text }]}>Определить местоположение</Text>
+        <Text style={[styles.sub, { color: colors.textSecondary }]}>
+          Нажмите кнопку ниже, чтобы автоматически определить ваш адрес доставки
         </Text>
         <TouchableOpacity
-          style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
-          onPress={handleConfirm}
-          disabled={confirming}
+          style={[styles.btn, { backgroundColor: colors.primary }]}
+          onPress={handlePickLocation}
+          disabled={locating}
           activeOpacity={0.85}
         >
-          {confirming
+          {locating
             ? <ActivityIndicator color="#FFF" />
-            : <Text style={styles.confirmBtnText}>Подтвердить место доставки</Text>
+            : <Text style={styles.btnText}>Использовать моё местоположение</Text>
           }
         </TouchableOpacity>
       </View>
@@ -183,70 +90,26 @@ const styles = StyleSheet.create({
     paddingTop: 52,
     paddingHorizontal: 16,
     paddingBottom: 12,
-    zIndex: 10,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
-  // Pin: offset so the pointed tip sits at screen center (44px icon, tip at bottom)
-  pinWrap: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -22,
-    marginTop: -44,
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  pinShadow: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginTop: -6,
-  },
-  locateBtn: {
-    position: 'absolute',
-    right: 16,
-    bottom: 160,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
+  center: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    paddingHorizontal: 32,
+    gap: 16,
   },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 36,
-    borderTopWidth: 1,
-    gap: 10,
-    zIndex: 10,
-    elevation: 10,
-  },
-  coordsText: { fontSize: 13, textAlign: 'center' },
-  confirmBtn: {
+  title: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  sub: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  btn: {
     height: 54,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
+    marginTop: 8,
+    width: '100%',
   },
-  confirmBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  webCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 20,
-    paddingHorizontal: 32,
-  },
-  webTitle: { fontSize: 18, fontWeight: '600', textAlign: 'center' },
+  btnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 });
