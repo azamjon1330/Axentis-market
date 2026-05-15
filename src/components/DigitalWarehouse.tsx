@@ -1867,17 +1867,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           </td>
                         </tr>
                       )}
-                      {/* SKU Variants Panel */}
+                      {/* Variants Tree Panel */}
                       {expandedVariants.has(String(product.id)) && (
                         <tr>
                           <td colSpan={9} className="px-4 py-4 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900">
                             <div className="max-w-5xl mx-auto">
                               <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                                <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded">SKU</span>
-                                {language === 'uz' ? 'Variantlar' : 'Варианты товара'}: {product.name}
-                                <span className="text-xs text-indigo-500 font-normal">
-                                  ({language === 'uz' ? 'har bir variant alohida SKU' : 'каждый вариант — отдельный SKU'})
-                                </span>
+                                <Package className="w-4 h-4" />
+                                {language === 'uz' ? 'Tovar turlari' : 'Виды товара'}: {product.name}
                               </h4>
 
                               {loadingVariants.has(String(product.id)) ? (
@@ -1886,76 +1883,129 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                 </p>
                               ) : (
                                 <>
-                                  {/* Existing variants table */}
+                                  {/* Tree variant table */}
                                   {(productVariants[String(product.id)] || []).length > 0 && (
                                     <div className="overflow-x-auto mb-4">
                                       <table className="w-full text-sm border border-indigo-200 dark:border-indigo-800 rounded-lg overflow-hidden">
-                                        <thead className="bg-indigo-600 text-white">
+                                        <thead className="bg-gradient-to-r from-[#1a3a4a] to-[#1e5478] text-white">
                                           <tr>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Razmer' : 'Размер'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Narx' : 'Цена'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Naценка %' : 'Наценка %'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Sotish narxi' : 'Цена продажи'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
-                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Barcode' : 'Штрих-код'}</th>
-                                            <th className="px-3 py-2 text-left">SKU</th>
-                                            <th className="px-3 py-2 text-right">{language === 'uz' ? 'Amallar' : 'Действия'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Razmer' : 'Размер'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Narx' : 'Цена'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Naцen %' : 'Наценка %'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Sotish narxi' : 'Цена продажи'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
+                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Barcode' : 'Штрих-код'}</th>
+                                            <th className="px-3 py-2.5 text-right font-semibold">{language === 'uz' ? 'Amallar' : 'Действия'}</th>
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          {(productVariants[String(product.id)] || []).map((variant: any) => (
-                                            <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
-                                              {editingVariant?.variantId === String(variant.id) ? (
-                                                <>
-                                                  <td className="px-2 py-1.5"><input value={editVariantForm.color} onChange={e => setEditVariantForm({...editVariantForm, color: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'rang' : 'цвет'} /></td>
-                                                  <td className="px-2 py-1.5"><input value={editVariantForm.size} onChange={e => setEditVariantForm({...editVariantForm, size: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'razmer' : 'размер'} /></td>
-                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm({...editVariantForm, price: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm({...editVariantForm, markupPercent: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                  <td className="px-2 py-1.5 text-green-600 text-xs">
-                                                    {((parseFloat(editVariantForm.price)||0) * (1 + (parseFloat(editVariantForm.markupPercent)||0)/100)).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}
-                                                  </td>
-                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.stockQuantity} onChange={e => setEditVariantForm({...editVariantForm, stockQuantity: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                  <td className="px-2 py-1.5"><input value={editVariantForm.barcode} onChange={e => setEditVariantForm({...editVariantForm, barcode: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                  <td className="px-2 py-1.5"><input value={editVariantForm.sku} onChange={e => setEditVariantForm({...editVariantForm, sku: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                  <td className="px-2 py-1.5">
-                                                    <div className="flex justify-end gap-1">
-                                                      <button onClick={handleSaveVariant} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"><Check className="w-3 h-3" /></button>
-                                                      <button onClick={() => setEditingVariant(null)} className="p-1 bg-gray-400 text-white rounded hover:bg-gray-500 transition-colors"><X className="w-3 h-3" /></button>
-                                                    </div>
-                                                  </td>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.color || '—'}</td>
-                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.size || '—'}</td>
-                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.markupPercent || 0}%</td>
-                                                  <td className="px-3 py-2 text-green-600 dark:text-green-400 font-medium">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                  <td className="px-3 py-2">
-                                                    <span className={`font-bold ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>
-                                                      {variant.stockQuantity || 0}
-                                                    </span>
-                                                  </td>
-                                                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{variant.barcode || '—'}</td>
-                                                  <td className="px-3 py-2 text-indigo-600 dark:text-indigo-400 text-xs">{variant.sku || '—'}</td>
-                                                  <td className="px-3 py-2">
-                                                    <div className="flex justify-end gap-1">
-                                                      <button
-                                                        onClick={() => { setPurchasingVariant({ variant, product }); setShowVariantPurchaseModal(true); }}
-                                                        className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
-                                                        title={language === 'uz' ? 'Sotib olish' : 'Закупить'}
-                                                      >
-                                                        <ShoppingCart className="w-3 h-3" />
-                                                      </button>
-                                                      <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
-                                                      <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
-                                                    </div>
-                                                  </td>
-                                                </>
-                                              )}
-                                            </tr>
-                                          ))}
+                                          {(() => {
+                                            const allVariants: any[] = productVariants[String(product.id)] || [];
+                                            const isEditing = editingVariant?.productId === String(product.id);
+
+                                            // Flat display when any variant is being edited
+                                            if (isEditing) {
+                                              return allVariants.map((variant: any) => (
+                                                <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+                                                  {editingVariant?.variantId === String(variant.id) ? (
+                                                    <>
+                                                      <td className="px-2 py-1.5"><input value={editVariantForm.color} onChange={e => setEditVariantForm({...editVariantForm, color: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'rang' : 'цвет'} /></td>
+                                                      <td className="px-2 py-1.5"><input value={editVariantForm.size} onChange={e => setEditVariantForm({...editVariantForm, size: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'razmer' : 'размер'} /></td>
+                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm({...editVariantForm, price: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm({...editVariantForm, markupPercent: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                      <td className="px-2 py-1.5 text-green-600 text-xs font-medium">
+                                                        {((parseFloat(editVariantForm.price)||0) * (1 + (parseFloat(editVariantForm.markupPercent)||0)/100)).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}
+                                                      </td>
+                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.stockQuantity} onChange={e => setEditVariantForm({...editVariantForm, stockQuantity: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                      <td className="px-2 py-1.5"><input value={editVariantForm.barcode} onChange={e => setEditVariantForm({...editVariantForm, barcode: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                      <td className="px-2 py-1.5">
+                                                        <div className="flex justify-end gap-1">
+                                                          <button onClick={handleSaveVariant} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"><Check className="w-3 h-3" /></button>
+                                                          <button onClick={() => setEditingVariant(null)} className="p-1 bg-gray-400 text-white rounded hover:bg-gray-500 transition-colors"><X className="w-3 h-3" /></button>
+                                                        </div>
+                                                      </td>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.color || '—'}</td>
+                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.size || '—'}</td>
+                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{variant.markupPercent || 0}%</td>
+                                                      <td className="px-3 py-2 text-green-600 dark:text-green-400 font-medium">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                      <td className="px-3 py-2"><span className={`font-bold ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>{variant.stockQuantity || 0}</span></td>
+                                                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{variant.barcode || '—'}</td>
+                                                      <td className="px-3 py-2">
+                                                        <div className="flex justify-end gap-1">
+                                                          <button onClick={() => { setPurchasingVariant({ variant, product }); setShowVariantPurchaseModal(true); }} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title={language === 'uz' ? 'Sotib olish' : 'Закупить'}><ShoppingCart className="w-3 h-3" /></button>
+                                                          <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
+                                                          <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                                        </div>
+                                                      </td>
+                                                    </>
+                                                  )}
+                                                </tr>
+                                              ));
+                                            }
+
+                                            // Tree display: group by color → size
+                                            const colorGroups = new Map<string, any[]>();
+                                            allVariants.forEach((v: any) => {
+                                              const key = v.color || '';
+                                              if (!colorGroups.has(key)) colorGroups.set(key, []);
+                                              colorGroups.get(key)!.push(v);
+                                            });
+
+                                            const rows: React.ReactElement[] = [];
+                                            colorGroups.forEach((colorVars, color) => {
+                                              const sizeGroups = new Map<string, any[]>();
+                                              colorVars.forEach((v: any) => {
+                                                const key = v.size || '';
+                                                if (!sizeGroups.has(key)) sizeGroups.set(key, []);
+                                                sizeGroups.get(key)!.push(v);
+                                              });
+
+                                              let sizeIdx = 0;
+                                              sizeGroups.forEach((sizeVars, size) => {
+                                                sizeVars.forEach((variant: any, varIdx: number) => {
+                                                  const isFirstInColor = sizeIdx === 0 && varIdx === 0;
+                                                  const isFirstInSize = varIdx === 0;
+                                                  rows.push(
+                                                    <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-indigo-900/20 transition-colors">
+                                                      {isFirstInColor && (
+                                                        <td rowSpan={colorVars.length} className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/30 border-r-2 border-indigo-200 dark:border-indigo-700 text-center align-middle text-sm">
+                                                          {color || '—'}
+                                                        </td>
+                                                      )}
+                                                      {isFirstInSize && (
+                                                        <td rowSpan={sizeVars.length} className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300 bg-indigo-50 dark:bg-indigo-900/20 border-r border-indigo-200 dark:border-indigo-700 text-center align-middle text-sm">
+                                                          {size || '—'}
+                                                        </td>
+                                                      )}
+                                                      <td className="px-3 py-2.5 text-gray-800 dark:text-gray-200">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                      <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{variant.markupPercent || 0}%</td>
+                                                      <td className="px-3 py-2.5 text-green-600 dark:text-green-400 font-semibold">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                      <td className="px-3 py-2.5">
+                                                        <span className={`font-bold text-sm ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                                                          {variant.stockQuantity || 0}
+                                                        </span>
+                                                      </td>
+                                                      <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500 text-xs">{variant.barcode || '—'}</td>
+                                                      <td className="px-3 py-2.5">
+                                                        <div className="flex justify-end gap-1">
+                                                          <button onClick={() => { setPurchasingVariant({ variant, product }); setShowVariantPurchaseModal(true); }} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title={language === 'uz' ? 'Sotib olish' : 'Закупить'}><ShoppingCart className="w-3 h-3" /></button>
+                                                          <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
+                                                          <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                                        </div>
+                                                      </td>
+                                                    </tr>
+                                                  );
+                                                });
+                                                sizeIdx++;
+                                              });
+                                            });
+                                            return rows;
+                                          })()}
                                         </tbody>
                                       </table>
                                     </div>
@@ -1965,23 +2015,22 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                   {newVariantForms[String(product.id)] && (
                                     <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl p-4">
                                       <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-3">
-                                        + {language === 'uz' ? 'Yangi variant qo\'shish' : 'Добавить новый вариант'}
+                                        + {language === 'uz' ? 'Yangi tur qo\'shish' : 'Добавить новый вид'}
                                       </p>
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-3">
+                                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
                                         {[
-                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text' },
-                                          { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text' },
-                                          { key: 'price', label: language === 'uz' ? 'Narx' : 'Цена', type: 'number' },
-                                          { key: 'markupPercent', label: language === 'uz' ? 'Naценка %' : 'Наценка %', type: 'number' },
-                                          { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number' },
-                                          { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text' },
-                                          { key: 'sku', label: 'SKU', type: 'text' },
-                                          { key: 'barid', label: 'Barid', type: 'text' },
-                                        ].map(({ key, label, type }) => (
+                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text', placeholder: language === 'uz' ? 'Qora, Oq...' : 'Чёрный, Белый...' },
+                                          { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text', placeholder: 'XL, L, M...' },
+                                          { key: 'price', label: language === 'uz' ? 'Narx *' : 'Цена *', type: 'number', placeholder: '0' },
+                                          { key: 'markupPercent', label: language === 'uz' ? 'Naцen %' : 'Наценка %', type: 'number', placeholder: '0' },
+                                          { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor *' : 'Кол-во *', type: 'number', placeholder: '0' },
+                                          { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text', placeholder: '—' },
+                                        ].map(({ key, label, type, placeholder }) => (
                                           <div key={key}>
                                             <label className="block text-xs text-gray-500 mb-1">{label}</label>
                                             <input
                                               type={type}
+                                              placeholder={placeholder}
                                               value={(newVariantForms[String(product.id)] as any)[key]}
                                               onChange={e => setNewVariantForms(prev => ({
                                                 ...prev,
@@ -1997,7 +2046,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                         className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
                                       >
                                         <Plus className="w-4 h-4" />
-                                        {language === 'uz' ? 'Variant qo\'shish' : 'Добавить вариант'}
+                                        {language === 'uz' ? 'Tur qo\'shish' : 'Добавить вид'}
                                       </button>
                                     </div>
                                   )}
