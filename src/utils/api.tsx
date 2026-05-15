@@ -317,6 +317,50 @@ export const products = {
     });
   },
 
+  // ── Variant endpoints ──────────────────────────────────────────────────────
+  getVariants: async (productId: string | number) => {
+    return apiCall(`/products/${productId}/variants`, { requiresAuth: false });
+  },
+
+  createVariant: async (productId: string | number, data: {
+    color?: string;
+    size?: string;
+    price: number;
+    markupPercent?: number;
+    stockQuantity?: number;
+    barcode?: string;
+    sku?: string;
+    barid?: string;
+  }) => {
+    return apiCall(`/products/${productId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateVariant: async (productId: string | number, variantId: string | number, data: Partial<{
+    color: string;
+    size: string;
+    price: number;
+    markupPercent: number;
+    stockQuantity: number;
+    barcode: string;
+    sku: string;
+    barid: string;
+  }>) => {
+    return apiCall(`/products/${productId}/variants/${variantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteVariant: async (productId: string | number, variantId: string | number) => {
+    return apiCall(`/products/${productId}/variants/${variantId}`, {
+      method: 'DELETE',
+    });
+  },
+  // ── End variant endpoints ──────────────────────────────────────────────────
+
   // Get product reviews
   getReviews: async (id: string) => {
     return apiCall(`/products/${id}/reviews`, {

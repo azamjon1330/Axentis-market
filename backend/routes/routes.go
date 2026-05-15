@@ -67,6 +67,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.GET("/:id/reviews", handlers.GetProductReviews(db))
 			products.GET("/:id/review-stats", handlers.GetReviewStats(db))
 			products.GET("/:id/similar", handlers.GetSimilarProducts(db)) // 🔍 Похожие товары
+			// Variant routes — SKU management per product
+			products.GET("/:id/variants", handlers.GetProductVariants(db))
+			products.POST("/:id/variants", handlers.CreateProductVariant(db))
+			products.PUT("/:id/variants/:variantId", handlers.UpdateProductVariant(db))
+			products.DELETE("/:id/variants/:variantId", handlers.DeleteProductVariant(db))
 		}
 
 		// Reviews routes

@@ -98,6 +98,27 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     return () => clearInterval(interval);
   }, [companyId, importing, editingId, refetch]);
   
+  // ── Variants state ─────────────────────────────────────────────────────────
+  const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set());
+  const [productVariants, setProductVariants] = useState<Record<string, any[]>>({});
+  const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
+  const [newVariantForms, setNewVariantForms] = useState<Record<string, {
+    color: string; size: string; price: string; markupPercent: string;
+    stockQuantity: string; barcode: string; sku: string; barid: string;
+  }>>({});
+  const [editingVariant, setEditingVariant] = useState<{productId: string; variantId: string} | null>(null);
+  const [editVariantForm, setEditVariantForm] = useState<{
+    color: string; size: string; price: string; markupPercent: string;
+    stockQuantity: string; barcode: string; sku: string; barid: string;
+  }>({ color: '', size: '', price: '', markupPercent: '', stockQuantity: '', barcode: '', sku: '', barid: '' });
+
+  // Variants inside Add Product modal
+  const [addModalVariants, setAddModalVariants] = useState<{
+    color: string; size: string; price: string; markupPercent: string;
+    stockQuantity: string; barcode: string; sku: string; barid: string;
+  }[]>([]);
+  // ── End variants state ─────────────────────────────────────────────────────
+
   // 🆕 Состояние для гибкого импорта Excel с выбором колонок
   const [showColumnMapper, setShowColumnMapper] = useState(false);
   const [excelPreviewData, setExcelPreviewData] = useState<{ columns: string[], sampleData: string[][], fullData: any[][] } | null>(null);
@@ -369,6 +390,115 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     }
   };
 
+  // ── Variant handlers ───────────────────────────────────────────────────────
+  const loadVariants = async (productId: string) => {
+    setLoadingVariants(prev => new Set(prev).add(productId));
+    try {
+      const data = await api.products.getVariants(productId);
+      setProductVariants(prev => ({ ...prev, [productId]: data || [] }));
+    } catch (err) {
+      console.error('Failed to load variants', err);
+    } finally {
+      setLoadingVariants(prev => { const s = new Set(prev); s.delete(productId); return s; });
+    }
+  };
+
+  const toggleVariants = async (productId: string) => {
+    const next = new Set(expandedVariants);
+    if (next.has(productId)) {
+      next.delete(productId);
+    } else {
+      next.add(productId);
+      if (!productVariants[productId]) await loadVariants(productId);
+    }
+    setExpandedVariants(next);
+    if (!newVariantForms[productId]) {
+      setNewVariantForms(prev => ({
+        ...prev,
+        [productId]: { color: '', size: '', price: '', markupPercent: '0', stockQuantity: '0', barcode: '', sku: '', barid: '' }
+      }));
+    }
+  };
+
+  const handleAddVariant = async (productId: string) => {
+    const form = newVariantForms[productId];
+    if (!form || !form.price || parseFloat(form.price) < 0) {
+      alert(language === 'uz' ? "Narxni kiriting" : "Укажите цену варианта");
+      return;
+    }
+    try {
+      await api.products.createVariant(productId, {
+        color: form.color || undefined,
+        size: form.size || undefined,
+        price: parseFloat(form.price) || 0,
+        markupPercent: parseFloat(form.markupPercent) || 0,
+        stockQuantity: parseInt(form.stockQuantity) || 0,
+        barcode: form.barcode || undefined,
+        sku: form.sku || undefined,
+        barid: form.barid || undefined,
+      });
+      await loadVariants(productId);
+      setNewVariantForms(prev => ({
+        ...prev,
+        [productId]: { color: '', size: '', price: '', markupPercent: '0', stockQuantity: '0', barcode: '', sku: '', barid: '' }
+      }));
+      ramCache.delete(`company_products_${companyId}`);
+      await refetch();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка при добавлении варианта');
+    }
+  };
+
+  const startEditVariant = (productId: string, variant: any) => {
+    setEditingVariant({ productId, variantId: String(variant.id) });
+    setEditVariantForm({
+      color: variant.color || '',
+      size: variant.size || '',
+      price: String(variant.price || ''),
+      markupPercent: String(variant.markupPercent || '0'),
+      stockQuantity: String(variant.stockQuantity || '0'),
+      barcode: variant.barcode || '',
+      sku: variant.sku || '',
+      barid: variant.barid || '',
+    });
+  };
+
+  const handleSaveVariant = async () => {
+    if (!editingVariant) return;
+    const { productId, variantId } = editingVariant;
+    try {
+      await api.products.updateVariant(productId, variantId, {
+        color: editVariantForm.color || undefined,
+        size: editVariantForm.size || undefined,
+        price: parseFloat(editVariantForm.price) || 0,
+        markupPercent: parseFloat(editVariantForm.markupPercent) || 0,
+        stockQuantity: parseInt(editVariantForm.stockQuantity) || 0,
+        barcode: editVariantForm.barcode || undefined,
+        sku: editVariantForm.sku || undefined,
+        barid: editVariantForm.barid || undefined,
+      });
+      setEditingVariant(null);
+      await loadVariants(productId);
+      ramCache.delete(`company_products_${companyId}`);
+      await refetch();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка при обновлении варианта');
+    }
+  };
+
+  const handleDeleteVariant = async (productId: string, variantId: string) => {
+    if (!confirm(language === 'uz' ? 'Variantni o\'chirish?' : 'Удалить вариант?')) return;
+    try {
+      await api.products.deleteVariant(productId, variantId);
+      await loadVariants(productId);
+      ramCache.delete(`company_products_${companyId}`);
+      await refetch();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка при удалении варианта');
+    }
+  };
+  // ── End variant handlers ───────────────────────────────────────────────────
+
   const handleAddProduct = async () => {
     if (!newProduct.name || newProduct.price <= 0) {
       alert(t.fillNameAndPrice);
@@ -519,12 +649,32 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           }
         }
         
-        const message = language === 'uz' 
-          ? `✅ Yangi tovar qo'shildi!\n${validatedProduct.name}` 
+        // 🆕 Создаем варианты из модального окна
+        if (addModalVariants.length > 0) {
+          for (const v of addModalVariants) {
+            try {
+              await api.products.createVariant(createdProduct.id, {
+                color: v.color || undefined,
+                size: v.size || undefined,
+                price: parseFloat(v.price) || 0,
+                markupPercent: parseFloat(v.markupPercent) || 0,
+                stockQuantity: parseInt(v.stockQuantity) || 0,
+                barcode: v.barcode || undefined,
+                sku: v.sku || undefined,
+                barid: v.barid || undefined,
+              });
+            } catch (e) {
+              console.warn('⚠️ Не удалось создать вариант:', e);
+            }
+          }
+        }
+
+        const message = language === 'uz'
+          ? `✅ Yangi tovar qo'shildi!\n${validatedProduct.name}`
           : `✅ Новый товар добавлен!\n${validatedProduct.name}`;
         alert(message);
       }
-      
+
       // Перезагружаем данные сразу после добавления БЕЗ КЭША
       console.log('🔄 Очистка кэша после добавления товара...');
       ramCache.delete(`company_products_${companyId}`);
@@ -534,9 +684,10 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       invalidateCache();
       await refetch();
       console.log('✅ Товар успешно добавлен и данные обновлены!');
-      
+
       // Очищаем форму после успешного добавления
       setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
+      setAddModalVariants([]);
       setShowAddForm(false);
     } catch (error: any) {
       console.error('Error adding product:', error);
@@ -1391,22 +1542,87 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       </div>
                     </div>
                     
+                    {/* ── Variants section inside Add Product modal ─────────── */}
+                    <div className="mt-6 border-2 border-dashed border-indigo-300 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-bold text-indigo-700 flex items-center gap-2">
+                          <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded">SKU</span>
+                          {language === 'uz' ? 'Variantlar (ixtiyoriy)' : 'Варианты товара (необязательно)'}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => setAddModalVariants(prev => [...prev, { color: '', size: '', price: String(newProduct.price || ''), markupPercent: String(newProduct.markupPercent || '0'), stockQuantity: '0', barcode: '', sku: '', barid: '' }])}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          {language === 'uz' ? 'Variant qo\'shish' : '+ Добавить вариант'}
+                        </button>
+                      </div>
+                      {addModalVariants.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">
+                          {language === 'uz'
+                            ? 'Variantlar mavjud emas. Har xil rang/razmer uchun variant qo\'shing.'
+                            : 'Вариантов нет. Добавьте варианты для разных цветов/размеров.'}
+                        </p>
+                      )}
+                      {addModalVariants.map((v, idx) => (
+                        <div key={idx} className="mb-3 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold text-indigo-700">
+                              {language === 'uz' ? `Variant` : `Вариант`} #{idx + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setAddModalVariants(prev => prev.filter((_, i) => i !== idx))}
+                              className="p-0.5 text-red-500 hover:text-red-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {[
+                              { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text' },
+                              { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text' },
+                              { key: 'price', label: language === 'uz' ? 'Narx' : 'Цена', type: 'number' },
+                              { key: 'markupPercent', label: language === 'uz' ? 'Naцen %' : 'Наценка %', type: 'number' },
+                              { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number' },
+                              { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text' },
+                              { key: 'sku', label: 'SKU', type: 'text' },
+                              { key: 'barid', label: 'Barid', type: 'text' },
+                            ].map(({ key, label, type }) => (
+                              <div key={key}>
+                                <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                                <input
+                                  type={type}
+                                  value={(v as any)[key]}
+                                  onChange={e => setAddModalVariants(prev => prev.map((item, i) => i === idx ? { ...item, [key]: e.target.value } : item))}
+                                  className="w-full px-2 py-1.5 text-xs border-2 border-gray-200 rounded focus:border-indigo-400 outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* ── End variants section ──────────────────────────────── */}
+
                     <div className="flex gap-3 mt-6">
                       <button
                         onClick={handleAddProduct}
                         className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2 font-medium"
                       >
                         <Check className="w-5 h-5" />
-                        Добавить товар
+                        {language === 'uz' ? 'Tovar qo\'shish' : 'Добавить товар'}
                       </button>
                       <button
                         onClick={() => {
                           setShowAddForm(false);
+                          setAddModalVariants([]);
                           setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
                         }}
                         className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                       >
-                        Отмена
+                        {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                       </button>
                     </div>
                   </div>
@@ -1555,6 +1771,13 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                             ) : (
                               <>
                                 <button
+                                  onClick={() => toggleVariants(String(product.id))}
+                                  className={`p-2 rounded-lg transition-colors text-white text-xs px-2 ${expandedVariants.has(String(product.id)) ? 'bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'}`}
+                                  title={language === 'uz' ? 'Variantlar' : 'Варианты'}
+                                >
+                                  <span className="text-xs font-bold">SKU</span>
+                                </button>
+                                <button
                                   onClick={() => setShowImageUploader(showImageUploader === product.id ? null : product.id)}
                                   className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                   title={t.addPhotoTitle}
@@ -1647,7 +1870,140 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           </td>
                         </tr>
                       )}
-                      {/* �📸 Image Uploader Row */}
+                      {/* SKU Variants Panel */}
+                      {expandedVariants.has(String(product.id)) && (
+                        <tr>
+                          <td colSpan={9} className="px-4 py-4 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900">
+                            <div className="max-w-5xl mx-auto">
+                              <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
+                                <span className="bg-indigo-600 text-white text-xs px-2 py-0.5 rounded">SKU</span>
+                                {language === 'uz' ? 'Variantlar' : 'Варианты товара'}: {product.name}
+                                <span className="text-xs text-indigo-500 font-normal">
+                                  ({language === 'uz' ? 'har bir variant alohida SKU' : 'каждый вариант — отдельный SKU'})
+                                </span>
+                              </h4>
+
+                              {loadingVariants.has(String(product.id)) ? (
+                                <p className="text-sm text-indigo-500 italic">
+                                  {language === 'uz' ? 'Yuklanmoqda...' : 'Загрузка...'}
+                                </p>
+                              ) : (
+                                <>
+                                  {/* Existing variants table */}
+                                  {(productVariants[String(product.id)] || []).length > 0 && (
+                                    <div className="overflow-x-auto mb-4">
+                                      <table className="w-full text-sm border border-indigo-200 dark:border-indigo-800 rounded-lg overflow-hidden">
+                                        <thead className="bg-indigo-600 text-white">
+                                          <tr>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Razmer' : 'Размер'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Narx' : 'Цена'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Naценка %' : 'Наценка %'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Sotish narxi' : 'Цена продажи'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
+                                            <th className="px-3 py-2 text-left">{language === 'uz' ? 'Barcode' : 'Штрих-код'}</th>
+                                            <th className="px-3 py-2 text-left">SKU</th>
+                                            <th className="px-3 py-2 text-right">{language === 'uz' ? 'Amallar' : 'Действия'}</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(productVariants[String(product.id)] || []).map((variant: any) => (
+                                            <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+                                              {editingVariant?.variantId === String(variant.id) ? (
+                                                <>
+                                                  <td className="px-2 py-1.5"><input value={editVariantForm.color} onChange={e => setEditVariantForm({...editVariantForm, color: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'rang' : 'цвет'} /></td>
+                                                  <td className="px-2 py-1.5"><input value={editVariantForm.size} onChange={e => setEditVariantForm({...editVariantForm, size: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'razmer' : 'размер'} /></td>
+                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm({...editVariantForm, price: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm({...editVariantForm, markupPercent: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                  <td className="px-2 py-1.5 text-green-600 text-xs">
+                                                    {((parseFloat(editVariantForm.price)||0) * (1 + (parseFloat(editVariantForm.markupPercent)||0)/100)).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}
+                                                  </td>
+                                                  <td className="px-2 py-1.5"><input type="number" value={editVariantForm.stockQuantity} onChange={e => setEditVariantForm({...editVariantForm, stockQuantity: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                  <td className="px-2 py-1.5"><input value={editVariantForm.barcode} onChange={e => setEditVariantForm({...editVariantForm, barcode: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                  <td className="px-2 py-1.5"><input value={editVariantForm.sku} onChange={e => setEditVariantForm({...editVariantForm, sku: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                  <td className="px-2 py-1.5">
+                                                    <div className="flex justify-end gap-1">
+                                                      <button onClick={handleSaveVariant} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"><Check className="w-3 h-3" /></button>
+                                                      <button onClick={() => setEditingVariant(null)} className="p-1 bg-gray-400 text-white rounded hover:bg-gray-500 transition-colors"><X className="w-3 h-3" /></button>
+                                                    </div>
+                                                  </td>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.color || '—'}</td>
+                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.size || '—'}</td>
+                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                  <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.markupPercent || 0}%</td>
+                                                  <td className="px-3 py-2 text-green-600 dark:text-green-400 font-medium">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
+                                                  <td className="px-3 py-2">
+                                                    <span className={`font-bold ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>
+                                                      {variant.stockQuantity || 0}
+                                                    </span>
+                                                  </td>
+                                                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{variant.barcode || '—'}</td>
+                                                  <td className="px-3 py-2 text-indigo-600 dark:text-indigo-400 text-xs">{variant.sku || '—'}</td>
+                                                  <td className="px-3 py-2">
+                                                    <div className="flex justify-end gap-1">
+                                                      <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
+                                                      <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                                    </div>
+                                                  </td>
+                                                </>
+                                              )}
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  )}
+
+                                  {/* Add new variant form */}
+                                  {newVariantForms[String(product.id)] && (
+                                    <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl p-4">
+                                      <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-3">
+                                        + {language === 'uz' ? 'Yangi variant qo\'shish' : 'Добавить новый вариант'}
+                                      </p>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-3">
+                                        {[
+                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text' },
+                                          { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text' },
+                                          { key: 'price', label: language === 'uz' ? 'Narx' : 'Цена', type: 'number' },
+                                          { key: 'markupPercent', label: language === 'uz' ? 'Naценка %' : 'Наценка %', type: 'number' },
+                                          { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number' },
+                                          { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text' },
+                                          { key: 'sku', label: 'SKU', type: 'text' },
+                                          { key: 'barid', label: 'Barid', type: 'text' },
+                                        ].map(({ key, label, type }) => (
+                                          <div key={key}>
+                                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                                            <input
+                                              type={type}
+                                              value={(newVariantForms[String(product.id)] as any)[key]}
+                                              onChange={e => setNewVariantForms(prev => ({
+                                                ...prev,
+                                                [String(product.id)]: { ...prev[String(product.id)], [key]: e.target.value }
+                                              }))}
+                                              className="w-full px-2 py-1.5 text-xs border-2 border-gray-200 dark:border-gray-600 rounded focus:border-indigo-400 outline-none bg-white dark:bg-gray-700 dark:text-white"
+                                            />
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button
+                                        onClick={() => handleAddVariant(String(product.id))}
+                                        className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                        {language === 'uz' ? 'Variant qo\'shish' : 'Добавить вариант'}
+                                      </button>
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {/* 📸 Image Uploader Row */}
                       {showImageUploader === product.id && (
                         <tr>
                           <td colSpan={9} className="px-6 py-4 bg-purple-50">

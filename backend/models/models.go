@@ -167,6 +167,23 @@ type AggressiveDiscountWithDetails struct {
 	CompanyLogo      *string `json:"companyLogo,omitempty"`
 }
 
+// ProductVariant represents a single SKU variation of a product (color, size, price, stock)
+type ProductVariant struct {
+	ID            int64     `json:"id"`
+	ProductID     int64     `json:"productId"`
+	Color         *string   `json:"color,omitempty"`
+	Size          *string   `json:"size,omitempty"`
+	Price         float64   `json:"price"`
+	MarkupPercent float64   `json:"markupPercent"`
+	SellingPrice  float64   `json:"sellingPrice"`
+	StockQuantity int       `json:"stockQuantity"`
+	Barcode       *string   `json:"barcode,omitempty"`
+	SKU           *string   `json:"sku,omitempty"`
+	Barid         *string   `json:"barid,omitempty"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
 // ProductPurchase represents history of product purchases/stock additions by company
 // 📦 История закупок товаров компанией
 type ProductPurchase struct {
