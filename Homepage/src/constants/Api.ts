@@ -8,6 +8,7 @@ export const ENDPOINTS = {
   productReviews: (id: number) => `/products/${id}/reviews`,
   productReviewStats: (id: number) => `/products/${id}/review-stats`,
   productSimilar: (id: number) => `/products/${id}/similar`,
+  productVariants: (id: number) => `/products/${id}/variants`,
   companies: '/companies',
   companyDetail: (id: number) => `/companies/${id}`,
   nearestCompanies: '/companies/nearest',

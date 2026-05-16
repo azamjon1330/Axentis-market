@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 import { ENDPOINTS } from '../constants/Api';
 import {
-  User, Product, CartItem, Order, Category, Notification,
+  User, Product, ProductVariant, CartItem, Order, Category, Notification,
   Review, ReviewStats, PaymentCard, Ad, Discount, Company,
 } from '../types';
 
@@ -76,6 +76,11 @@ export const getProductReviews = async (id: number, userPhone?: string): Promise
 export const getProductReviewStats = async (id: number): Promise<ReviewStats> => {
   const res = await api.get(ENDPOINTS.productReviewStats(id));
   return res.data;
+};
+
+export const getProductVariants = async (id: number): Promise<ProductVariant[]> => {
+  const res = await api.get(ENDPOINTS.productVariants(id));
+  return Array.isArray(res.data) ? res.data : [];
 };
 
 export const getSimilarProducts = async (id: number): Promise<Product[]> => {

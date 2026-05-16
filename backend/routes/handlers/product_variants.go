@@ -302,11 +302,12 @@ func nullableString(s string) interface{} {
 	return s
 }
 
-// syncProductQuantity updates the parent product's quantity to be the sum of all variant stock
+// syncProductQuantity updates the parent product's quantity and min price from variants
 func syncProductQuantity(db *sql.DB, productID int64) {
 	_, err := db.Exec(`
 		UPDATE products
 		SET quantity = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
+		    price    = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
 		    updated_at = NOW()
 		WHERE id = $1
 	`, productID)

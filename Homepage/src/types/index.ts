@@ -62,6 +62,20 @@ export interface Product {
   isAggressive?: boolean;
 }
 
+export interface ProductVariant {
+  id: number;
+  productId: number;
+  color?: string;
+  size?: string;
+  price: number;
+  markupPercent: number;
+  sellingPrice: number;
+  stockQuantity: number;
+  barcode?: string;
+  sku?: string;
+  barid?: string;
+}
+
 export interface CartItem {
   id: number;
   userPhone: string;

@@ -13,9 +13,9 @@ import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import {
   getProductDetail, getProductReviews, getProductReviewStats,
-  getSimilarProducts, submitReview, voteReview,
+  getSimilarProducts, submitReview, voteReview, getProductVariants,
 } from '../../api';
-import { Product, Review, ReviewStats, RootStackParamList } from '../../types';
+import { Product, ProductVariant, Review, ReviewStats, RootStackParamList } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
 
@@ -37,7 +37,10 @@ export default function ProductDetailScreen() {
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [similar, setSimilar] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [imgIndex, setImgIndex] = useState(0);
   const [addedToCart, setAddedToCart] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
@@ -58,11 +61,12 @@ export default function ProductDetailScreen() {
   const loadAll = async () => {
     setIsLoading(true);
     try {
-      const [prodData, revData, statsData, simData] = await Promise.allSettled([
+      const [prodData, revData, statsData, simData, varData] = await Promise.allSettled([
         getProductDetail(productId),
         getProductReviews(productId, user?.phone),
         getProductReviewStats(productId),
         getSimilarProducts(productId),
+        getProductVariants(productId),
       ]);
       if (prodData.status === 'fulfilled') setProduct(prodData.value);
       if (revData.status === 'fulfilled') {
@@ -75,6 +79,7 @@ export default function ProductDetailScreen() {
       }
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (simData.status === 'fulfilled') setSimilar(simData.value.slice(0, 6));
+      if (varData.status === 'fulfilled') setVariants(varData.value);
 
     } catch {
       // ignore
@@ -88,15 +93,46 @@ export default function ProductDetailScreen() {
     toggleFav(productId, product ?? undefined);
   };
 
+  // Variant helpers
+  const uniqueColors = [...new Set(variants.map(v => v.color).filter(Boolean))] as string[];
+  const sizesForColor = (color: string | null) =>
+    color
+      ? [...new Set(variants.filter(v => v.color === color).map(v => v.size).filter(Boolean))] as string[]
+      : [...new Set(variants.map(v => v.size).filter(Boolean))] as string[];
+  const hasVariants = variants.length > 0;
+
+  const handleSelectColor = (color: string) => {
+    const next = selectedColor === color ? null : color;
+    setSelectedColor(next);
+    setSelectedSize(null);
+    setSelectedVariant(null);
+  };
+
+  const handleSelectSize = (size: string) => {
+    const next = selectedSize === size ? null : size;
+    setSelectedSize(next);
+    if (next) {
+      const match = variants.find(v => v.color === selectedColor && v.size === next)
+        ?? variants.find(v => v.size === next);
+      setSelectedVariant(match ?? null);
+    } else {
+      setSelectedVariant(null);
+    }
+  };
+
   const handleAddToCart = async () => {
     if (!product || !user) return;
+    if (hasVariants && !selectedVariant) {
+      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер');
+      return;
+    }
     if (inCart) {
       navigation.navigate('Main' as any, { screen: 'Cart' });
       return;
     }
     setIsAddingToCart(true);
     try {
-      await addItem(productId, 1, selectedColor || undefined);
+      await addItem(productId, 1, selectedVariant?.color || selectedColor || undefined);
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (err: any) {
@@ -205,11 +241,13 @@ export default function ProductDetailScreen() {
   }
 
   const images = product.images?.length > 0 ? product.images : [];
-  const displayPrice = product.discountedPrice || product.sellingPrice || product.price;
+  const basePrice = product.discountedPrice || product.sellingPrice || product.price;
+  const variantPrice = selectedVariant ? (selectedVariant.sellingPrice || selectedVariant.price) : null;
+  const displayPrice = variantPrice ?? basePrice;
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;
   const discount = product.discountPercent;
-
-  const COLORS = ['#1E1E1E', '#F5F5F5', '#7B5CF0', '#FF6B6B', '#4CAF50'];
+  const minVariantPrice = variants.length > 0 ? Math.min(...variants.map(v => v.sellingPrice || v.price)) : null;
+  const maxVariantPrice = variants.length > 0 ? Math.max(...variants.map(v => v.sellingPrice || v.price)) : null;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -323,33 +361,109 @@ export default function ProductDetailScreen() {
 
           {/* Price */}
           <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]}>
-              {displayPrice.toLocaleString('ru-RU')} сум
-            </Text>
-            {originalPrice && (
+            {selectedVariant ? (
+              <Text style={[styles.price, { color: colors.primary }]}>
+                {displayPrice.toLocaleString('ru-RU')} сум
+              </Text>
+            ) : hasVariants && minVariantPrice !== null ? (
+              <Text style={[styles.price, { color: colors.text }]}>
+                {minVariantPrice === maxVariantPrice
+                  ? `${minVariantPrice.toLocaleString('ru-RU')} сум`
+                  : `${minVariantPrice.toLocaleString('ru-RU')} – ${maxVariantPrice!.toLocaleString('ru-RU')} сум`
+                }
+              </Text>
+            ) : (
+              <Text style={[styles.price, { color: colors.text }]}>
+                {displayPrice.toLocaleString('ru-RU')} сум
+              </Text>
+            )}
+            {originalPrice && !selectedVariant && (
               <Text style={[styles.oldPrice, { color: colors.textMuted }]}>
                 {originalPrice.toLocaleString('ru-RU')} сум
               </Text>
             )}
           </View>
 
-          {/* Color selector */}
-          {product.hasColorOptions && (
-            <View style={styles.colorSection}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>Цвет:</Text>
-              <View style={styles.colorRow}>
-                {COLORS.slice(0, 4).map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={[
-                      styles.colorCircle,
-                      { backgroundColor: c, borderColor: selectedColor === c ? colors.primary : colors.border },
-                      selectedColor === c && styles.colorSelected,
-                    ]}
-                    onPress={() => setSelectedColor(selectedColor === c ? null : c)}
-                  />
-                ))}
-              </View>
+          {/* Variant selector */}
+          {hasVariants && (
+            <View style={styles.variantSection}>
+              {uniqueColors.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Цвет:</Text>
+                  <View style={styles.chipRow}>
+                    {uniqueColors.map((c) => (
+                      <TouchableOpacity
+                        key={c}
+                        onPress={() => handleSelectColor(c)}
+                        style={[
+                          styles.chip,
+                          {
+                            backgroundColor: selectedColor === c ? colors.primary : colors.inputBg,
+                            borderColor: selectedColor === c ? colors.primary : colors.border,
+                          },
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.chipText, { color: selectedColor === c ? '#fff' : colors.text }]}>{c}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {sizesForColor(selectedColor).length > 0 && (
+                <View>
+                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Размер:</Text>
+                  <View style={styles.chipRow}>
+                    {sizesForColor(selectedColor).map((s) => {
+                      const v = variants.find(vv => vv.color === selectedColor && vv.size === s)
+                        ?? variants.find(vv => vv.size === s);
+                      const outOfStock = v ? v.stockQuantity === 0 : false;
+                      return (
+                        <TouchableOpacity
+                          key={s}
+                          onPress={() => !outOfStock && handleSelectSize(s)}
+                          style={[
+                            styles.chip,
+                            {
+                              backgroundColor: selectedSize === s ? colors.primary : colors.inputBg,
+                              borderColor: selectedSize === s ? colors.primary : colors.border,
+                              opacity: outOfStock ? 0.4 : 1,
+                            },
+                          ]}
+                          activeOpacity={outOfStock ? 1 : 0.75}
+                        >
+                          <Text style={[styles.chipText, { color: selectedSize === s ? '#fff' : colors.text }]}>{s}</Text>
+                          {outOfStock && <Text style={[styles.chipSub, { color: colors.textMuted }]}>нет</Text>}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {selectedVariant && (
+                <View style={[styles.variantInfo, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+                  <Text style={[styles.variantInfoText, { color: colors.text }]}>
+                    {[selectedVariant.color, selectedVariant.size].filter(Boolean).join(' / ')}
+                    {' · '}
+                    <Text style={{ color: colors.primary, fontWeight: '700' }}>
+                      {(selectedVariant.sellingPrice || selectedVariant.price).toLocaleString('ru-RU')} сум
+                    </Text>
+                    {selectedVariant.stockQuantity > 0
+                      ? <Text style={{ color: colors.success }}>{`  · ${selectedVariant.stockQuantity} шт.`}</Text>
+                      : <Text style={{ color: colors.error }}>  · нет в наличии</Text>
+                    }
+                  </Text>
+                </View>
+              )}
+
+              {!selectedVariant && (
+                <Text style={[styles.variantHint, { color: colors.textMuted }]}>
+                  {uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер'}
+                </Text>
+              )}
             </View>
           )}
 
@@ -566,10 +680,15 @@ export default function ProductDetailScreen() {
       {/* Bottom CTA */}
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomPriceBlock}>
-          <Text style={[styles.bottomPrice, { color: colors.text }]}>
+          <Text style={[styles.bottomPrice, { color: selectedVariant ? colors.primary : colors.text }]}>
             {displayPrice.toLocaleString('ru-RU')} сум
           </Text>
-          {originalPrice && (
+          {hasVariants && !selectedVariant && minVariantPrice !== maxVariantPrice && (
+            <Text style={[styles.bottomOldPrice, { color: colors.textMuted }]}>
+              до {maxVariantPrice!.toLocaleString('ru-RU')} сум
+            </Text>
+          )}
+          {originalPrice && !selectedVariant && (
             <Text style={[styles.bottomOldPrice, { color: colors.textMuted }]}>
               {originalPrice.toLocaleString('ru-RU')} сум
             </Text>
@@ -648,11 +767,30 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 16 },
   price: { fontSize: 26, fontWeight: '800' },
   oldPrice: { fontSize: 15, textDecorationLine: 'line-through', marginBottom: 2 },
-  colorSection: { marginBottom: 16 },
   sectionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
-  colorRow: { flexDirection: 'row', gap: 10 },
-  colorCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2 },
-  colorSelected: { transform: [{ scale: 1.15 }] },
+  variantSection: { marginBottom: 16 },
+  variantLabel: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
+  chipText: { fontSize: 14, fontWeight: '600' },
+  chipSub: { fontSize: 10, marginTop: 1 },
+  variantInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  variantInfoText: { fontSize: 13, flex: 1 },
+  variantHint: { fontSize: 12, marginTop: 8, fontStyle: 'italic' },
   deliveryBox: {
     flexDirection: 'row',
     alignItems: 'center',
