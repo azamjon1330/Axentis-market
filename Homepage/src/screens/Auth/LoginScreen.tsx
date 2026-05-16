@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   inputIcon: { marginRight: 8 },
-  input: { flex: 1, fontSize: 15, height: '100%' },
+  input: { flex: 1, fontSize: 15, height: '100%', backgroundColor: 'transparent' },
   btn: {
     height: 52,
     borderRadius: 14,

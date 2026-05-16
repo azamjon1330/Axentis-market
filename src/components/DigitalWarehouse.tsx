@@ -118,6 +118,12 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     stockQuantity: string; barcode: string; sku: string; barid: string;
   }[]>([]);
 
+  // Quick variant matrix generator state
+  const [quickColors, setQuickColors] = useState('');
+  const [quickSizes, setQuickSizes] = useState('');
+  const [quickBasePrice, setQuickBasePrice] = useState('');
+  const [quickMarkup, setQuickMarkup] = useState('0');
+
   // Variant purchase state
   const [showVariantPurchaseModal, setShowVariantPurchaseModal] = useState(false);
   const [purchasingVariant, setPurchasingVariant] = useState<{variant: any; product: any} | null>(null);
@@ -562,6 +568,33 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   };
   // ── End variant handlers ───────────────────────────────────────────────────
 
+  // Generates all color×size combinations as variant rows
+  const generateVariantsFromMatrix = () => {
+    const colors = quickColors.split(',').map(s => s.trim()).filter(Boolean);
+    const sizes = quickSizes.split(',').map(s => s.trim()).filter(Boolean);
+    if (colors.length === 0 && sizes.length === 0) {
+      alert(language === 'uz' ? 'Rang yoki razmer kiriting' : 'Введите цвета или размеры');
+      return;
+    }
+    const rows: typeof addModalVariants = [];
+    if (colors.length > 0 && sizes.length > 0) {
+      for (const color of colors) {
+        for (const size of sizes) {
+          rows.push({ color, size, price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '' });
+        }
+      }
+    } else if (colors.length > 0) {
+      for (const color of colors) {
+        rows.push({ color, size: '', price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '' });
+      }
+    } else {
+      for (const size of sizes) {
+        rows.push({ color: '', size, price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '' });
+      }
+    }
+    setAddModalVariants(prev => [...prev, ...rows]);
+  };
+
   const handleAddProduct = async () => {
     if (!newProduct.name) {
       alert(language === 'uz' ? 'Tovar nomini kiriting' : 'Введите название товара');
@@ -748,6 +781,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       // Очищаем форму после успешного добавления
       setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
       setAddModalVariants([]);
+      setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
       setShowAddForm(false);
     } catch (error: any) {
       console.error('Error adding product:', error);
@@ -1465,6 +1499,8 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     onClick={() => {
                       setShowAddForm(false);
                       setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
+                      setAddModalVariants([]);
+                      setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
                     }}
                     className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
                   >
@@ -1530,6 +1566,98 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       rows={2}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors resize-none"
                     />
+                  </div>
+
+                  {/* Quick variant matrix generator */}
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-blue-700 font-semibold text-sm">
+                        {language === 'uz' ? '⚡ Tez yaratish — Rang × Razmer matritsasi' : '⚡ Быстрое создание — матрица Цвет × Размер'}
+                      </span>
+                      <span className="text-blue-500 text-xs">
+                        {language === 'uz'
+                          ? '(vergul bilan ajrating: Qora, Oq, Qizil)'
+                          : '(перечислите через запятую: Чёрный, Белый, Красный)'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">
+                          {language === 'uz' ? 'Ranglar' : 'Цвета'}
+                        </label>
+                        <input
+                          type="text"
+                          value={quickColors}
+                          onChange={e => setQuickColors(e.target.value)}
+                          placeholder={language === 'uz' ? 'Qora, Oq, Qizil' : 'Чёрный, Белый, Красный'}
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">
+                          {language === 'uz' ? 'Razmerlar' : 'Размеры'}
+                        </label>
+                        <input
+                          type="text"
+                          value={quickSizes}
+                          onChange={e => setQuickSizes(e.target.value)}
+                          placeholder="XS, S, M, L, XL, XXL"
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">
+                          {language === 'uz' ? 'Asosiy narx (so\'m)' : 'Базовая цена (сум)'}
+                        </label>
+                        <input
+                          type="number"
+                          value={quickBasePrice}
+                          onChange={e => setQuickBasePrice(e.target.value)}
+                          placeholder="100 000"
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-blue-700 mb-1">
+                          {language === 'uz' ? 'Naцen %' : 'Наценка %'}
+                        </label>
+                        <input
+                          type="number"
+                          value={quickMarkup}
+                          onChange={e => setQuickMarkup(e.target.value)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={generateVariantsFromMatrix}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Plus className="w-4 h-4" />
+                        {language === 'uz'
+                          ? `Variantlar yaratish${quickColors || quickSizes ? ` (${[quickColors.split(',').filter(s=>s.trim()).length || 0, quickSizes.split(',').filter(s=>s.trim()).length || 0].filter(n=>n>0).join('×')} = ${Math.max(1, quickColors.split(',').filter(s=>s.trim()).length) * Math.max(1, quickSizes.split(',').filter(s=>s.trim()).length)} ta)` : ''}`
+                          : `Создать варианты${quickColors || quickSizes ? ` (${[quickColors.split(',').filter(s=>s.trim()).length || 0, quickSizes.split(',').filter(s=>s.trim()).length || 0].filter(n=>n>0).join('×')} = ${Math.max(1, quickColors.split(',').filter(s=>s.trim()).length) * Math.max(1, quickSizes.split(',').filter(s=>s.trim()).length)} шт.)` : ''}`
+                        }
+                      </button>
+                      {addModalVariants.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAddModalVariants([])}
+                          className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-600 text-sm rounded-lg hover:bg-red-200 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                          {language === 'uz' ? 'Hammasini o\'chirish' : 'Очистить все'}
+                        </button>
+                      )}
+                      <span className="text-blue-500 text-xs">
+                        {language === 'uz'
+                          ? 'Yaratilgan variantlarga alohida miqdor kiriting'
+                          : 'После генерации введите количество для каждого варианта'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Variants table — primary way to define the product */}
@@ -1616,6 +1744,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                         setShowAddForm(false);
                         setAddModalVariants([]);
                         setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
+                        setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
                       }}
                       className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                     >
