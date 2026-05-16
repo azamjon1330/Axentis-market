@@ -1829,11 +1829,10 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                               onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
                               className="w-32 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
                             />
+                          ) : product.price > 0 ? (
+                            <span className="text-gray-700 dark:text-gray-300">{product.price.toLocaleString()} сум</span>
                           ) : (
-                            {product.price > 0
-                              ? <span className="text-gray-700 dark:text-gray-300">{product.price.toLocaleString()} сум</span>
-                              : <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'Turlarda' : 'В вариантах'}</span>
-                            }
+                            <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'Turlarda' : 'В вариантах'}</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
