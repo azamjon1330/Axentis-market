@@ -74,6 +74,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.DELETE("/:id/variants/:variantId", handlers.DeleteProductVariant(db))
 		}
 
+		// AI routes
+		ai := api.Group("/ai")
+		{
+			ai.POST("/parse-products", handlers.AIParseProducts())
+		}
+
 		// Reviews routes
 		reviews := api.Group("/reviews")
 		{
