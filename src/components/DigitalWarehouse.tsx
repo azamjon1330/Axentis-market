@@ -1618,7 +1618,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         {/* 🤖 AI Import Modal */}
         {showAIImport && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !aiParsing && !aiSaving && setShowAIImport(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
@@ -1637,11 +1637,11 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 </button>
               </div>
 
-              <div className="overflow-y-auto flex-1 p-5 space-y-4">
+              <div className="overflow-y-auto flex-1 p-5 space-y-4 dark:bg-gray-800">
                 {/* Text input */}
                 {aiParsedProducts.length === 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {language === 'uz' ? 'Tovarlar haqida matn yozing:' : 'Напишите текст о товарах:'}
                     </label>
                     <textarea
@@ -1652,9 +1652,9 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       placeholder={language === 'uz'
                         ? 'Masalan: 100 ta futbolka bor, 50 tasi qora, 50 tasi oq. Qoralarning 20 tasi XL o\'lchamda 120 000 so\'mdan, 30 tasi L o\'lchamda 100 000 so\'mdan...'
                         : 'Например: У меня 100 футболок, 50 чёрных и 50 белых. Из чёрных 20 штук XL по 120 000 сум, 30 штук L по 100 000 сум...'}
-                      className="w-full px-4 py-3 border-2 border-violet-200 rounded-xl focus:border-violet-500 outline-none resize-none text-sm font-mono"
+                      className="w-full px-4 py-3 border-2 border-violet-200 dark:border-violet-800 dark:bg-gray-700 dark:text-gray-100 rounded-xl focus:border-violet-500 outline-none resize-none text-sm font-mono"
                     />
-                    <div className="mt-2 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                       {language === 'uz'
                         ? '✅ Istalgan tartibda yozing: rang, o\'lcham, narx, miqdor — AI o\'zi ajratadi'
                         : '✅ Пишите в любом порядке: цвет, размер, цена, количество — AI сам разберёт'}
@@ -1664,7 +1664,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
                 {/* Error */}
                 {aiError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
                     <X className="w-4 h-4 mt-0.5 shrink-0" />
                     <span>{aiError}</span>
                   </div>
@@ -1684,7 +1684,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 {aiParsedProducts.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                      <h4 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
                         <Check className="w-5 h-5 text-green-600" />
                         {language === 'uz'
                           ? `AI ${aiParsedProducts.length} ta tovar topdi — tekshirib ko'ring`
@@ -1701,16 +1701,16 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
                     <div className="space-y-4">
                       {aiParsedProducts.map((product, pi) => (
-                        <div key={pi} className="border-2 border-violet-200 rounded-xl overflow-hidden">
+                        <div key={pi} className="border-2 border-violet-200 dark:border-violet-800 rounded-xl overflow-hidden">
                           {/* Product header */}
-                          <div className="bg-violet-50 px-4 py-3 flex items-center justify-between">
+                          <div className="bg-violet-50 dark:bg-violet-900/30 px-4 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <Package className="w-5 h-5 text-violet-600" />
                               <div>
                                 <input
                                   value={product.name}
                                   onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, name: e.target.value} : p))}
-                                  className="font-bold text-gray-800 bg-transparent border-b border-violet-300 focus:border-violet-500 outline-none text-sm"
+                                  className="font-bold text-gray-800 dark:text-gray-100 bg-transparent border-b border-violet-300 dark:border-violet-700 focus:border-violet-500 outline-none text-sm"
                                 />
                                 {product.category && <span className="ml-2 text-xs text-violet-500">{product.category}</span>}
                               </div>
@@ -1725,24 +1725,24 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           {/* Variants table */}
                           <div className="overflow-x-auto">
                             <table className="w-full text-xs">
-                              <thead className="bg-gray-50 border-b border-gray-200">
+                              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
                                 <tr>
-                                  <th className="px-3 py-2 text-left text-gray-500 font-medium">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 font-medium">{language === 'uz' ? 'O\'lcham/Sifat' : 'Размер/Качество'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 font-medium">{language === 'uz' ? 'Narx' : 'Цена'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 font-medium">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 font-medium">{language === 'uz' ? 'Naцen %' : 'Наценка %'}</th>
-                                  <th className="px-3 py-2 text-right text-gray-500 font-medium"></th>
+                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
+                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'O\'lcham/Sifat' : 'Размер/Качество'}</th>
+                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Narx' : 'Цена'}</th>
+                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
+                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Naцen %' : 'Наценка %'}</th>
+                                  <th className="px-3 py-2 text-right text-gray-500 dark:text-gray-400 font-medium"></th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-gray-100">
+                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                 {product.variants.map((v, vi) => (
-                                  <tr key={vi} className="hover:bg-gray-50">
+                                  <tr key={vi} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                                     <td className="px-3 py-2">
                                       <input
                                         value={v.color}
                                         onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, color: e.target.value} : vv)} : p))}
-                                        className="w-full bg-transparent border-b border-gray-200 focus:border-violet-400 outline-none text-gray-700"
+                                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
                                         placeholder="—"
                                       />
                                     </td>
@@ -1750,7 +1750,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                       <input
                                         value={v.size}
                                         onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, size: e.target.value} : vv)} : p))}
-                                        className="w-full bg-transparent border-b border-gray-200 focus:border-violet-400 outline-none text-gray-700"
+                                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
                                         placeholder="—"
                                       />
                                     </td>
@@ -1759,7 +1759,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                         type="number"
                                         value={v.price}
                                         onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, price: parseFloat(e.target.value)||0} : vv)} : p))}
-                                        className="w-24 bg-transparent border-b border-gray-200 focus:border-violet-400 outline-none text-gray-700"
+                                        className="w-24 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
                                       />
                                     </td>
                                     <td className="px-3 py-2">
@@ -1767,7 +1767,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                         type="number"
                                         value={v.stockQuantity}
                                         onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, stockQuantity: parseInt(e.target.value)||0} : vv)} : p))}
-                                        className="w-16 bg-transparent border-b border-gray-200 focus:border-violet-400 outline-none text-gray-700"
+                                        className="w-16 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
                                       />
                                     </td>
                                     <td className="px-3 py-2">
@@ -1775,7 +1775,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                         type="number"
                                         value={v.markupPercent}
                                         onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, markupPercent: parseFloat(e.target.value)||0} : vv)} : p))}
-                                        className="w-16 bg-transparent border-b border-gray-200 focus:border-violet-400 outline-none text-gray-700"
+                                        className="w-16 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
                                       />
                                     </td>
                                     <td className="px-3 py-2 text-right">
@@ -1804,7 +1804,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-100 px-5 py-4 flex gap-3 shrink-0">
+              <div className="border-t border-gray-100 dark:border-gray-700 dark:bg-gray-800 px-5 py-4 flex gap-3 shrink-0">
                 {aiParsedProducts.length === 0 ? (
                   <>
                     <button
@@ -1820,7 +1820,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiParsing}
-                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
+                      className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
@@ -1840,7 +1840,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiSaving}
-                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
+                      className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
