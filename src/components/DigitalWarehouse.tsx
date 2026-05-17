@@ -1569,12 +1569,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
             </button>
 
             <button
-              onClick={() => {
-                if (!showAddForm) {
-                  setAddModalVariants([{ color: '', size: '', price: '', markupPercent: '0', stockQuantity: '', barcode: '', sku: '', barid: '' }]);
-                }
-                setShowAddForm(!showAddForm);
-              }}
+              onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-green-600 text-white rounded-lg sm:rounded-xl hover:bg-green-700 transition-colors shadow-lg text-sm sm:text-base"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1887,211 +1882,120 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
               {/* Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
                 <div>
-                  {/* Name + Category */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'uz' ? 'Tovar nomi *' : 'Название товара *'}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder={t.productNamePlaceholder}
-                        value={newProduct.name}
-                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {language === 'uz' ? 'Kategoriya' : 'Категория'}
-                      </label>
-                      <select
-                        value={newProduct.category}
-                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
-                      >
-                        <option value="">{t.selectCategory}</option>
-                        {globalCategories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <input
+                      type="text"
+                      placeholder={t.productNamePlaceholder}
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
+                    <select
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    >
+                      <option value="">{t.selectCategory}</option>
+                      {globalCategories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      placeholder={t.quantityPlaceholder}
+                      value={newProduct.quantity || ''}
+                      onChange={(e) => setNewProduct({ ...newProduct, quantity: parseInt(e.target.value) || 0 })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
+                    <input
+                      type="number"
+                      placeholder={t.pricePlaceholder}
+                      value={newProduct.price || ''}
+                      onChange={(e) => setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
+                    <input
+                      type="number"
+                      placeholder={t.markupPercentPlaceholder}
+                      value={newProduct.markupPercent || ''}
+                      onChange={(e) => setNewProduct({ ...newProduct, markupPercent: parseFloat(e.target.value) || 0 })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t.barcodePlaceholder}
+                      value={newProduct.barcode}
+                      onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t.baridPlaceholder}
+                      value={newProduct.barid}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        setNewProduct({ ...newProduct, barid: value });
+                      }}
+                      maxLength={6}
+                      className="px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                    />
                   </div>
 
-                  {/* Description (optional, compact) */}
-                  <div className="mb-5">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {language === 'uz' ? 'Tavsif (ixtiyoriy)' : 'Описание (необязательно)'}
+                  {/* Описание */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {t.productDescription} ({t.optional})
                     </label>
                     <textarea
                       placeholder={t.descriptionPlaceholder}
                       value={newProduct.description}
                       onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                      rows={2}
+                      rows={3}
                       className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors resize-none"
                     />
                   </div>
 
-                  {/* Quick variant matrix generator */}
-                  <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-blue-700 font-semibold text-sm">
-                        {language === 'uz' ? '⚡ Tez yaratish — Rang × Razmer matritsasi' : '⚡ Быстрое создание — матрица Цвет × Размер'}
-                      </span>
-                      <span className="text-blue-500 text-xs">
-                        {language === 'uz'
-                          ? '(vergul bilan ajrating: Qora, Oq, Qizil)'
-                          : '(перечислите через запятую: Чёрный, Белый, Красный)'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">
-                          {language === 'uz' ? 'Ranglar' : 'Цвета'}
-                        </label>
-                        <input
-                          type="text"
-                          value={quickColors}
-                          onChange={e => setQuickColors(e.target.value)}
-                          placeholder={language === 'uz' ? 'Qora, Oq, Qizil' : 'Чёрный, Белый, Красный'}
-                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
-                        />
+                  {/* Цвет, Размер, Бренд */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.productColor} ({t.optional})</label>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {['Красный','Синий','Зелёный','Жёлтый','Чёрный','Белый','Серый','Коричневый','Розовый','Фиолетовый','Оранжевый','Бежевый'].map(c => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setNewProduct({ ...newProduct, color: newProduct.color === c ? '' : c })}
+                            className={`px-2 py-1 text-xs rounded-full border-2 transition-all ${newProduct.color === c ? 'border-purple-600 bg-purple-100 font-semibold' : 'border-gray-300 bg-white hover:border-purple-400'}`}
+                          >{c}</button>
+                        ))}
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">
-                          {language === 'uz' ? 'Razmerlar' : 'Размеры'}
-                        </label>
-                        <input
-                          type="text"
-                          value={quickSizes}
-                          onChange={e => setQuickSizes(e.target.value)}
-                          placeholder="XS, S, M, L, XL, XXL"
-                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">
-                          {language === 'uz' ? 'Asosiy narx (so\'m)' : 'Базовая цена (сум)'}
-                        </label>
-                        <input
-                          type="number"
-                          value={quickBasePrice}
-                          onChange={e => setQuickBasePrice(e.target.value)}
-                          placeholder="100 000"
-                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-blue-700 mb-1">
-                          {language === 'uz' ? 'Naцen %' : 'Наценка %'}
-                        </label>
-                        <input
-                          type="number"
-                          value={quickMarkup}
-                          onChange={e => setQuickMarkup(e.target.value)}
-                          placeholder="0"
-                          className="w-full px-3 py-2 text-sm border-2 border-blue-200 rounded-lg focus:border-blue-400 outline-none"
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        placeholder={t.colorPlaceholder}
+                        value={newProduct.color}
+                        onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                      />
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={generateVariantsFromMatrix}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                      >
-                        <Plus className="w-4 h-4" />
-                        {language === 'uz'
-                          ? `Variantlar yaratish${quickColors || quickSizes ? ` (${[quickColors.split(',').filter(s=>s.trim()).length || 0, quickSizes.split(',').filter(s=>s.trim()).length || 0].filter(n=>n>0).join('×')} = ${Math.max(1, quickColors.split(',').filter(s=>s.trim()).length) * Math.max(1, quickSizes.split(',').filter(s=>s.trim()).length)} ta)` : ''}`
-                          : `Создать варианты${quickColors || quickSizes ? ` (${[quickColors.split(',').filter(s=>s.trim()).length || 0, quickSizes.split(',').filter(s=>s.trim()).length || 0].filter(n=>n>0).join('×')} = ${Math.max(1, quickColors.split(',').filter(s=>s.trim()).length) * Math.max(1, quickSizes.split(',').filter(s=>s.trim()).length)} шт.)` : ''}`
-                        }
-                      </button>
-                      {addModalVariants.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setAddModalVariants([])}
-                          className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-600 text-sm rounded-lg hover:bg-red-200 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                          {language === 'uz' ? 'Hammasini o\'chirish' : 'Очистить все'}
-                        </button>
-                      )}
-                      <span className="text-blue-500 text-xs">
-                        {language === 'uz'
-                          ? 'Yaratilgan variantlarga alohida miqdor kiriting'
-                          : 'После генерации введите количество для каждого варианта'}
-                      </span>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.productSize} ({t.optional})</label>
+                      <input
+                        type="text"
+                        placeholder={t.sizePlaceholder}
+                        value={newProduct.size}
+                        onChange={(e) => setNewProduct({ ...newProduct, size: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                      />
                     </div>
-                  </div>
-
-                  {/* Variants table — primary way to define the product */}
-                  <div className="border-2 border-purple-200 rounded-xl overflow-hidden">
-                    <div className="bg-purple-600 text-white px-4 py-3 flex items-center justify-between">
-                      <h4 className="font-semibold text-sm">
-                        {language === 'uz' ? 'Tovar turlari (rang, razmer, narx, miqdor)' : 'Виды товара (цвет, размер, цена, количество)'}
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={() => setAddModalVariants(prev => [...prev, { color: '', size: '', price: '', markupPercent: '0', stockQuantity: '', barcode: '', sku: '', barid: '' }])}
-                        className="flex items-center gap-1 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs rounded-lg transition-colors"
-                      >
-                        <Plus className="w-3 h-3" />
-                        {language === 'uz' ? 'Tur qo\'shish' : '+ Добавить вид'}
-                      </button>
-                    </div>
-
-                    {/* Table header */}
-                    <div className="hidden md:grid grid-cols-[1fr_1fr_1.2fr_1fr_1fr_1fr_32px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      <span>{language === 'uz' ? 'Rang' : 'Цвет'}</span>
-                      <span>{language === 'uz' ? 'Razmer' : 'Размер'}</span>
-                      <span>{language === 'uz' ? 'Narx (so\'m)' : 'Цена (сум)'}</span>
-                      <span>{language === 'uz' ? 'Naцen %' : 'Наценка %'}</span>
-                      <span>{language === 'uz' ? 'Miqdor' : 'Кол-во'}</span>
-                      <span>{language === 'uz' ? 'Barcode' : 'Штрих-код'}</span>
-                      <span></span>
-                    </div>
-
-                    {/* Variant rows */}
-                    <div className="divide-y divide-gray-100">
-                      {addModalVariants.length === 0 ? (
-                        <div className="px-4 py-6 text-center text-gray-400 text-sm">
-                          {language === 'uz'
-                            ? 'Hech qanday tur yo\'q. "+ Tur qo\'shish" tugmasini bosing.'
-                            : 'Нет ни одного вида. Нажмите "+ Добавить вид".'}
-                        </div>
-                      ) : (
-                        addModalVariants.map((v, idx) => (
-                          <div key={idx} className="grid grid-cols-2 md:grid-cols-[1fr_1fr_1.2fr_1fr_1fr_1fr_32px] gap-2 px-4 py-3 items-end bg-white hover:bg-gray-50 transition-colors">
-                            {[
-                              { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text', placeholder: language === 'uz' ? 'Qora, Oq...' : 'Чёрный, Белый...' },
-                              { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text', placeholder: 'XL, L, M, S...' },
-                              { key: 'price', label: language === 'uz' ? 'Narx *' : 'Цена *', type: 'number', placeholder: '100 000' },
-                              { key: 'markupPercent', label: language === 'uz' ? 'Naцen %' : 'Наценка %', type: 'number', placeholder: '0' },
-                              { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor *' : 'Кол-во *', type: 'number', placeholder: '0' },
-                              { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text', placeholder: '—' },
-                            ].map(({ key, label, type, placeholder }) => (
-                              <div key={key}>
-                                <label className="block text-xs text-gray-400 mb-1 md:hidden">{label}</label>
-                                <input
-                                  type={type}
-                                  value={(v as any)[key]}
-                                  placeholder={placeholder}
-                                  onChange={e => setAddModalVariants(prev => prev.map((item, i) => i === idx ? { ...item, [key]: e.target.value } : item))}
-                                  className="w-full px-2 py-2 text-sm border-2 border-gray-200 rounded-lg focus:border-purple-400 outline-none transition-colors"
-                                />
-                              </div>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={() => setAddModalVariants(prev => prev.filter((_, i) => i !== idx))}
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors self-end"
-                              title={language === 'uz' ? 'O\'chirish' : 'Удалить'}
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))
-                      )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">{t.productBrand} ({t.optional})</label>
+                      <input
+                        type="text"
+                        placeholder={t.brandPlaceholder}
+                        value={newProduct.brand}
+                        onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-purple-500 outline-none transition-colors"
+                      />
                     </div>
                   </div>
 
@@ -2106,9 +2010,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => {
                         setShowAddForm(false);
-                        setAddModalVariants([]);
                         setNewProduct({ name: '', quantity: 0, price: 0, markupPercent: 0, barcode: '', category: '', barid: '', description: '', color: '', size: '', brand: '' });
-                        setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
                       }}
                       className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                     >
