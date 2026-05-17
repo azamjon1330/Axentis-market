@@ -29,7 +29,17 @@
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(grep -E \"\\\\.\\(js|ts|sql|json\\)$\")",
       "Bash(find \"d:/app\" -type f -name \"server.js\" -o -name \"server.ts\" -o -name \"app.js\" -o -name \"index.js\" 2>/dev/null | head -10)",
-      "Read(//d/app/**)"
+      "Read(//d/app/**)",
+      "Bash(Get-ChildItem -Path \"d:\\\\app\\\\Birzumda\\\\src\\\\screens\" -Recurse -Filter \"*.tsx\")",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(xargs grep -l \"api\\\\|http\\\\|client\")",
+      "Bash(xargs grep -l \"product\\\\|warehouse\")",
+      "Bash(xargs grep -l \"variant\\\\|Variant\")",
+      "Bash(grep -iE \"\\\\.md$|\\\\.txt$\")",
+      "Bash(xargs grep -h \"^func \")",
+      "Bash(grep \"\\\\.sql$\")",
+      "PowerShell(\\(Get-Content \"d:\\\\app\\\\Birzumda\\\\src\\\\components\\\\DigitalWarehouse.tsx\" | Measure-Object -Line\\).Lines)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\app\\\\Birzumda\\\\backend\" -Recurse | Where-Object { $_.Extension -eq '.js' -or $_.Extension -eq '.ts' } | Select-Object FullName)"
     ],
     "additionalDirectories": [
       "D:\\app\\Birzumda\\Homepage\\.git",

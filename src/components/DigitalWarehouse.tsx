@@ -1820,7 +1820,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiParsing}
-                      className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      className="px-6 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
@@ -1840,7 +1840,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiSaving}
-                      className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      className="px-6 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
