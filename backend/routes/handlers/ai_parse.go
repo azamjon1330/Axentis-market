@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -44,27 +45,27 @@ Return a JSON array with this exact structure:
   }
 ]`
 
-type anthropicMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+type geminiRequest struct {
+	Contents []geminiContent `json:"contents"`
 }
 
-type anthropicRequest struct {
-	Model     string             `json:"model"`
-	MaxTokens int                `json:"max_tokens"`
-	System    string             `json:"system"`
-	Messages  []anthropicMessage `json:"messages"`
+type geminiContent struct {
+	Parts []geminiPart `json:"parts"`
 }
 
-type anthropicContent struct {
-	Type string `json:"type"`
+type geminiPart struct {
 	Text string `json:"text"`
 }
 
-type anthropicResponse struct {
-	Content []anthropicContent `json:"content"`
-	Error   *struct {
-		Type    string `json:"type"`
+type geminiResponse struct {
+	Candidates []struct {
+		Content struct {
+			Parts []struct {
+				Text string `json:"text"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+	Error *struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }
@@ -88,7 +89,7 @@ type ParsedProduct struct {
 	Variants    []ParsedVariant `json:"variants"`
 }
 
-// AIParseProducts calls Claude API to parse free-text product descriptions
+// AIParseProducts calls Gemini Flash to parse free-text product descriptions
 func AIParseProducts() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
@@ -99,18 +100,17 @@ func AIParseProducts() gin.HandlerFunc {
 			return
 		}
 
-		apiKey := os.Getenv("ANTHROPIC_API_KEY")
+		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "ANTHROPIC_API_KEY not configured"})
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "GEMINI_API_KEY not configured"})
 			return
 		}
 
-		reqBody := anthropicRequest{
-			Model:     "claude-haiku-4-5-20251001",
-			MaxTokens: 2048,
-			System:    aiSystemPrompt,
-			Messages: []anthropicMessage{
-				{Role: "user", Content: input.Text},
+		prompt := aiSystemPrompt + "\n\nUser text:\n" + input.Text
+
+		reqBody := geminiRequest{
+			Contents: []geminiContent{
+				{Parts: []geminiPart{{Text: prompt}}},
 			},
 		}
 
@@ -120,48 +120,44 @@ func AIParseProducts() gin.HandlerFunc {
 			return
 		}
 
-		req, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewReader(bodyBytes))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request"})
-			return
-		}
-		req.Header.Set("x-api-key", apiKey)
-		req.Header.Set("anthropic-version", "2023-06-01")
-		req.Header.Set("content-type", "application/json")
+		url := fmt.Sprintf(
+			"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=%s",
+			apiKey,
+		)
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := http.Post(url, "application/json", bytes.NewReader(bodyBytes))
 		if err != nil {
-			log.Printf("❌ Claude API error: %v", err)
-			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to reach Claude API"})
+			log.Printf("❌ Gemini API error: %v", err)
+			c.JSON(http.StatusBadGateway, gin.H{"error": "failed to reach Gemini API"})
 			return
 		}
 		defer resp.Body.Close()
 
 		respBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read Claude response"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read Gemini response"})
 			return
 		}
 
-		var claudeResp anthropicResponse
-		if err := json.Unmarshal(respBytes, &claudeResp); err != nil {
-			log.Printf("❌ Claude response parse error: %v\nBody: %s", err, string(respBytes))
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse Claude response"})
+		var geminiResp geminiResponse
+		if err := json.Unmarshal(respBytes, &geminiResp); err != nil {
+			log.Printf("❌ Gemini response parse error: %v\nBody: %s", err, string(respBytes))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse Gemini response"})
 			return
 		}
 
-		if claudeResp.Error != nil {
-			log.Printf("❌ Claude API error: %s", claudeResp.Error.Message)
-			c.JSON(http.StatusBadGateway, gin.H{"error": claudeResp.Error.Message})
+		if geminiResp.Error != nil {
+			log.Printf("❌ Gemini API error: %s", geminiResp.Error.Message)
+			c.JSON(http.StatusBadGateway, gin.H{"error": geminiResp.Error.Message})
 			return
 		}
 
-		if len(claudeResp.Content) == 0 {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "empty response from Claude"})
+		if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "empty response from Gemini"})
 			return
 		}
 
-		rawText := strings.TrimSpace(claudeResp.Content[0].Text)
+		rawText := strings.TrimSpace(geminiResp.Candidates[0].Content.Parts[0].Text)
 		if strings.HasPrefix(rawText, "```") {
 			lines := strings.Split(rawText, "\n")
 			if len(lines) >= 3 {
@@ -171,7 +167,7 @@ func AIParseProducts() gin.HandlerFunc {
 
 		var products []ParsedProduct
 		if err := json.Unmarshal([]byte(rawText), &products); err != nil {
-			log.Printf("❌ Failed to parse Claude JSON output: %v\nRaw: %s", err, rawText)
+			log.Printf("❌ Failed to parse Gemini JSON output: %v\nRaw: %s", err, rawText)
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"error": "AI returned invalid JSON",
 				"raw":   rawText,

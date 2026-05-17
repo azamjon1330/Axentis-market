@@ -1560,7 +1560,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => { setShowAIImport(true); setAiParsedProducts([]); setAiText(''); setAiError(''); }}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-violet-600 text-white rounded-lg sm:rounded-xl hover:bg-violet-700 transition-colors shadow-lg text-sm sm:text-base"
+              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors shadow-lg text-sm sm:text-base"
               title={language === 'uz' ? 'AI yordamida matndan tovar qo\'shish' : 'Добавить товары текстом с AI'}
             >
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1810,7 +1810,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={handleAIParse}
                       disabled={aiParsing || !aiText.trim()}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 text-white rounded-xl hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
                     >
                       <Sparkles className="w-5 h-5" />
                       {aiParsing
@@ -1820,7 +1820,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiParsing}
-                      className="px-6 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                      className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
@@ -1840,7 +1840,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     <button
                       onClick={() => setShowAIImport(false)}
                       disabled={aiSaving}
-                      className="px-6 py-3 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                      className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
                     >
                       {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                     </button>
