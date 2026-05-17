@@ -331,6 +331,7 @@ export const products = {
     barcode?: string;
     sku?: string;
     barid?: string;
+    description?: string;
   }) => {
     return apiCall(`/products/${productId}/variants`, {
       method: 'POST',
@@ -347,6 +348,7 @@ export const products = {
     barcode: string;
     sku: string;
     barid: string;
+    description: string;
   }>) => {
     return apiCall(`/products/${productId}/variants/${variantId}`, {
       method: 'PUT',

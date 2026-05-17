@@ -20,7 +20,7 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 
 		rows, err := db.Query(`
 			SELECT id, product_id, color, size, price, markup_percent,
-			       selling_price, stock_quantity, barcode, sku, barid, created_at, updated_at
+			       selling_price, stock_quantity, barcode, sku, barid, description, created_at, updated_at
 			FROM product_variants
 			WHERE product_id = $1
 			ORDER BY id ASC
@@ -46,13 +46,14 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 				Barcode       sql.NullString
 				SKU           sql.NullString
 				Barid         sql.NullString
+				Description   sql.NullString
 				CreatedAt     string
 				UpdatedAt     string
 			}
 			if err := rows.Scan(
 				&v.ID, &v.ProductID, &v.Color, &v.Size, &v.Price, &v.MarkupPercent,
 				&v.SellingPrice, &v.StockQuantity, &v.Barcode, &v.SKU, &v.Barid,
-				&v.CreatedAt, &v.UpdatedAt,
+				&v.Description, &v.CreatedAt, &v.UpdatedAt,
 			); err != nil {
 				log.Printf("⚠️ Error scanning variant: %v", err)
 				continue
@@ -91,6 +92,9 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 			if v.Barid.Valid {
 				variant["barid"] = v.Barid.String
 			}
+			if v.Description.Valid {
+				variant["description"] = v.Description.String
+			}
 			variants = append(variants, variant)
 		}
 
@@ -116,6 +120,7 @@ func CreateProductVariant(db *sql.DB) gin.HandlerFunc {
 			Barcode       string  `json:"barcode"`
 			SKU           string  `json:"sku"`
 			Barid         string  `json:"barid"`
+			Description   string  `json:"description"`
 		}
 		if err := c.BindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -131,13 +136,14 @@ func CreateProductVariant(db *sql.DB) gin.HandlerFunc {
 
 		var variantID int64
 		err = db.QueryRow(`
-			INSERT INTO product_variants (product_id, color, size, price, markup_percent, stock_quantity, barcode, sku, barid)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			INSERT INTO product_variants (product_id, color, size, price, markup_percent, stock_quantity, barcode, sku, barid, description)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			RETURNING id
 		`, productID,
 			nullableString(input.Color), nullableString(input.Size),
 			input.Price, input.MarkupPercent, input.StockQuantity,
 			nullableString(input.Barcode), nullableString(input.SKU), nullableString(input.Barid),
+			nullableString(input.Description),
 		).Scan(&variantID)
 		if err != nil {
 			log.Printf("❌ CreateProductVariant DB error: %v", err)
@@ -176,6 +182,7 @@ func UpdateProductVariant(db *sql.DB) gin.HandlerFunc {
 			Barcode       *string  `json:"barcode"`
 			SKU           *string  `json:"sku"`
 			Barid         *string  `json:"barid"`
+			Description   *string  `json:"description"`
 		}
 		if err := c.BindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -192,13 +199,14 @@ func UpdateProductVariant(db *sql.DB) gin.HandlerFunc {
 			Barcode       sql.NullString
 			SKU           sql.NullString
 			Barid         sql.NullString
+			Description   sql.NullString
 		}
 		err = db.QueryRow(`
-			SELECT color, size, price, markup_percent, stock_quantity, barcode, sku, barid
+			SELECT color, size, price, markup_percent, stock_quantity, barcode, sku, barid, description
 			FROM product_variants WHERE id = $1 AND product_id = $2
 		`, variantID, productID).Scan(
 			&cur.Color, &cur.Size, &cur.Price, &cur.MarkupPercent, &cur.StockQuantity,
-			&cur.Barcode, &cur.SKU, &cur.Barid,
+			&cur.Barcode, &cur.SKU, &cur.Barid, &cur.Description,
 		)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Variant not found"})
@@ -242,15 +250,20 @@ func UpdateProductVariant(db *sql.DB) gin.HandlerFunc {
 		if input.Barid != nil {
 			barid = *input.Barid
 		}
+		description := cur.Description.String
+		if input.Description != nil {
+			description = *input.Description
+		}
 
 		_, err = db.Exec(`
 			UPDATE product_variants
 			SET color = $1, size = $2, price = $3, markup_percent = $4,
-			    stock_quantity = $5, barcode = $6, sku = $7, barid = $8, updated_at = NOW()
-			WHERE id = $9 AND product_id = $10
+			    stock_quantity = $5, barcode = $6, sku = $7, barid = $8,
+			    description = $9, updated_at = NOW()
+			WHERE id = $10 AND product_id = $11
 		`, nullableString(color), nullableString(size), price, markupPercent,
 			stockQuantity, nullableString(barcode), nullableString(sku), nullableString(barid),
-			variantID, productID)
+			nullableString(description), variantID, productID)
 		if err != nil {
 			log.Printf("❌ UpdateProductVariant DB error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update variant"})
