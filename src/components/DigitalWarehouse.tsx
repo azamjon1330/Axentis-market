@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCache } from '../utils/productsCache';
-import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image as ImageIcon, ShoppingCart, Sparkles } from 'lucide-react';
+import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image as ImageIcon, ShoppingCart } from 'lucide-react';
 import api, { API_BASE } from '../utils/api';
 import { useCompanyProducts, ramCache } from '../utils/cache';
 import ImageUploader from './ImageUploader';
@@ -124,23 +124,18 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   const [quickBasePrice, setQuickBasePrice] = useState('');
   const [quickMarkup, setQuickMarkup] = useState('0');
 
+  // Smart color matrix: per-color qty + sizes
+  const [smartMode, setSmartMode] = useState(false);
+  const [smartColors, setSmartColors] = useState<{color: string; qty: string; sizes: string}[]>([]);
+  const [smartBasePrice, setSmartBasePrice] = useState('');
+  const [smartMarkup, setSmartMarkup] = useState('0');
+
   // Variant purchase state
   const [showVariantPurchaseModal, setShowVariantPurchaseModal] = useState(false);
   const [purchasingVariant, setPurchasingVariant] = useState<{variant: any; product: any} | null>(null);
   const [variantPurchaseForm, setVariantPurchaseForm] = useState({ quantity: '', purchasePrice: '' });
   // ── End variants state ─────────────────────────────────────────────────────
 
-  // 🤖 AI Import state
-  const [showAIImport, setShowAIImport] = useState(false);
-  const [aiText, setAiText] = useState('');
-  const [aiParsing, setAiParsing] = useState(false);
-  const [aiSaving, setAiSaving] = useState(false);
-  const [aiParsedProducts, setAiParsedProducts] = useState<{
-    name: string; category: string; description: string;
-    variants: { color: string; size: string; price: number; markupPercent: number; stockQuantity: number; barcode: string; barid: string }[];
-  }[]>([]);
-  const [aiError, setAiError] = useState('');
-  const [aiSaveProgress, setAiSaveProgress] = useState('');
 
   // 🆕 Состояние для гибкого импорта Excel с выбором колонок
   const [showColumnMapper, setShowColumnMapper] = useState(false);
@@ -583,6 +578,38 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   };
   // ── End variant handlers ───────────────────────────────────────────────────
 
+  // Generates variants from smart per-color matrix (each color has its own qty + sizes)
+  const generateVariantsFromSmartMatrix = () => {
+    if (smartColors.length === 0) {
+      alert(language === 'uz' ? 'Kamida bitta rang kiriting' : 'Введите хотя бы один цвет');
+      return;
+    }
+    const rows: typeof addModalVariants = [];
+    for (const entry of smartColors) {
+      const color = entry.color.trim();
+      if (!color) continue;
+      const sizes = entry.sizes.split(',').map(s => s.trim()).filter(Boolean);
+      const qty = entry.qty || '';
+      if (sizes.length > 0) {
+        const perSizeQty = qty && parseInt(qty) > 0
+          ? String(Math.floor(parseInt(qty) / sizes.length))
+          : '';
+        for (const size of sizes) {
+          rows.push({ color, size, price: smartBasePrice, markupPercent: smartMarkup, stockQuantity: perSizeQty, barcode: '', sku: '', barid: '', description: '' });
+        }
+      } else {
+        rows.push({ color, size: '', price: smartBasePrice, markupPercent: smartMarkup, stockQuantity: qty, barcode: '', sku: '', barid: '', description: '' });
+      }
+    }
+    if (rows.length === 0) {
+      alert(language === 'uz' ? 'Rang nomlarini to\'ldiring' : 'Заполните названия цветов');
+      return;
+    }
+    setAddModalVariants(prev => [...prev, ...rows]);
+    setSmartColors([]);
+    setSmartMode(false);
+  };
+
   // Generates all color×size combinations as variant rows
   const generateVariantsFromMatrix = () => {
     const colors = quickColors.split(',').map(s => s.trim()).filter(Boolean);
@@ -738,6 +765,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       setNewProduct({ name: '', category: '', price: 0 });
       setAddModalVariants([]);
       setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
+      setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
       setShowAddForm(false);
     } catch (error: any) {
       console.error('Error adding product:', error);
@@ -1337,111 +1365,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     setExcelPreviewData(null);
   };
 
-  // 🤖 AI Parse: отправляем текст на сервер → Gemini → получаем структуру
-  const handleAIParse = async () => {
-    if (!aiText.trim()) {
-      setAiError(language === 'uz' ? 'Matn kiriting' : 'Введите текст');
-      return;
-    }
-    setAiError('');
-    setAiParsing(true);
-    setAiParsedProducts([]);
-    try {
-      const response = await fetch(`${API_BASE}/ai/parse-products`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: aiText }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setAiError(data.error || 'Ошибка AI');
-        return;
-      }
-      if (!data.products || data.products.length === 0) {
-        setAiError(language === 'uz' ? 'AI hech narsa topa olmadi' : 'AI ничего не нашёл. Попробуйте переформулировать.');
-        return;
-      }
-      setAiParsedProducts(data.products);
-    } catch (e: any) {
-      setAiError(e.message || 'Ошибка соединения');
-    } finally {
-      setAiParsing(false);
-    }
-  };
 
-  // 🤖 AI Save: сохраняем распознанные товары в базу
-  const handleAISave = async () => {
-    if (aiParsedProducts.length === 0) return;
-    setAiSaving(true);
-    setAiSaveProgress('');
-    let savedCount = 0;
-    try {
-      for (let i = 0; i < aiParsedProducts.length; i++) {
-        const p = aiParsedProducts[i];
-        setAiSaveProgress(`${language === 'uz' ? 'Saqlanmoqda' : 'Сохранение'} ${i + 1}/${aiParsedProducts.length}: ${p.name}`);
-
-        // Calc base price (min variant price) and total quantity
-        const minPrice = p.variants.length > 0
-          ? Math.min(...p.variants.map(v => v.price).filter(v => v > 0))
-          : 0;
-        const totalQty = p.variants.reduce((s, v) => s + (v.stockQuantity || 0), 0);
-
-        // Удаляем маркер категории если есть
-        if (p.category) {
-          const marker = products.find((pr: any) => pr.name === `__CATEGORY_MARKER__${p.category}` && pr.category === p.category);
-          if (marker) await api.products.delete(marker.id).catch(() => {});
-        }
-
-        const created = await api.products.create({
-          companyId,
-          name: p.name,
-          quantity: totalQty,
-          price: minPrice,
-          markupPercent: 0,
-          barcode: '',
-          barid: '',
-          category: p.category || '',
-          description: p.description || '',
-          color: '',
-          size: '',
-          brand: '',
-          hasColorOptions: p.variants.length > 1,
-          availableForCustomers: true,
-        });
-
-        for (const v of p.variants) {
-          await api.products.createVariant(created.id, {
-            color: v.color || undefined,
-            size: v.size || undefined,
-            price: v.price,
-            markupPercent: v.markupPercent || 0,
-            stockQuantity: v.stockQuantity || 0,
-            barcode: v.barcode || undefined,
-            barid: v.barid || undefined,
-          }).catch((e: any) => console.warn('⚠️ variant create error:', e));
-        }
-
-        savedCount++;
-      }
-
-      ramCache.delete(`company_products_${companyId}`);
-      localCache.clear();
-      queryClient.removeQueries({ queryKey: ['company-products', companyId] });
-      invalidateCache();
-      await refetch();
-
-      setShowAIImport(false);
-      setAiText('');
-      setAiParsedProducts([]);
-      setAiSaveProgress('');
-      alert(`✅ ${language === 'uz' ? `${savedCount} ta tovar saqlandi` : `Сохранено ${savedCount} товаров`}`);
-    } catch (e: any) {
-      setAiError(e.message || 'Ошибка при сохранении');
-    } finally {
-      setAiSaving(false);
-      setAiSaveProgress('');
-    }
-  };
 
   if (isLoading) return <div className="p-8 text-center">{t.loadingWarehouse}</div>;
   if (error) return <div className="p-8 text-center text-red-600">{t.errorLoadingWarehouse} {(error as Error).message}</div>;
@@ -1503,16 +1427,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
-              onClick={() => { setShowAIImport(true); setAiParsedProducts([]); setAiText(''); setAiError(''); }}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors shadow-lg text-sm sm:text-base"
-              title={language === 'uz' ? 'AI yordamida matndan tovar qo\'shish' : 'Добавить товары текстом с AI'}
-            >
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{language === 'uz' ? 'AI Import' : 'AI Импорт'}</span>
-              <span className="sm:hidden">AI</span>
-            </button>
-
-            <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-green-600 text-white rounded-lg sm:rounded-xl hover:bg-green-700 transition-colors shadow-lg text-sm sm:text-base"
             >
@@ -1554,242 +1468,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           </div>
         </div>
 
-        {/* 🤖 AI Import Modal */}
-        {showAIImport && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => !aiParsing && !aiSaving && setShowAIImport(false)}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div className="bg-gradient-to-r from-violet-600 to-purple-600 text-white p-5 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="w-6 h-6" />
-                  <div>
-                    <h3 className="text-xl font-bold">{language === 'uz' ? 'AI yordamida tovar qo\'shish' : 'AI Импорт товаров'}</h3>
-                    <p className="text-purple-200 text-xs mt-0.5">
-                      {language === 'uz'
-                        ? 'Tovarlaringizni erkin matnda yozing — AI o\'zi tushunadi'
-                        : 'Опишите товары свободным текстом — AI сам разберётся'}
-                    </p>
-                  </div>
-                </div>
-                <button onClick={() => setShowAIImport(false)} disabled={aiParsing || aiSaving} className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 p-5 space-y-4 dark:bg-gray-800">
-                {/* Text input */}
-                {aiParsedProducts.length === 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      {language === 'uz' ? 'Tovarlar haqida matn yozing:' : 'Напишите текст о товарах:'}
-                    </label>
-                    <textarea
-                      value={aiText}
-                      onChange={e => setAiText(e.target.value)}
-                      disabled={aiParsing}
-                      rows={10}
-                      placeholder={language === 'uz'
-                        ? 'Masalan: 100 ta futbolka bor, 50 tasi qora, 50 tasi oq. Qoralarning 20 tasi XL o\'lchamda 120 000 so\'mdan, 30 tasi L o\'lchamda 100 000 so\'mdan...'
-                        : 'Например: У меня 100 футболок, 50 чёрных и 50 белых. Из чёрных 20 штук XL по 120 000 сум, 30 штук L по 100 000 сум...'}
-                      className="w-full px-4 py-3 border-2 border-violet-200 dark:border-violet-800 dark:bg-gray-700 dark:text-gray-100 rounded-xl focus:border-violet-500 outline-none resize-none text-sm font-mono"
-                    />
-                    <div className="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                      {language === 'uz'
-                        ? '✅ Istalgan tartibda yozing: rang, o\'lcham, narx, miqdor — AI o\'zi ajratadi'
-                        : '✅ Пишите в любом порядке: цвет, размер, цена, количество — AI сам разберёт'}
-                    </div>
-                  </div>
-                )}
-
-                {/* Error */}
-                {aiError && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-xl px-4 py-3 text-sm flex items-start gap-2">
-                    <X className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>{aiError}</span>
-                  </div>
-                )}
-
-                {/* Parsing spinner */}
-                {aiParsing && (
-                  <div className="flex items-center gap-3 text-violet-600 py-4 justify-center">
-                    <div className="w-6 h-6 border-4 border-violet-200 border-t-violet-600 rounded-full animate-spin" />
-                    <span className="text-sm font-medium">
-                      {language === 'uz' ? 'AI tahlil qilmoqda...' : 'AI анализирует текст...'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Preview of parsed products */}
-                {aiParsedProducts.length > 0 && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                        <Check className="w-5 h-5 text-green-600" />
-                        {language === 'uz'
-                          ? `AI ${aiParsedProducts.length} ta tovar topdi — tekshirib ko'ring`
-                          : `AI нашёл ${aiParsedProducts.length} товаров — проверьте перед сохранением`}
-                      </h4>
-                      <button
-                        onClick={() => { setAiParsedProducts([]); setAiError(''); }}
-                        className="text-xs text-gray-500 hover:text-gray-700 underline"
-                        disabled={aiSaving}
-                      >
-                        {language === 'uz' ? 'Qayta yozish' : 'Изменить текст'}
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      {aiParsedProducts.map((product, pi) => (
-                        <div key={pi} className="border-2 border-violet-200 dark:border-violet-800 rounded-xl overflow-hidden">
-                          {/* Product header */}
-                          <div className="bg-violet-50 dark:bg-violet-900/30 px-4 py-3 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <Package className="w-5 h-5 text-violet-600" />
-                              <div>
-                                <input
-                                  value={product.name}
-                                  onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, name: e.target.value} : p))}
-                                  className="font-bold text-gray-800 dark:text-gray-100 bg-transparent border-b border-violet-300 dark:border-violet-700 focus:border-violet-500 outline-none text-sm"
-                                />
-                                {product.category && <span className="ml-2 text-xs text-violet-500">{product.category}</span>}
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {language === 'uz'
-                                ? `${product.variants.length} ta variant · jami ${product.variants.reduce((s, v) => s + v.stockQuantity, 0)} ta`
-                                : `${product.variants.length} вариантов · итого ${product.variants.reduce((s, v) => s + v.stockQuantity, 0)} шт.`}
-                            </div>
-                          </div>
-
-                          {/* Variants table */}
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-xs">
-                              <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-                                <tr>
-                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'O\'lcham/Sifat' : 'Размер/Качество'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Narx' : 'Цена'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
-                                  <th className="px-3 py-2 text-left text-gray-500 dark:text-gray-400 font-medium">{language === 'uz' ? 'Naцen %' : 'Наценка %'}</th>
-                                  <th className="px-3 py-2 text-right text-gray-500 dark:text-gray-400 font-medium"></th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                {product.variants.map((v, vi) => (
-                                  <tr key={vi} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                                    <td className="px-3 py-2">
-                                      <input
-                                        value={v.color}
-                                        onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, color: e.target.value} : vv)} : p))}
-                                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
-                                        placeholder="—"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        value={v.size}
-                                        onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, size: e.target.value} : vv)} : p))}
-                                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
-                                        placeholder="—"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="number"
-                                        value={v.price}
-                                        onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, price: parseFloat(e.target.value)||0} : vv)} : p))}
-                                        className="w-24 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="number"
-                                        value={v.stockQuantity}
-                                        onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, stockQuantity: parseInt(e.target.value)||0} : vv)} : p))}
-                                        className="w-16 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2">
-                                      <input
-                                        type="number"
-                                        value={v.markupPercent}
-                                        onChange={e => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.map((vv, j) => j === vi ? {...vv, markupPercent: parseFloat(e.target.value)||0} : vv)} : p))}
-                                        className="w-16 bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-violet-400 outline-none text-gray-700 dark:text-gray-300"
-                                      />
-                                    </td>
-                                    <td className="px-3 py-2 text-right">
-                                      <button
-                                        onClick={() => setAiParsedProducts(prev => prev.map((p, i) => i === pi ? {...p, variants: p.variants.filter((_, j) => j !== vi)} : p))}
-                                        className="text-red-400 hover:text-red-600 p-1"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Save progress */}
-                    {aiSaveProgress && (
-                      <div className="text-xs text-violet-600 font-medium animate-pulse mt-2">{aiSaveProgress}</div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div className="border-t border-gray-100 dark:border-gray-700 dark:bg-gray-800 px-5 py-4 flex gap-3 shrink-0">
-                {aiParsedProducts.length === 0 ? (
-                  <>
-                    <button
-                      onClick={handleAIParse}
-                      disabled={aiParsing || !aiText.trim()}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                    >
-                      <Sparkles className="w-5 h-5" />
-                      {aiParsing
-                        ? (language === 'uz' ? 'Tahlil qilinmoqda...' : 'Анализирую...')
-                        : (language === 'uz' ? 'AI bilan tahlil qilish' : 'Разобрать с AI')}
-                    </button>
-                    <button
-                      onClick={() => setShowAIImport(false)}
-                      disabled={aiParsing}
-                      className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
-                    >
-                      {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleAISave}
-                      disabled={aiSaving}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-                    >
-                      <Check className="w-5 h-5" />
-                      {aiSaving
-                        ? (language === 'uz' ? 'Saqlanmoqda...' : 'Сохраняю...')
-                        : (language === 'uz' ? `${aiParsedProducts.length} ta tovarni saqlash` : `Сохранить ${aiParsedProducts.length} товаров`)}
-                    </button>
-                    <button
-                      onClick={() => setShowAIImport(false)}
-                      disabled={aiSaving}
-                      className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors font-medium"
-                    >
-                      {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 🎯 Модальное окно добавления товара */}
         {showAddForm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddForm(false)}>
@@ -1806,6 +1484,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     setNewProduct({ name: '', category: '', price: 0 });
                     setAddModalVariants([]);
                     setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
+                    setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
                   }}
                   className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
                 >
@@ -1883,7 +1562,108 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     )}
                   </h4>
 
+                  {/* Generator mode toggle */}
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setSmartMode(false)}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${!smartMode ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-400'}`}
+                    >
+                      ⚡ {language === 'uz' ? 'Tez yaratuvchi' : 'Быстрый'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSmartMode(true);
+                        if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]);
+                      }}
+                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${smartMode ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-purple-400'}`}
+                    >
+                      🎨 {language === 'uz' ? 'Rang bo\'yicha' : 'По цветам'}
+                    </button>
+                  </div>
+
+                  {/* Smart Matrix */}
+                  {smartMode && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-purple-200 dark:border-purple-700">
+                      <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2">
+                        🎨 {language === 'uz' ? 'Har bir rang uchun miqdor va razmerlar' : 'Количество и размеры для каждого цвета'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Asosiy narx' : 'Базовая цена'}</label>
+                          <input
+                            type="number" placeholder="0" value={smartBasePrice}
+                            onChange={e => setSmartBasePrice(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-purple-400 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Naценка %' : 'Наценка %'}</label>
+                          <input
+                            type="number" placeholder="0" value={smartMarkup}
+                            onChange={e => setSmartMarkup(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-purple-400 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-3">
+                        {smartColors.map((entry, idx) => (
+                          <div key={idx} className="flex gap-2 items-center bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2">
+                            <div className="flex-1 min-w-0">
+                              <label className="block text-xs text-gray-500 mb-0.5">{language === 'uz' ? 'Rang' : 'Цвет'}</label>
+                              <input
+                                type="text"
+                                placeholder={language === 'uz' ? 'Masalan: Qora' : 'Например: Чёрный'}
+                                value={entry.color}
+                                onChange={e => setSmartColors(prev => prev.map((c, i) => i === idx ? { ...c, color: e.target.value } : c))}
+                                className="w-full px-2 py-1 text-xs border border-purple-200 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded focus:border-purple-500 outline-none"
+                              />
+                            </div>
+                            <div className="w-16">
+                              <label className="block text-xs text-gray-500 mb-0.5">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</label>
+                              <input
+                                type="number" placeholder="0" min="0" value={entry.qty}
+                                onChange={e => setSmartColors(prev => prev.map((c, i) => i === idx ? { ...c, qty: e.target.value } : c))}
+                                className="w-full px-2 py-1 text-xs border border-purple-200 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded focus:border-purple-500 outline-none"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <label className="block text-xs text-gray-500 mb-0.5">{language === 'uz' ? 'Razmerlar (vergul)' : 'Размеры (через запятую)'}</label>
+                              <input
+                                type="text" placeholder="S, M, L, XL" value={entry.sizes}
+                                onChange={e => setSmartColors(prev => prev.map((c, i) => i === idx ? { ...c, sizes: e.target.value } : c))}
+                                className="w-full px-2 py-1 text-xs border border-purple-200 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded focus:border-purple-500 outline-none"
+                              />
+                            </div>
+                            <button
+                              onClick={() => setSmartColors(prev => prev.filter((_, i) => i !== idx))}
+                              className="mt-4 p-1 text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setSmartColors(prev => [...prev, { color: '', qty: '', sizes: '' }])}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs rounded-lg hover:bg-purple-200 transition-colors"
+                        >
+                          <Plus className="w-3 h-3" />
+                          {language === 'uz' ? 'Rang qo\'shish' : 'Добавить цвет'}
+                        </button>
+                        <button
+                          onClick={generateVariantsFromSmartMatrix}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white text-xs rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                          {language === 'uz' ? 'Variantlar yaratish' : 'Создать варианты'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Quick Generator */}
+                  {!smartMode && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-indigo-200 dark:border-indigo-700">
                     <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
                       {language === 'uz' ? '⚡ Tez yaratuvchi' : '⚡ Быстрый генератор'}
@@ -1938,6 +1718,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       {language === 'uz' ? 'Variantlar yaratish' : 'Создать варианты'}
                     </button>
                   </div>
+                  )}
 
                   {/* Variants Table */}
                   {addModalVariants.length > 0 && (
@@ -2079,6 +1860,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     setNewProduct({ name: '', category: '', price: 0 });
                     setAddModalVariants([]);
                     setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
+                    setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
                   }}
                   className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
                 >
@@ -2118,101 +1900,39 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 ) : (
                   filteredProducts.map((product: any) => (
                     <React.Fragment key={product.id}>
-                      <tr className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <tr className={`border-b border-gray-100 dark:border-gray-700 transition-colors ${editingId === product.id ? 'bg-purple-50 dark:bg-purple-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="text"
-                              value={editForm.name}
-                              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                              className="w-full px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : (
-                            <span className="text-gray-800 dark:text-gray-200">{product.name}</span>
-                          )}
+                          <span className={`text-gray-800 dark:text-gray-200 ${editingId === product.id ? 'font-semibold text-purple-700 dark:text-purple-300' : ''}`}>{product.name}</span>
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <select
-                              value={editForm.category}
-                              onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                              className="w-full px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            >
-                              <option value="">{t.noCategory}</option>
-                              {globalCategories.map(cat => (
-                                <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium">
-                              {product.category || t.noCategory}
-                            </span>
-                          )}
+                          <span className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium">
+                            {product.category || t.noCategory}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
-                          {/* 🚫 Количество больше не редактируется напрямую - только через покупку товара */}
                           <span className="text-gray-700 dark:text-gray-300">{product.quantity}</span>
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="number"
-                              value={editForm.price}
-                              onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
-                              className="w-32 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : product.price > 0 ? (
+                          {product.price > 0 ? (
                             <span className="text-gray-700 dark:text-gray-300">{product.price.toLocaleString()} сум</span>
                           ) : (
                             <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'Turlarda' : 'В вариантах'}</span>
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="number"
-                              value={editForm.markupPercent}
-                              onChange={(e) => setEditForm({ ...editForm, markupPercent: parseFloat(e.target.value) })}
-                              className="w-20 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : (
-                            <span className="text-gray-700 dark:text-gray-300">{product.markupPercent || 0}%</span>
-                          )}
+                          <span className="text-gray-700 dark:text-gray-300">{product.markupPercent || 0}%</span>
                         </td>
                         <td className="px-6 py-4">
                           {product.sellingPrice > 0 || product.price > 0
                             ? <span className="text-green-700 dark:text-green-400">{(product.sellingPrice || product.price).toLocaleString()} сум</span>
-                            : <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'SKU tugmasini bosing' : 'Нажмите SKU'}</span>
+                            : <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'SKU' : 'SKU'}</span>
                           }
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="text"
-                              value={editForm.barcode}
-                              onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
-                              className="w-full px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : (
-                            <span className="text-gray-600 dark:text-gray-400 text-sm">{product.barcode || '—'}</span>
-                          )}
+                          <span className="text-gray-600 dark:text-gray-400 text-sm">{product.barcode || '—'}</span>
                         </td>
                         <td className="px-6 py-4">
-                          {editingId === product.id ? (
-                            <input
-                              type="text"
-                              value={editForm.barid}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '');
-                                setEditForm({ ...editForm, barid: value });
-                              }}
-                              maxLength={6}
-                              placeholder={t.baridDigits}
-                              className="w-24 px-3 py-2 border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:border-purple-500 outline-none"
-                            />
-                          ) : (
-                            <span className="text-purple-600 dark:text-purple-400 font-medium text-sm">{product.barid || '—'}</span>
-                          )}
+                          <span className="text-purple-600 dark:text-purple-400 font-medium text-sm">{product.barid || '—'}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
@@ -2221,12 +1941,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                 <button
                                   onClick={() => handleSave(product.id)}
                                   className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                  title={language === 'uz' ? 'Saqlash' : 'Сохранить'}
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => setEditingId(null)}
                                   className="p-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                                  title={language === 'uz' ? 'Bekor qilish' : 'Отмена'}
                                 >
                                   <X className="w-4 h-4" />
                                 </button>
@@ -2275,59 +1997,141 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           </div>
                         </td>
                       </tr>
-                      {/* � Description Row - показывается только в режиме редактирования */}
+                      {/* Edit Panel - all fields in one expandable row */}
                       {editingId === product.id && (
-                        <tr className="border-b border-gray-100 bg-purple-50">
-                          <td colSpan={9} className="px-4 py-4">
+                        <tr className="border-b-2 border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
+                          <td colSpan={9} className="px-4 py-5">
                             <div className="max-w-6xl mx-auto space-y-4">
-                              {/* Описание товара */}
-                              <div className="space-y-2">
-                                <label className="block text-xs font-medium text-gray-700">
-                                  {t.productDescription}
-                                </label>
-                                <textarea
-                                  value={editForm.description}
-                                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                  className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500 outline-none resize-vertical"
-                                  rows={2}
-                                  placeholder={t.descriptionVisibleToCustomers}
-                                />
+                              <div className="flex items-center gap-2 mb-1">
+                                <Edit2 className="w-4 h-4 text-purple-600" />
+                                <span className="text-sm font-bold text-purple-700 dark:text-purple-300">{language === 'uz' ? 'Tahrirlash' : 'Редактирование'}: {product.name}</span>
                               </div>
-                              
-                              {/* Цвет товара - убрали кнопки, оставили только input для компактности */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {/* Row 1: Name, Category, Price, Markup */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700">{t.productColor}</label>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productName}</label>
+                                  <input
+                                    type="text"
+                                    value={editForm.name}
+                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                    autoFocus
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.categoryHeader}</label>
+                                  <select
+                                    value={editForm.category}
+                                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                  >
+                                    <option value="">{t.noCategory}</option>
+                                    {globalCategories.map(cat => (
+                                      <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.basePriceHeader}</label>
+                                  <input
+                                    type="number"
+                                    value={editForm.price}
+                                    onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                    min="0"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.markupHeader}</label>
+                                  <input
+                                    type="number"
+                                    value={editForm.markupPercent}
+                                    onChange={(e) => setEditForm({ ...editForm, markupPercent: parseFloat(e.target.value) })}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                    min="0" max="999.99"
+                                  />
+                                </div>
+                              </div>
+                              {/* Row 2: Barcode, Barid, Color, Size, Brand */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.barcodeHeader}</label>
+                                  <input
+                                    type="text"
+                                    value={editForm.barcode}
+                                    onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Barid</label>
+                                  <input
+                                    type="text"
+                                    value={editForm.barid}
+                                    onChange={(e) => setEditForm({ ...editForm, barid: e.target.value.replace(/\D/g, '') })}
+                                    maxLength={6}
+                                    placeholder={t.baridDigits}
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productColor}</label>
                                   <input
                                     type="text"
                                     value={editForm.color}
                                     onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500 outline-none"
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
                                     placeholder={t.colorExamples}
                                   />
                                 </div>
-                                
                                 <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700">{t.productSize}</label>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productSize}</label>
                                   <input
                                     type="text"
                                     value={editForm.size}
                                     onChange={(e) => setEditForm({ ...editForm, size: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500 outline-none"
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
                                     placeholder={t.sizeExamples}
                                   />
                                 </div>
-                                
                                 <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700">🏢 Бренд/Производитель</label>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{language === 'uz' ? 'Brend' : 'Бренд'}</label>
                                   <input
                                     type="text"
                                     value={editForm.brand}
                                     onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 rounded-lg focus:border-purple-500 outline-none"
+                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
                                     placeholder={t.brandExamples}
                                   />
                                 </div>
+                              </div>
+                              {/* Row 3: Description */}
+                              <div className="space-y-1">
+                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productDescription}</label>
+                                <textarea
+                                  value={editForm.description}
+                                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none resize-none"
+                                  rows={2}
+                                  placeholder={t.descriptionVisibleToCustomers}
+                                />
+                              </div>
+                              {/* Save/Cancel buttons */}
+                              <div className="flex gap-3 pt-1">
+                                <button
+                                  onClick={() => handleSave(product.id)}
+                                  className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  {language === 'uz' ? 'Saqlash' : 'Сохранить'}
+                                </button>
+                                <button
+                                  onClick={() => setEditingId(null)}
+                                  className="flex items-center gap-2 px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                                >
+                                  <X className="w-4 h-4" />
+                                  {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
+                                </button>
                               </div>
                             </div>
                           </td>

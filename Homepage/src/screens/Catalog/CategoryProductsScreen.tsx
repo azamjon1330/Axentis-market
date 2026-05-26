@@ -36,8 +36,8 @@ export default function CategoryProductsScreen() {
     if (reset) setIsLoading(true); else setIsLoadingMore(true);
     try {
       const res = await getCategoryProducts(category, { limit: LIMIT, offset: currentOffset });
-      const items = res.products || [];
-      setTotal(res.total || items.length);
+      const items = Array.isArray(res) ? res : ((res as any).products || []);
+      setTotal(items.length);
       if (reset) {
         setProducts(items);
         setOffset(LIMIT);
@@ -48,11 +48,11 @@ export default function CategoryProductsScreen() {
     } catch {
       // fallback: load all products and filter
       try {
-        const res = await getProducts({ search: category, limit: LIMIT, availableOnly: true });
-        const items = res.products || [];
+        const res = await getProducts({ category, limit: LIMIT, availableOnly: true });
+        const items = Array.isArray(res) ? res : ((res as any).products || []);
         if (reset) { setProducts(items); setOffset(LIMIT); }
         else { setProducts(prev => [...prev, ...items]); setOffset(prev => prev + LIMIT); }
-        setTotal(res.total || items.length);
+        setTotal(items.length);
       } catch { /* ignore */ }
     } finally {
       setIsLoading(false);
