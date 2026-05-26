@@ -19,74 +19,60 @@ interface CompanyPanelProps {
 }
 
 export default function CompanyPanel({ onLogout, companyId, companyName }: CompanyPanelProps) {
-  // 🔍 DEBUG: Проверка companyId
   useEffect(() => {
-    console.log('🏢 CompanyPanel mounted - companyId:', companyId, 'companyName:', companyName);
+    console.log('CompanyPanel mounted - companyId:', companyId, 'companyName:', companyName);
     if (!companyId || companyId === 0) {
-      console.error('❌ CRITICAL: CompanyPanel received invalid companyId!', companyId);
-      alert('❌ Ошибка: Неверный ID компании. Пожалуйста, выйдите и войдите заново.');
+      console.error('CRITICAL: CompanyPanel received invalid companyId!', companyId);
+      alert('Ошибка: Неверный ID компании. Пожалуйста, выйдите и войдите заново.');
     }
   }, [companyId, companyName]);
-  
+
   const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts'>('warehouse');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
-  const [showInbox, setShowInbox] = useState(false); // 📨 Показать входящие сообщения
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0); // 📨 Кол-во непрочитанных
-  
-  // 📱 Адаптивность
-  const { isMobile, isTablet, isDesktop } = useResponsive();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showInbox, setShowInbox] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  const { isMobile, isDesktop } = useResponsive();
   const responsive = useResponsiveClasses();
-  
-  // � Темная тема
-  const { theme, effectiveTheme, setTheme } = useTheme();
-  
-  // �🌍 Система локализации для компании (заблокирована на русском)
+
+  const { effectiveTheme, setTheme } = useTheme();
+
   const [language, setLanguage] = useState<Language>(getCurrentLanguage());
   const t = useTranslation(language);
-  
-  // Слушаем изменения языка
+
   useEffect(() => {
     const handleLanguageChange = (e: CustomEvent) => {
       setLanguage(e.detail);
     };
-    
     window.addEventListener('languageChange', handleLanguageChange as EventListener);
-    
     return () => {
       window.removeEventListener('languageChange', handleLanguageChange as EventListener);
     };
   }, []);
-  
-  // 📨 Загрузка количества непрочитанных сообщений с звуковым уведомлением
+
   useEffect(() => {
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
     let previousCount = unreadMessagesCount;
-    
-    // Функция для воспроизведения звука уведомления
+
     const playNotificationSound = () => {
       try {
-        // Создаем аудио с приятным звуком уведомления (используем data URI)
         const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PVqzn77BdGAg+ltryxnMnBSuBzvLZiTYHGWi77eeeTRAMUKfj8LZjHAY4ktfyzHksBSR2x/DdkUAKE1+06eqnVRQKRp/g8r9sIQUxh9Hz04IzBh5uwO/jmUgND1as5++wXRgIPpba8sZzJwUrgc7y2Yk2BxlpvO3nnk0QDFCn4/C2YxwGOJLX8sx5LAUkdsfw3ZFAChNftOnqp1UUCkaf4PK/bCEFMYfR89OCMwYeacDv45lIDQ9XrOjt8FwYBz64gf17i+sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wwvBnrv7/w==');
         audio.volume = 0.5;
-        audio.play().catch(e => console.log('🔇 Звук уведомления заблокирован браузером:', e));
+        audio.play().catch(e => console.log('Notification sound blocked:', e));
       } catch (error) {
         console.error('Error playing notification sound:', error);
       }
     };
-    
+
     const loadUnreadCount = async () => {
       try {
         const response = await fetch(`${API_URL}/company-messages/company/${companyId}/count`);
         if (response.ok) {
           const data = await response.json();
           const newCount = data.count || 0;
-          
-          // Если есть новые сообщения - воспроизводим звук
           if (newCount > previousCount && previousCount !== null) {
-            console.log('🔔 Новое сообщение от Axis! Воспроизводим звук...');
             playNotificationSound();
           }
-          
           previousCount = newCount;
           setUnreadMessagesCount(newCount);
         }
@@ -96,23 +82,18 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     };
 
     loadUnreadCount();
-    // Проверяем каждые 5 секунд для быстрого уведомления
     const interval = setInterval(loadUnreadCount, 5000);
     return () => clearInterval(interval);
   }, [companyId]);
-  
-  // 🔄 HISTORY API HANDLER
+
   useEffect(() => {
-    // ИСПРАВЛЕНИЕ: Проверяем хеш URL при загрузке и восстанавливаем вкладку
     const hash = window.location.hash.replace('#', '');
     const validTabs: Array<typeof activeTab> = ['warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts'];
     const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'warehouse';
-    
-    // Initial state setup - preserve page: 'company' context
+
     const currentState = window.history.state || {};
     window.history.replaceState({ ...currentState, tab: initialTab, page: 'company' }, '', `#${initialTab}`);
-    
-    // Устанавливаем начальную вкладку
+
     if (initialTab !== activeTab) {
       setActiveTab(initialTab);
     }
@@ -122,7 +103,6 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         setActiveTab(event.state.tab);
         setIsSidebarOpen(false);
       } else {
-        // Fallback to default if no tab in state
         setActiveTab('warehouse');
       }
     };
@@ -131,206 +111,210 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Custom Navigation Handler
   const handleNavigate = (tab: typeof activeTab) => {
-    // ИСПРАВЛЕНИЕ: Убрал проверку activeTab === tab чтобы не требовался двойной клик
-    // Include page: 'company' so App.tsx knows where we are
     window.history.pushState({ tab: tab, page: 'company' }, '', `#${tab}`);
     setActiveTab(tab);
     setIsSidebarOpen(false);
     window.scrollTo(0, 0);
   };
 
-  console.log('🏢 [CompanyPanel] Rendered with:', { companyId, companyName, type: typeof companyId });
+  console.log('[CompanyPanel] Rendered with:', { companyId, companyName, type: typeof companyId });
 
-  // 📱 Адаптивная ширина sidebar
-  const sidebarWidth = isMobile ? '85vw' : isTablet ? 'w-64' : 'w-56';
+  const navItems = [
+    { key: 'warehouse' as const,  icon: Package,      label: t.inventory },
+    { key: 'sales' as const,      icon: ShoppingCart, label: t.salesPanel },
+    { key: 'orders' as const,     icon: Receipt,      label: t.orders },
+    { key: 'analytics' as const,  icon: BarChart3,    label: t.statistics },
+    { key: 'barcode' as const,    icon: Barcode,      label: t.searchByBarcode },
+    { key: 'smm' as const,        icon: Megaphone,    label: t.smm },
+    { key: 'discounts' as const,  icon: Tag,          label: t.discountsManagement },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex overflow-x-hidden">
-      {/* 📱 Overlay для мобильных (при открытом sidebar) */}
+    <div
+      className="min-h-screen flex overflow-x-hidden"
+      style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}
+    >
+      {/* Mobile overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+        <div
+          className="fixed inset-0 z-20 lg:hidden"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
-      {/* ✅ КОМПАКТНЫЙ SIDEBAR СЛЕВА - АДАПТИВНЫЙ */}
-      <aside 
-        className={`
-          ${isMobile ? sidebarWidth : sidebarWidth} 
-          bg-white dark:bg-gray-800 shadow-lg flex flex-col fixed h-full z-30 transition-transform duration-300
-          lg:translate-x-0
-          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        `}
-        style={isMobile ? { width: sidebarWidth } : {}}
+      {/* ── SIDEBAR ── */}
+      <aside
+        className={`flex flex-col fixed h-full z-30 transition-transform duration-300 lg:translate-x-0 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+        style={{
+          width: isMobile ? '82vw' : '220px',
+          background: 'var(--ax-sidebar)',
+          borderRight: '1px solid var(--ax-border)',
+          boxShadow: 'var(--ax-shadow)',
+        }}
       >
-        {/* Логотип и название компании - АДАПТИВНО */}
-        <div className={`bg-gradient-to-b from-white to-[#18202F] text-gray-800 dark:text-white ${isMobile ? 'p-3' : 'p-4'}`}>
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              <Building2 className={isMobile ? 'w-5 h-5' : 'w-6 h-6'} />
-              <div>
-                <h2 className={`font-bold ${isMobile ? 'text-sm' : 'text-base'}`}>{companyName}</h2>
-                <p className={`text-gray-600 dark:text-gray-300 ${isMobile ? 'text-[10px]' : 'text-xs'}`}>
-                  {t.companyPanel}
-                </p>
-              </div>
-            </div>
-            {/* Кнопка закрытия для мобильных */}
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden p-1 hover:bg-white/20 rounded-lg transition"
+        {/* Brand header */}
+        <div
+          className="flex items-center justify-between flex-shrink-0"
+          style={{
+            padding: isMobile ? '14px' : '16px',
+            borderBottom: '1px solid rgba(255,255,255,0.15)',
+            background: 'var(--ax-primary)',
+          }}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="flex items-center justify-center rounded-xl flex-shrink-0"
+              style={{ width: 36, height: 36, background: 'rgba(255,255,255,0.2)' }}
             >
-              <X className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
-            </button>
+              <Building2 className="w-5 h-5" style={{ color: '#fff' }} />
+            </div>
+            <div className="min-w-0">
+              <h2
+                className="font-semibold truncate"
+                style={{ fontSize: isMobile ? 13 : 14, color: '#fff', lineHeight: 1.25 }}
+              >
+                {companyName}
+              </h2>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)' }}>{t.companyPanel}</p>
+            </div>
           </div>
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden rounded-lg transition-colors"
+            style={{ padding: 5, color: 'rgba(255,255,255,0.8)' }}
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Навигационные кнопки - АДАПТИВНО */}
-        <nav className={`flex-1 overflow-y-auto ${isMobile ? 'py-2' : 'py-3'}`}>
-          <button
-            onClick={() => handleNavigate('warehouse')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'warehouse'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <Package className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.inventory}</span>
-          </button>
-          
-          <button
-            onClick={() => handleNavigate('sales')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'sales'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <ShoppingCart className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.salesPanel}</span>
-          </button>
-          
-          <button
-            onClick={() => handleNavigate('orders')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'orders'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <Receipt className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.orders}</span>
-          </button>
-          
-          <button
-            onClick={() => handleNavigate('analytics')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'analytics'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <BarChart3 className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.statistics}</span>
-          </button>
-          
-          <button
-            onClick={() => handleNavigate('barcode')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'barcode'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <Barcode className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.searchByBarcode}</span>
-          </button>
-          
-          <button
-            onClick={() => handleNavigate('smm')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'smm'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <Megaphone className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.smm}</span>
-          </button>
-
-          <button
-            onClick={() => handleNavigate('discounts')}
-            className={`w-full flex items-center gap-2 ${isMobile ? 'px-3 py-2' : 'px-4 py-2.5'} transition-all duration-300 ${
-              activeTab === 'discounts'
-                ? 'bg-[#141B2A]/10 dark:bg-[#141B2A]/30 text-[#141B2A] dark:text-[#141B2A]/90 border-r-4 border-[#141B2A] dark:border-[#141B2A]/90'
-                : 'text-gray-600 dark:text-gray-300 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/20 hover:text-[#141B2A] dark:hover:text-[#141B2A]/90 hover:scale-y-105 hover:shadow-lg hover:shadow-[#141B2A]/20 dark:hover:shadow-[#141B2A]/30'
-            }`}
-          >
-            <Tag className={responsive.iconSmall} />
-            <span className={`font-medium ${responsive.small}`}>{t.discountsManagement}</span>
-          </button>
-
+        {/* Nav items */}
+        <nav className="flex-1 overflow-y-auto" style={{ padding: '10px 8px' }}>
+          {navItems.map(({ key, icon: Icon, label }) => {
+            const active = activeTab === key;
+            return (
+              <button
+                key={key}
+                onClick={() => handleNavigate(key)}
+                className="w-full flex items-center gap-2.5 transition-all duration-200"
+                style={{
+                  padding: isMobile ? '9px 12px' : '10px 14px',
+                  marginBottom: 2,
+                  borderRadius: 10,
+                  background: active ? 'var(--ax-primary)' : 'transparent',
+                  color: active ? '#fff' : 'var(--ax-text-2)',
+                  fontWeight: active ? 600 : 500,
+                  fontSize: isMobile ? 13 : 14,
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'var(--ax-sidebar-hover)'; }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              >
+                <Icon className={responsive.iconSmall} style={{ flexShrink: 0 }} />
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        {/* Кнопка выхода внизу - АДАПТИВНО */}
-        <div className={`border-t border-gray-200 dark:border-gray-700 ${isMobile ? 'p-2' : 'p-3'}`}>
-          {/* 🌙 Переключатель темы */}
-          <div className={`mb-2 flex items-center justify-center gap-1 ${isMobile ? 'p-1' : 'p-2'} bg-gray-50 dark:bg-gray-800/50 rounded-lg`}>
-            <Sun className={`${responsive.iconSmall} text-gray-500 dark:text-gray-400`} />
-            <button
-              onClick={() => setTheme('light')}
-              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
-                effectiveTheme === 'light' 
-                  ? 'bg-yellow-500 text-white' 
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
-              }`}
-            >
-              ☀️
-            </button>
-            <button
-              onClick={() => setTheme('dark')}
-              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
-                effectiveTheme === 'dark' 
-                  ? 'bg-gray-800 text-white' 
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
-              }`}
-            >
-              🌙
-            </button>
+        {/* Bottom controls */}
+        <div style={{ borderTop: '1px solid var(--ax-border)', padding: isMobile ? 10 : 12, flexShrink: 0 }}>
+          {/* Theme toggle */}
+          <div
+            className="flex items-center justify-between rounded-xl mb-2"
+            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+          >
+            <Sun className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
+            <div className="flex gap-1">
+              <button
+                onClick={() => setTheme('light')}
+                className="rounded-lg font-medium transition-all"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  background: effectiveTheme === 'light' ? 'var(--ax-primary)' : 'transparent',
+                  color: effectiveTheme === 'light' ? '#fff' : 'var(--ax-text-2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                ☀️
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className="rounded-lg font-medium transition-all"
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 12,
+                  background: effectiveTheme === 'dark' ? 'var(--ax-primary)' : 'transparent',
+                  color: effectiveTheme === 'dark' ? '#fff' : 'var(--ax-text-2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                🌙
+              </button>
+            </div>
+            <Moon className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
           </div>
-          
-          {/* �🌐 Выбор языка */}
-          <div className={`mb-2 flex items-center justify-center gap-1 ${isMobile ? 'p-1' : 'p-2'} bg-gray-50 dark:bg-gray-800/50 rounded-lg`}>
-            <Globe className={`${responsive.iconSmall} text-gray-500 dark:text-gray-400`} />
-            <button
-              onClick={() => setCurrentLanguage('uz')}
-              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
-                language === 'uz' 
-                  ? 'bg-[#141B2A] text-white' 
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
-              }`}
-            >
-              🇺🇿 O'zb
-            </button>
-            <button
-              onClick={() => setCurrentLanguage('ru')}
-              className={`${isMobile ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition font-medium ${
-                language === 'ru' 
-                  ? 'bg-[#141B2A] text-white' 
-                  : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-500'
-              }`}
-            >
-              🇷🇺 Рус
-            </button>
+
+          {/* Language toggle */}
+          <div
+            className="flex items-center justify-between rounded-xl mb-2"
+            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+          >
+            <Globe className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
+            <div className="flex gap-1">
+              <button
+                onClick={() => setCurrentLanguage('uz')}
+                className="rounded-lg font-medium transition-all"
+                style={{
+                  padding: '4px 9px',
+                  fontSize: 11,
+                  background: language === 'uz' ? 'var(--ax-primary)' : 'transparent',
+                  color: language === 'uz' ? '#fff' : 'var(--ax-text-2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                🇺🇿 O'zb
+              </button>
+              <button
+                onClick={() => setCurrentLanguage('ru')}
+                className="rounded-lg font-medium transition-all"
+                style={{
+                  padding: '4px 9px',
+                  fontSize: 11,
+                  background: language === 'ru' ? 'var(--ax-primary)' : 'transparent',
+                  color: language === 'ru' ? '#fff' : 'var(--ax-text-2)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                🇷🇺 Рус
+              </button>
+            </div>
           </div>
-          
+
+          {/* Logout */}
           <button
             onClick={onLogout}
-            className={`w-full flex items-center justify-center gap-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 ${isMobile ? 'px-2 py-1.5' : 'px-3 py-2'} rounded-lg transition-colors font-medium ${responsive.small}`}
+            className="w-full flex items-center justify-center gap-2 rounded-xl font-medium transition-all"
+            style={{
+              padding: isMobile ? '8px' : '9px',
+              fontSize: 13,
+              background: 'rgba(220,38,38,0.08)',
+              color: 'var(--ax-danger)',
+              border: '1px solid transparent',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(220,38,38,0.15)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(220,38,38,0.08)'; }}
           >
             <LogOut className={responsive.iconSmall} />
             {t.logout}
@@ -338,21 +322,42 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         </div>
       </aside>
 
-      {/* ✅ ОСНОВНОЙ КОНТЕНТ СПРАВА - АДАПТИВНЫЙ */}
-      <main className={`flex-1 w-full overflow-x-hidden ${isDesktop ? 'lg:ml-56' : ''} ${isMobile || isTablet ? 'ml-0' : ''}`}>
-        {/* Header с названием активной панели */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
-          <div className={`${responsive.container} flex items-center justify-between gap-4`}>
-            <div className="flex items-center gap-4">
-              {/* 📱 Кнопка гамбургера (только на мобильных) */}
+      {/* ── MAIN CONTENT ── */}
+      <main
+        className="flex-1 w-full overflow-x-hidden"
+        style={{ marginLeft: isDesktop ? 220 : 0 }}
+      >
+        {/* Sticky header */}
+        <header
+          className="sticky top-0 z-10"
+          style={{
+            background: 'var(--ax-surface)',
+            borderBottom: '1px solid var(--ax-border)',
+          }}
+        >
+          <div
+            className="flex items-center justify-between gap-4"
+            style={{ padding: isMobile ? '10px 14px' : '12px 20px' }}
+          >
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                className="lg:hidden rounded-xl transition"
+                style={{
+                  padding: 8,
+                  background: 'var(--ax-primary-pale)',
+                  color: 'var(--ax-primary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
-                <Menu className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300`} />
+                <Menu className={isMobile ? 'w-4 h-4' : 'w-5 h-5'} />
               </button>
 
-              <h1 className={`${responsive.heading} font-bold text-gray-800 dark:text-gray-100`}>
+              <h1
+                className="font-bold"
+                style={{ fontSize: isMobile ? 16 : 18, color: 'var(--ax-text)' }}
+              >
                 {activeTab === 'warehouse' && t.inventory}
                 {activeTab === 'sales' && t.salesPanel}
                 {activeTab === 'orders' && t.orders}
@@ -362,23 +367,32 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'discounts' && t.discountsManagement}
               </h1>
             </div>
-            
-            {/* 📨 Иконка сообщений Axis (перенесена из sidebar) */}
+
+            {/* Inbox button */}
             <button
-              onClick={() => {
-                setShowInbox(true);
-                setUnreadMessagesCount(0);
+              onClick={() => { setShowInbox(true); setUnreadMessagesCount(0); }}
+              className="relative rounded-xl transition-all"
+              style={{
+                padding: isMobile ? 8 : 9,
+                background: 'var(--ax-primary-pale)',
+                color: 'var(--ax-primary)',
+                border: 'none',
+                cursor: 'pointer',
               }}
-              className="relative p-2 hover:bg-[#141B2A]/5 dark:hover:bg-[#141B2A]/30 rounded-lg transition-all duration-300 group"
-              title="Сообщения Axis"
+              title="Axis Messages"
             >
-              <MessageSquare 
-                className={`${isMobile ? 'w-5 h-5' : 'w-6 h-6'} text-gray-600 dark:text-gray-300 group-hover:text-[#141B2A] dark:group-hover:text-[#141B2A]/90 transition ${
-                  unreadMessagesCount > 0 ? 'fill-[#141B2A]/20 dark:fill-[#141B2A]/50 animate-pulse' : ''
-                }`} 
-              />
+              <MessageSquare className="w-5 h-5" />
               {unreadMessagesCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-gradient-to-br from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center shadow-lg ring-2 ring-white dark:ring-gray-800 animate-bounce">
+                <span
+                  className="absolute -top-1 -right-1 text-white font-bold rounded-full flex items-center justify-center animate-bounce"
+                  style={{
+                    minWidth: 18,
+                    height: 18,
+                    padding: '0 4px',
+                    background: 'var(--ax-danger)',
+                    fontSize: 10,
+                  }}
+                >
                   {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
                 </span>
               )}
@@ -386,8 +400,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           </div>
         </header>
 
-        {/* Контент панелей */}
-        <div className={responsive.container}>
+        {/* Panel content */}
+        <div style={{ padding: isMobile ? '12px 8px' : '16px' }}>
           {activeTab === 'warehouse' && <DigitalWarehouse companyId={companyId} />}
           {activeTab === 'sales' && <SalesPanel companyId={companyId} />}
           {activeTab === 'orders' && <CompanyOrdersPanel companyId={companyId} />}
@@ -398,11 +412,11 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         </div>
       </main>
 
-      {/* 📨 Модальное окно входящих сообщений */}
+      {/* Inbox modal */}
       {showInbox && (
-        <CompanyInboxPanel 
-          companyId={companyId} 
-          onClose={() => setShowInbox(false)} 
+        <CompanyInboxPanel
+          companyId={companyId}
+          onClose={() => setShowInbox(false)}
         />
       )}
     </div>

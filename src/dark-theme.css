@@ -1,3 +1,46 @@
+/* ═══════════════════════════════════════════════════════
+   AXENTIS DESIGN SYSTEM — CSS Custom Properties
+   Light: warm milky cream  |  Dark: deep dark gray
+═══════════════════════════════════════════════════════ */
+
+:root {
+  --ax-bg:            #F0EAE0;
+  --ax-surface:       #FAF7F2;
+  --ax-sidebar:       #E8E2D6;
+  --ax-sidebar-hover: rgba(79, 70, 168, 0.08);
+  --ax-border:        #D8D0C4;
+  --ax-text:          #1A1510;
+  --ax-text-2:        #5C5650;
+  --ax-text-3:        #9B9186;
+  --ax-primary:       #4F46A8;
+  --ax-primary-pale:  rgba(79, 70, 168, 0.12);
+  --ax-success:       #16A34A;
+  --ax-danger:        #DC2626;
+  --ax-warning:       #D97706;
+  --ax-card:          #FFFFFF;
+  --ax-input:         #FFFFFF;
+  --ax-shadow:        0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+.dark {
+  --ax-bg:            #0F0F13;
+  --ax-surface:       #17171C;
+  --ax-sidebar:       #0C0C10;
+  --ax-sidebar-hover: rgba(255,255,255,0.06);
+  --ax-border:        #242430;
+  --ax-text:          #E6E3DC;
+  --ax-text-2:        #8E8C96;
+  --ax-text-3:        #56545E;
+  --ax-primary:       #7C6FE8;
+  --ax-primary-pale:  rgba(124, 111, 232, 0.15);
+  --ax-success:       #22C55E;
+  --ax-danger:        #F87171;
+  --ax-warning:       #FBBF24;
+  --ax-card:          #1C1C22;
+  --ax-input:         #1C1C22;
+  --ax-shadow:        0 1px 4px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+}
+
 /* Темная тема для всех панелей компании */
 
 /* Основной фон приложения */
@@ -466,3 +509,107 @@
   background-color: rgba(234, 179, 8, 0.15) !important;
   color: #fbbf24 !important;
 }
+
+/* ══════════════════════════════════════════════
+   AXENTIS DESIGN SYSTEM — token bridge
+   Maps Tailwind utility classes to --ax-* vars
+   so child panels inherit the new palette.
+══════════════════════════════════════════════ */
+
+/* Light mode — warm milky base */
+:root body,
+body {
+  background-color: var(--ax-bg);
+  color: var(--ax-text);
+}
+
+/* Cards & surfaces */
+.bg-white,
+.bg-gray-50 {
+  background-color: var(--ax-card) !important;
+}
+
+/* In dark mode override card/surface with dark tokens */
+.dark .bg-white,
+.dark .bg-gray-50 {
+  background-color: var(--ax-card) !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: var(--ax-surface) !important;
+}
+
+/* Borders */
+.dark .border-gray-200,
+.dark .border-gray-100 {
+  border-color: var(--ax-border) !important;
+}
+
+/* Text tokens */
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: var(--ax-text) !important;
+}
+
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: var(--ax-text-2) !important;
+}
+
+.dark .text-gray-500,
+.dark .text-gray-400 {
+  color: var(--ax-text-3) !important;
+}
+
+/* Input fields */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--ax-input) !important;
+  border-color: var(--ax-border) !important;
+  color: var(--ax-text) !important;
+}
+
+/* Primary accent buttons */
+.dark .bg-purple-600,
+.dark .bg-purple-700 {
+  background-color: var(--ax-primary) !important;
+}
+
+/* Success / danger / warning status badges */
+.dark .text-green-600 { color: var(--ax-success) !important; }
+.dark .text-red-600   { color: var(--ax-danger)  !important; }
+.dark .text-yellow-600, .dark .text-orange-500 { color: var(--ax-warning) !important; }
+
+/* Shadows on cards */
+.dark .shadow,
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-lg {
+  box-shadow: var(--ax-shadow) !important;
+}
+
+/* Table rows */
+.dark table        { background-color: var(--ax-card)    !important; }
+.dark thead        { background: var(--ax-surface)       !important; }
+.dark tbody tr:hover { background-color: var(--ax-sidebar-hover) !important; }
+.dark td, .dark th { border-color: var(--ax-border)     !important; color: var(--ax-text-2) !important; }
+
+/* Modals */
+.dark .bg-white.rounded-2xl,
+.dark .bg-white.rounded-xl {
+  background-color: var(--ax-card) !important;
+}
+
+/* Sidebar dark override — use ax tokens */
+.dark aside {
+  background-color: var(--ax-sidebar) !important;
+  border-color: var(--ax-border) !important;
+}
+
+/* Header dark override */
+.dark header {
+  background-color: var(--ax-surface) !important;
+  border-color: var(--ax-border) !important;
+}
+
