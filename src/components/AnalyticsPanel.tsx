@@ -6,7 +6,7 @@ import PaymentHistoryForCompany from './PaymentHistoryForCompany';
 import AdvancedInsightsPanel from './AdvancedInsightsPanel';
 import PurchaseAnalytics from './PurchaseAnalytics';
 import CompactPeriodSelector from './CompactPeriodSelector';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, AreaChart, Area, Legend } from 'recharts';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -721,6 +721,46 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     return dataPoints;
   };
 
+  const getOrderCountData = () => {
+    if (financialTimePeriod === 'all') return [];
+    const currentOrders = getFilteredOrders(financialTimePeriod);
+    const previousOrders = getPreviousPeriodOrders(financialTimePeriod);
+
+    const countByTime = (orders: any[], type: string, n: number) => {
+      const arr = new Array(n).fill(0);
+      orders.forEach(o => {
+        const ds = o.confirmed_date || o.order_date || o.created_at || o.createdAt;
+        if (!ds) return;
+        const d = new Date(ds);
+        if (isNaN(d.getTime())) return;
+        if (type === 'hour') arr[d.getHours()]++;
+        else if (type === 'day') { const i = d.getDay() === 0 ? 6 : d.getDay() - 1; if (i < n) arr[i]++; }
+        else if (type === 'week') arr[Math.min(Math.floor((d.getDate() - 1) / 7), n - 1)]++;
+        else if (type === 'month') { if (d.getMonth() < n) arr[d.getMonth()]++; }
+      });
+      return arr;
+    };
+
+    if (financialTimePeriod === 'day' || financialTimePeriod === 'yesterday') {
+      const cur = countByTime(currentOrders, 'hour', 24);
+      const prev = countByTime(previousOrders, 'hour', 24);
+      return Array.from({ length: 24 }, (_, i) => ({ period: `${i}:00`, current: cur[i], previous: prev[i] }));
+    } else if (financialTimePeriod === 'week') {
+      const cur = countByTime(currentOrders, 'day', 7);
+      const prev = countByTime(previousOrders, 'day', 7);
+      return (t.daysOfWeek as string[]).map((p, i) => ({ period: p, current: cur[i], previous: prev[i] }));
+    } else if (financialTimePeriod === 'month') {
+      const cur = countByTime(currentOrders, 'week', 4);
+      const prev = countByTime(previousOrders, 'week', 4);
+      return Array.from({ length: 4 }, (_, i) => ({ period: `${t.weekLabel} ${i + 1}`, current: cur[i], previous: prev[i] }));
+    } else if (financialTimePeriod === 'year') {
+      const cur = countByTime(currentOrders, 'month', 12);
+      const prev = countByTime(previousOrders, 'month', 12);
+      return (t.monthsShort as string[]).map((p, i) => ({ period: p, current: cur[i], previous: prev[i] }));
+    }
+    return [];
+  };
+
   if (loading) {
     return <div className="text-center py-12">{t.loadingAnalytics}</div>;
   }
@@ -857,238 +897,125 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           </div>
 
           {/* 📊 ДИАГРАММЫ ПРИБЫЛИ И ЗАТРАТ */}
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-6" key={`profit-expenses-${financialTimePeriod}`}>
-            <h3 className="text-xl font-bold text-gray-800 mb-6">{t.charts}</h3>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 1️⃣ Круговая диаграмма - ТОЛЬКО ЗАТРАТЫ КОМПАНИИ */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">💸 {t.companyExpenses}</h4>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={(() => {
-                        const proportional = getProportionalExpenses();
-                        const filteredCustom = getFilteredCustomExpenses();
-                        
-                        // ✅ ТОЛЬКО РЕАЛЬНЫЕ ЗАТРАТЫ (БЕЗ товаров на складе)
-                        const expenseCategories = [
-                          { name: '👥 Зарплата', value: proportional.employeeExpenses, color: '#8b5cf6' },
-                          { name: '⚡ Электричество', value: proportional.electricityExpenses, color: '#eab308' },
-                          { name: '🛒 Зак��пки', value: proportional.purchaseCosts, color: '#06b6d4' },
-                          { name: '🛍️ Другие затраты', value: filteredCustom, color: '#ec4899' },
-                        ];
-                        
-                        // Фильтруем категории со значением > 0
-                        return expenseCategories.filter(cat => cat.value > 0);
-                      })()}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {(() => {
-                        const proportional = getProportionalExpenses();
-                        const filteredCustom = getFilteredCustomExpenses();
-                        
-                        const expenseCategories = [
-                          { name: '👥 Зарплата', value: proportional.employeeExpenses, color: '#8b5cf6' },
-                          { name: '⚡ Электричество', value: proportional.electricityExpenses, color: '#eab308' },
-                          { name: '🛒 Закупки', value: proportional.purchaseCosts, color: '#06b6d4' },
-                          { name: '🛍️ Другие затраты', value: filteredCustom, color: '#ec4899' },
-                        ];
-                        
-                        return expenseCategories.filter(cat => cat.value > 0).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ));
-                      })()}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => formatPrice(value)} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+          <div className="space-y-5 mb-6" key={`charts-${financialTimePeriod}`}>
+            {/* Chart 1: Orders Count */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 55%, #1e3a5f 100%)',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 8px 32px rgba(99,102,241,0.28), 0 2px 8px rgba(0,0,0,0.15)',
+            }}>
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ color: '#e0e7ff', fontSize: '20px', fontWeight: 700, margin: 0 }}>
+                  {language === 'uz' ? 'Buyurtmalar' : 'Заказы'}
+                </h3>
+                <p style={{ color: '#a5b4fc', fontSize: '13px', marginTop: '4px' }}>
+                  {language === 'uz' ? "Vaqt bo'yicha buyurtmalar soni" : 'Количество заказов по периоду'}
+                </p>
               </div>
-
-              {/* 2️⃣ Столбчатая диаграмма - Прибыль, Затраты, Итоговый баланс */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold text-gray-700 mb-4 text-center">📊 {t.comparison}</h4>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={(() => {
-                      const data = [
-                        { 
-                          category: t.profitCategory, 
-                          value: getTotalBalance(financialTimePeriod),
-                          fill: '#10b981'
-                        },
-                        { 
-                          category: t.expensesCategory, 
-                          value: getTotalCompanyExpenses(),
-                          fill: '#ef4444'
-                        },
-                        { 
-                          category: t.totalCategory, 
-                          value: Math.abs(getFinalBalance(financialTimePeriod)),
-                          fill: getFinalBalance(financialTimePeriod) >= 0 ? '#06b6d4' : '#f97316'
-                        },
-                      ];
-                      
-                      return data;
-                    })()}
-                    margin={{ top: 7, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="category" />
-                    <YAxis 
-                      tickFormatter={(value) => formatShortPrice(value)}
-                      width={80}
-                      tick={{ fontSize: 20 }}
-                    />
-                    <Tooltip 
-                      formatter={(value: number, name: string, props: any) => {
-                        // Для "Итог" показываем знак
-                        if (props.payload.category === t.totalCategory) {
-                          return getFinalBalance(financialTimePeriod) >= 0 
-                            ? `+${formatPrice(value)}` 
-                            : `-${formatPrice(value)}`;
-                        }
-                        return formatPrice(value);
-                      }} 
-                    />
-                    <Bar dataKey="value">
-                      {(() => {
-                        const data = [
-                          { fill: '#10b981' },
-                          { fill: '#ef4444' },
-                          { fill: getFinalBalance(financialTimePeriod) >= 0 ? '#06b6d4' : '#f97316' },
-                        ];
-                        return data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ));
-                      })()}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* 3️⃣ Линейная диаграмма - Детальная динамика за период */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-700">
-                      📈 {t.growthDynamics}
-                    </h4>
-                    {financialTimePeriod !== 'all' && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        💡 Используйте кнопки +/− для масштабирования, скролл для навигации
-                      </p>
-                    )}
-                  </div>
-                  {/* 🔍 ZOOM кнопки */}
-                  {financialTimePeriod !== 'all' && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setChartZoom(Math.max(50, chartZoom - 10))}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium"
-                        title={t.zoomOut}
-                      >
-                        −
-                      </button>
-                      <span className="text-sm text-gray-600 min-w-[50px] text-center">
-                        {chartZoom}%
-                      </span>
-                      <button
-                        onClick={() => setChartZoom(Math.min(300, chartZoom + 10))}
-                        className="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-100 text-sm font-medium"
-                        title={t.zoomIn}
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={() => setChartZoom(100)}
-                        className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm font-medium ml-2"
-                        title={t.zoomReset}
-                      >
-                        100%
-                      </button>
-                    </div>
-                  )}
+              {financialTimePeriod === 'all' ? (
+                <div style={{ color: '#818cf8', textAlign: 'center', padding: '48px 0', fontSize: '14px' }}>
+                  {t.selectSpecificPeriod}
                 </div>
-                {financialTimePeriod === 'all' ? (
-                  <div className="flex items-center justify-center h-[300px] text-gray-500">
-                    {t.selectSpecificPeriod}
-                  </div>
-                ) : (
-                  <div 
-                    className="overflow-auto"
-                    style={{ 
-                      maxHeight: '400px',
-                      cursor: 'grab',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    {/* 🎯 Збільшуємо розмір графіка БЕЗ scale - тільки width/height */}
-                    <ResponsiveContainer 
-                      width={Math.max(600, 600 * (chartZoom / 100))} 
-                      height={300}
-                    >
-                      <LineChart
-                        data={getRealLineChartData()}
-                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="period" 
-                          tick={{ fontSize: 12 }}
-                          angle={financialTimePeriod === 'day' || financialTimePeriod === 'yesterday' ? -45 : 0}
-                          textAnchor={financialTimePeriod === 'day' || financialTimePeriod === 'yesterday' ? 'end' : 'middle'}
-                          height={financialTimePeriod === 'day' || financialTimePeriod === 'yesterday' ? 80 : 30}
-                        />
-                        <YAxis tickFormatter={(value) => formatShortPrice(value)} />
-                        <Tooltip formatter={(value: number) => formatPrice(value)} />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="current" 
-                          stroke="#10b981" 
-                          strokeWidth={2}
-                          dot={{ fill: '#10b981', r: 4 }}
-                          name={
-                            financialTimePeriod === 'day' ? t.periodToday :
-                            financialTimePeriod === 'yesterday' ? t.periodYesterday :
-                            financialTimePeriod === 'week' ? t.periodThisWeek :
-                            financialTimePeriod === 'month' ? t.periodThisMonth :
-                            financialTimePeriod === 'year' ? t.periodThisYear :
-                            t.periodCurrent
-                          }
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="previous" 
-                          stroke="#3b82f6" 
-                          strokeWidth={2}
-                          dot={{ fill: '#3b82f6', r: 4 }}
-                          name={
-                            financialTimePeriod === 'day' ? t.periodYesterday :
-                            financialTimePeriod === 'yesterday' ? t.periodPrevYesterday :
-                            financialTimePeriod === 'week' ? t.periodWeekAgo :
-                            financialTimePeriod === 'month' ? t.periodMonthAgo :
-                            financialTimePeriod === 'year' ? t.periodYearAgo :
-                            t.periodPrevious
-                          }
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={270}>
+                  <AreaChart data={getOrderCountData()} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="ordCurGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="ordPrevGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis dataKey="period" tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={32} />
+                    <Tooltip
+                      contentStyle={{ background: '#1e1b4b', border: '1px solid #4338ca', borderRadius: '10px', color: '#e0e7ff', fontSize: '13px' }}
+                      formatter={(value: number) => [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, '']}
+                      labelStyle={{ color: '#a5b4fc' }}
+                    />
+                    <Legend wrapperStyle={{ color: '#a5b4fc', fontSize: '12px', paddingTop: '12px' }} />
+                    <Area type="monotone" dataKey="current" stroke="#818cf8" strokeWidth={2.5} fill="url(#ordCurGrad)"
+                      dot={{ fill: '#818cf8', r: 4, strokeWidth: 2, stroke: '#1e1b4b' }}
+                      activeDot={{ r: 6, fill: '#818cf8', stroke: '#e0e7ff', strokeWidth: 2 }}
+                      animationDuration={1100} animationEasing="ease-out"
+                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : t.periodThisYear}
+                    />
+                    <Area type="monotone" dataKey="previous" stroke="#c4b5fd" strokeWidth={2} strokeDasharray="6 4" fill="url(#ordPrevGrad)"
+                      dot={{ fill: '#c4b5fd', r: 3, strokeWidth: 2, stroke: '#1e1b4b' }}
+                      activeDot={{ r: 5, fill: '#c4b5fd' }}
+                      animationDuration={1300} animationEasing="ease-out"
+                      name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
+
+            {/* Chart 2: Revenue */}
+            <div style={{
+              background: 'linear-gradient(135deg, #052e16 0%, #065f46 55%, #0c4a2e 100%)',
+              borderRadius: '16px',
+              padding: '24px',
+              boxShadow: '0 8px 32px rgba(16,185,129,0.22), 0 2px 8px rgba(0,0,0,0.15)',
+            }}>
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ color: '#d1fae5', fontSize: '20px', fontWeight: 700, margin: 0 }}>
+                  {language === 'uz' ? 'Daromad' : 'Выручка'}
+                </h3>
+                <p style={{ color: '#6ee7b7', fontSize: '13px', marginTop: '4px' }}>
+                  {language === 'uz' ? "Vaqt bo'yicha daromad" : 'Выручка по периоду'}
+                </p>
+              </div>
+              {financialTimePeriod === 'all' ? (
+                <div style={{ color: '#6ee7b7', textAlign: 'center', padding: '48px 0', fontSize: '14px' }}>
+                  {t.selectSpecificPeriod}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={270}>
+                  <AreaChart data={getRealLineChartData()} margin={{ top: 5, right: 16, left: 10, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="revCurGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#34d399" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="revPrevGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis dataKey="period" tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={56} />
+                    <Tooltip
+                      contentStyle={{ background: '#052e16', border: '1px solid #065f46', borderRadius: '10px', color: '#d1fae5', fontSize: '13px' }}
+                      formatter={(value: number) => [formatPrice(value), '']}
+                      labelStyle={{ color: '#6ee7b7' }}
+                    />
+                    <Legend wrapperStyle={{ color: '#6ee7b7', fontSize: '12px', paddingTop: '12px' }} />
+                    <Area type="monotone" dataKey="current" stroke="#34d399" strokeWidth={2.5} fill="url(#revCurGrad)"
+                      dot={{ fill: '#34d399', r: 4, strokeWidth: 2, stroke: '#052e16' }}
+                      activeDot={{ r: 6, fill: '#34d399', stroke: '#d1fae5', strokeWidth: 2 }}
+                      animationDuration={1100} animationEasing="ease-out"
+                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : t.periodThisYear}
+                    />
+                    <Area type="monotone" dataKey="previous" stroke="#6ee7b7" strokeWidth={2} strokeDasharray="6 4" fill="url(#revPrevGrad)"
+                      dot={{ fill: '#6ee7b7', r: 3, strokeWidth: 2, stroke: '#052e16' }}
+                      activeDot={{ r: 5, fill: '#6ee7b7' }}
+                      animationDuration={1300} animationEasing="ease-out"
+                      name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
           </div>
 
-          
-          
           <AdvancedInsightsPanel
             products={products}
             customerOrders={getFilteredOrders(financialTimePeriod)} // 🆕 Заказы с items для аналитики (отфильтрованные)

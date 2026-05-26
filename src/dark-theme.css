@@ -4,22 +4,22 @@
 ═══════════════════════════════════════════════════════ */
 
 :root {
-  --ax-bg:            #F0EAE0;
-  --ax-surface:       #FAF7F2;
-  --ax-sidebar:       #E8E2D6;
-  --ax-sidebar-hover: rgba(79, 70, 168, 0.08);
-  --ax-border:        #D8D0C4;
-  --ax-text:          #1A1510;
-  --ax-text-2:        #5C5650;
-  --ax-text-3:        #9B9186;
-  --ax-primary:       #4F46A8;
-  --ax-primary-pale:  rgba(79, 70, 168, 0.12);
+  --ax-bg:            #F0F4F8;
+  --ax-surface:       #FFFFFF;
+  --ax-sidebar:       #E2E8F0;
+  --ax-sidebar-hover: rgba(79, 70, 229, 0.08);
+  --ax-border:        #CBD5E1;
+  --ax-text:          #0F172A;
+  --ax-text-2:        #475569;
+  --ax-text-3:        #94A3B8;
+  --ax-primary:       #4F46E5;
+  --ax-primary-pale:  rgba(79, 70, 229, 0.12);
   --ax-success:       #16A34A;
   --ax-danger:        #DC2626;
   --ax-warning:       #D97706;
   --ax-card:          #FFFFFF;
   --ax-input:         #FFFFFF;
-  --ax-shadow:        0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+  --ax-shadow:        0 1px 3px rgba(15,23,42,0.08), 0 4px 16px rgba(15,23,42,0.06);
 }
 
 .dark {
@@ -516,7 +516,7 @@
    so child panels inherit the new palette.
 ══════════════════════════════════════════════ */
 
-/* Light mode — warm milky base */
+/* Light mode — clean professional */
 :root body,
 body {
   background-color: var(--ax-bg);
@@ -527,6 +527,14 @@ body {
 .bg-white,
 .bg-gray-50 {
   background-color: var(--ax-card) !important;
+}
+
+/* Light mode card borders for professional depth */
+:not(.dark) .shadow,
+:not(.dark) .shadow-sm,
+:not(.dark) .shadow-md,
+:not(.dark) .shadow-lg {
+  box-shadow: var(--ax-shadow) !important;
 }
 
 /* In dark mode override card/surface with dark tokens */

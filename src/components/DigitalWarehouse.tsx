@@ -99,6 +99,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   }, [companyId, importing, editingId, refetch]);
   
   // ── Variants state ─────────────────────────────────────────────────────────
+  const loadedVariantIds = React.useRef<Set<string>>(new Set());
   const [expandedVariants, setExpandedVariants] = useState<Set<string>>(new Set());
   const [productVariants, setProductVariants] = useState<Record<string, any[]>>({});
   const [loadingVariants, setLoadingVariants] = useState<Set<string>>(new Set());
@@ -129,6 +130,19 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   const [variantPurchaseForm, setVariantPurchaseForm] = useState({ quantity: '', purchasePrice: '' });
   // ── End variants state ─────────────────────────────────────────────────────
 
+  // Auto-load variants for SKU-only products so max price appears in main table
+  useEffect(() => {
+    if (!products || !Array.isArray(products)) return;
+    products.forEach((p: any) => {
+      const id = String(p.id);
+      if (!p.name?.startsWith('__CATEGORY_MARKER__') &&
+          (!p.price || p.price === 0) &&
+          !loadedVariantIds.current.has(id)) {
+        loadedVariantIds.current.add(id);
+        loadVariants(id);
+      }
+    });
+  }, [products]);
 
   // 🆕 Состояние для гибкого импорта Excel с выбором колонок
   const [showColumnMapper, setShowColumnMapper] = useState(false);
@@ -1784,9 +1798,9 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 ) : (
                   filteredProducts.map((product: any) => (
                     <React.Fragment key={product.id}>
-                      <tr className={`border-b border-gray-100 dark:border-gray-700 transition-colors ${editingId === product.id ? 'bg-purple-50 dark:bg-purple-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4">
-                          <span className={`text-gray-800 dark:text-gray-200 ${editingId === product.id ? 'font-semibold text-purple-700 dark:text-purple-300' : ''}`}>{product.name}</span>
+                          <span className="text-gray-800 dark:text-gray-200">{product.name}</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium">
@@ -1807,9 +1821,17 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           <span className="text-gray-700 dark:text-gray-300">{product.markupPercent || 0}%</span>
                         </td>
                         <td className="px-6 py-4">
-                          {product.sellingPrice > 0 || product.price > 0
-                            ? <span className="text-green-700 dark:text-green-400">{(product.sellingPrice || product.price).toLocaleString()} сум</span>
-                            : <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'SKU' : 'SKU'}</span>
+                          {product.price > 0 || product.sellingPrice > 0
+                            ? <span className="text-green-700 dark:text-green-400">{(product.sellingPrice || product.price).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
+                            : (() => {
+                              const variants = productVariants[String(product.id)] || [];
+                              const maxPrice = variants.length > 0
+                                ? Math.max(...variants.map((v: any) => v.sellingPrice || v.price || 0))
+                                : 0;
+                              return maxPrice > 0
+                                ? <span className="text-green-700 dark:text-green-400 font-semibold">{maxPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
+                                : <span className="text-indigo-400 text-xs italic">SKU</span>;
+                            })()
                           }
                         </td>
                         <td className="px-6 py-4">
@@ -1820,207 +1842,44 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
-                            {editingId === product.id ? (
-                              <>
-                                <button
-                                  onClick={() => handleSave(product.id)}
-                                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                  title={language === 'uz' ? 'Saqlash' : 'Сохранить'}
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="p-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
-                                  title={language === 'uz' ? 'Bekor qilish' : 'Отмена'}
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => toggleVariants(String(product.id))}
-                                  className={`p-2 rounded-lg transition-colors text-white text-xs px-2 ${expandedVariants.has(String(product.id)) ? 'bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'}`}
-                                  title={language === 'uz' ? 'Variantlar' : 'Варианты'}
-                                >
-                                  <span className="text-xs font-bold">SKU</span>
-                                </button>
-                                <button
-                                  onClick={() => setShowImageUploader(showImageUploader === product.id ? null : product.id)}
-                                  className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                                  title={t.addPhotoTitle}
-                                >
-                                  <ImageIcon className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setPurchasingProduct(product);
-                                    setShowPurchaseModal(true);
-                                    setPurchaseForm({ quantity: '', purchasePrice: '' });
-                                  }}
-                                  className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                  title={language === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
-                                >
-                                  <ShoppingCart className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleEdit(product)}
-                                  className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(product.id)}
-                                  className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
+                            <button
+                              onClick={() => toggleVariants(String(product.id))}
+                              style={{
+                                backgroundColor: expandedVariants.has(String(product.id)) ? '#4338ca' : '#4f46e5',
+                                color: '#ffffff',
+                              }}
+                              className="px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs hover:opacity-90 shadow-sm"
+                              title={language === 'uz' ? 'Variantlar' : 'Варианты'}
+                            >
+                              SKU
+                            </button>
+                            <button
+                              onClick={() => setShowImageUploader(showImageUploader === product.id ? null : product.id)}
+                              className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                              title={t.addPhotoTitle}
+                            >
+                              <ImageIcon className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setPurchasingProduct(product);
+                                setShowPurchaseModal(true);
+                                setPurchaseForm({ quantity: '', purchasePrice: '' });
+                              }}
+                              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                              title={language === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
+                            >
+                              <ShoppingCart className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
-                      {/* Edit Panel - all fields in one expandable row */}
-                      {editingId === product.id && (
-                        <tr className="border-b-2 border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
-                          <td colSpan={9} className="px-4 py-5">
-                            <div className="max-w-6xl mx-auto space-y-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Edit2 className="w-4 h-4 text-purple-600" />
-                                <span className="text-sm font-bold text-purple-700 dark:text-purple-300">{language === 'uz' ? 'Tahrirlash' : 'Редактирование'}: {product.name}</span>
-                              </div>
-                              {/* Row 1: Name, Category, Price, Markup */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productName}</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.name}
-                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    autoFocus
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.categoryHeader}</label>
-                                  <select
-                                    value={editForm.category}
-                                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                  >
-                                    <option value="">{t.noCategory}</option>
-                                    {globalCategories.map(cat => (
-                                      <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.basePriceHeader}</label>
-                                  <input
-                                    type="number"
-                                    value={editForm.price}
-                                    onChange={(e) => setEditForm({ ...editForm, price: parseFloat(e.target.value) })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    min="0"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.markupHeader}</label>
-                                  <input
-                                    type="number"
-                                    value={editForm.markupPercent}
-                                    onChange={(e) => setEditForm({ ...editForm, markupPercent: parseFloat(e.target.value) })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    min="0" max="999.99"
-                                  />
-                                </div>
-                              </div>
-                              {/* Row 2: Barcode, Barid, Color, Size, Brand */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.barcodeHeader}</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.barcode}
-                                    onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">Barid</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.barid}
-                                    onChange={(e) => setEditForm({ ...editForm, barid: e.target.value.replace(/\D/g, '') })}
-                                    maxLength={6}
-                                    placeholder={t.baridDigits}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productColor}</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.color}
-                                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    placeholder={t.colorExamples}
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productSize}</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.size}
-                                    onChange={(e) => setEditForm({ ...editForm, size: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    placeholder={t.sizeExamples}
-                                  />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{language === 'uz' ? 'Brend' : 'Бренд'}</label>
-                                  <input
-                                    type="text"
-                                    value={editForm.brand}
-                                    onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })}
-                                    className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none"
-                                    placeholder={t.brandExamples}
-                                  />
-                                </div>
-                              </div>
-                              {/* Row 3: Description */}
-                              <div className="space-y-1">
-                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">{t.productDescription}</label>
-                                <textarea
-                                  value={editForm.description}
-                                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                  className="w-full px-3 py-2 text-sm border-2 border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white rounded-lg focus:border-purple-500 outline-none resize-none"
-                                  rows={2}
-                                  placeholder={t.descriptionVisibleToCustomers}
-                                />
-                              </div>
-                              {/* Save/Cancel buttons */}
-                              <div className="flex gap-3 pt-1">
-                                <button
-                                  onClick={() => handleSave(product.id)}
-                                  className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                                >
-                                  <Check className="w-4 h-4" />
-                                  {language === 'uz' ? 'Saqlash' : 'Сохранить'}
-                                </button>
-                                <button
-                                  onClick={() => setEditingId(null)}
-                                  className="flex items-center gap-2 px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
-                                >
-                                  <X className="w-4 h-4" />
-                                  {language === 'uz' ? 'Bekor qilish' : 'Отмена'}
-                                </button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                       {/* Variants Tree Panel */}
                       {expandedVariants.has(String(product.id)) && (
                         <tr>
