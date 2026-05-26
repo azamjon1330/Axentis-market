@@ -549,12 +549,25 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
         if (intervalType === 'hour') {
           const hour = orderDate.getHours();
           grouped[hour] += amount;
+        } else if (intervalType === 'halfDay') {
+          // Week view: 7 days × 2 half-days = 14 points
+          const dayOfWeek = orderDate.getDay() === 0 ? 6 : orderDate.getDay() - 1; // Mon=0
+          const half = orderDate.getHours() < 12 ? 0 : 1;
+          const idx = dayOfWeek * 2 + half;
+          if (idx >= 0 && idx < intervalsCount) grouped[idx] += amount;
         } else if (intervalType === 'day') {
           const day = orderDate.getDay(); // 0-6 (Воскресенье-Суббота)
           const dayIndex = day === 0 ? 6 : day - 1; // Конвертируем в Пн=0, Вс=6
           if (dayIndex >= 0 && dayIndex < intervalsCount) {
             grouped[dayIndex] += amount;
           }
+        } else if (intervalType === 'dayOfMonth') {
+          const dayIdx = orderDate.getDate() - 1; // 0-30
+          if (dayIdx >= 0 && dayIdx < intervalsCount) grouped[dayIdx] += amount;
+        } else if (intervalType === 'weekOfYear') {
+          const startOfYear = new Date(orderDate.getFullYear(), 0, 1);
+          const weekIdx = Math.floor((orderDate.getTime() - startOfYear.getTime()) / (7 * 24 * 60 * 60 * 1000));
+          if (weekIdx >= 0 && weekIdx < intervalsCount) grouped[weekIdx] += amount;
         } else if (intervalType === 'week') {
           // Для недель - определяем номер недели в месяце
           const dayOfMonth = orderDate.getDate();
@@ -615,42 +628,59 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
         });
       }
     } else if (financialTimePeriod === 'week') {
-      // 📅 НЕДЕЛЯ = 7 ДНЕЙ (РЕАЛЬНЫЕ ДАННЫЕ)
-      const currentData = groupOrdersByTime(currentOrders, 'day', 7);
-      const previousData = groupOrdersByTime(previousOrders, 'day', 7);
-      const days = t.daysOfWeek;
-      
-      for (let day = 0; day < 7; day++) {
+      // 📅 НЕДЕЛЯ = 14 ТОЧЕК (КАЖДЫЕ 12 ЧАСОВ)
+      const currentData = groupOrdersByTime(currentOrders, 'halfDay', 14);
+      const previousData = groupOrdersByTime(previousOrders, 'halfDay', 14);
+      const days = t.daysOfWeek as string[];
+
+      for (let i = 0; i < 14; i++) {
+        const dayIdx = Math.floor(i / 2);
+        const half = i % 2;
         dataPoints.push({
-          period: days[day],
-          current: currentData[day],
-          previous: previousData[day],
+          period: `${days[dayIdx]} ${half === 0 ? '00' : '12'}`,
+          current: currentData[i],
+          previous: previousData[i],
         });
       }
     } else if (financialTimePeriod === 'month') {
-      // 📆 МЕСЯЦ = 4 НЕДЕЛИ (РЕАЛЬНЫЕ ДАННЫЕ)
-      const currentData = groupOrdersByTime(currentOrders, 'week', 4);
-      const previousData = groupOrdersByTime(previousOrders, 'week', 4);
-      
-      for (let week = 1; week <= 4; week++) {
+      // 📆 МЕСЯЦ = КАЖДЫЙ ДЕНЬ
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const currentData = groupOrdersByTime(currentOrders, 'dayOfMonth', daysInMonth);
+      const previousData = groupOrdersByTime(previousOrders, 'dayOfMonth', daysInMonth);
+
+      for (let day = 1; day <= daysInMonth; day++) {
         dataPoints.push({
-          period: `${t.weekLabel} ${week}`,
+          period: `${day}`,
+          current: currentData[day - 1],
+          previous: previousData[day - 1],
+        });
+      }
+    } else if (financialTimePeriod === 'year') {
+      // 📅 ГОД = КАЖДАЯ НЕДЕЛЯ (52 ТОЧКИ)
+      const currentData = groupOrdersByTime(currentOrders, 'weekOfYear', 52);
+      const previousData = groupOrdersByTime(previousOrders, 'weekOfYear', 52);
+
+      for (let week = 1; week <= 52; week++) {
+        dataPoints.push({
+          period: `W${week}`,
           current: currentData[week - 1],
           previous: previousData[week - 1],
         });
       }
-    } else if (financialTimePeriod === 'year') {
-      // 📅 ГОД = 12 МЕСЯЦЕВ (РЕАЛЬНЫЕ ДАННЫЕ)
-      const currentData = groupOrdersByTime(currentOrders, 'month', 12);
-      const previousData = groupOrdersByTime(previousOrders, 'month', 12);
-      const months = t.monthsShort;
-      
+    } else if (financialTimePeriod === 'all') {
+      // 📊 ВСЁ ВРЕМЯ = ПО МЕСЯЦАМ
+      const grouped = new Array(12).fill(0);
+      ordersWithItems.forEach(order => {
+        const dateStr = order.confirmed_date || order.order_date || order.created_at || order.createdAt;
+        if (!dateStr) return;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        grouped[d.getMonth()] += parseFloat(order.total_amount) || 0;
+      });
+      const months = t.monthsShort as string[];
       for (let month = 0; month < 12; month++) {
-        dataPoints.push({
-          period: months[month],
-          current: currentData[month],
-          previous: previousData[month],
-        });
+        dataPoints.push({ period: months[month], current: grouped[month], previous: 0 });
       }
     } else if (financialTimePeriod === 'custom') {
       // 🎯 СВОЙ ПЕРИОД (РЕАЛЬНЫЕ ДАННЫЕ)
@@ -722,7 +752,6 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   const getOrderCountData = () => {
-    if (financialTimePeriod === 'all') return [];
     const currentOrders = getFilteredOrders(financialTimePeriod);
     const previousOrders = getPreviousPeriodOrders(financialTimePeriod);
 
@@ -734,7 +763,19 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
         const d = new Date(ds);
         if (isNaN(d.getTime())) return;
         if (type === 'hour') arr[d.getHours()]++;
+        else if (type === 'halfDay') {
+          const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+          const half = d.getHours() < 12 ? 0 : 1;
+          const idx = dayIdx * 2 + half;
+          if (idx < n) arr[idx]++;
+        }
         else if (type === 'day') { const i = d.getDay() === 0 ? 6 : d.getDay() - 1; if (i < n) arr[i]++; }
+        else if (type === 'dayOfMonth') { const i = d.getDate() - 1; if (i >= 0 && i < n) arr[i]++; }
+        else if (type === 'weekOfYear') {
+          const soy = new Date(d.getFullYear(), 0, 1);
+          const wk = Math.floor((d.getTime() - soy.getTime()) / (7 * 24 * 60 * 60 * 1000));
+          if (wk >= 0 && wk < n) arr[wk]++;
+        }
         else if (type === 'week') arr[Math.min(Math.floor((d.getDate() - 1) / 7), n - 1)]++;
         else if (type === 'month') { if (d.getMonth() < n) arr[d.getMonth()]++; }
       });
@@ -746,17 +787,32 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       const prev = countByTime(previousOrders, 'hour', 24);
       return Array.from({ length: 24 }, (_, i) => ({ period: `${i}:00`, current: cur[i], previous: prev[i] }));
     } else if (financialTimePeriod === 'week') {
-      const cur = countByTime(currentOrders, 'day', 7);
-      const prev = countByTime(previousOrders, 'day', 7);
-      return (t.daysOfWeek as string[]).map((p, i) => ({ period: p, current: cur[i], previous: prev[i] }));
+      const cur = countByTime(currentOrders, 'halfDay', 14);
+      const prev = countByTime(previousOrders, 'halfDay', 14);
+      const days = t.daysOfWeek as string[];
+      return Array.from({ length: 14 }, (_, i) => ({
+        period: `${days[Math.floor(i / 2)]} ${i % 2 === 0 ? '00' : '12'}`,
+        current: cur[i], previous: prev[i],
+      }));
     } else if (financialTimePeriod === 'month') {
-      const cur = countByTime(currentOrders, 'week', 4);
-      const prev = countByTime(previousOrders, 'week', 4);
-      return Array.from({ length: 4 }, (_, i) => ({ period: `${t.weekLabel} ${i + 1}`, current: cur[i], previous: prev[i] }));
+      const now = new Date();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const cur = countByTime(currentOrders, 'dayOfMonth', daysInMonth);
+      const prev = countByTime(previousOrders, 'dayOfMonth', daysInMonth);
+      return Array.from({ length: daysInMonth }, (_, i) => ({ period: `${i + 1}`, current: cur[i], previous: prev[i] }));
     } else if (financialTimePeriod === 'year') {
-      const cur = countByTime(currentOrders, 'month', 12);
-      const prev = countByTime(previousOrders, 'month', 12);
-      return (t.monthsShort as string[]).map((p, i) => ({ period: p, current: cur[i], previous: prev[i] }));
+      const cur = countByTime(currentOrders, 'weekOfYear', 52);
+      const prev = countByTime(previousOrders, 'weekOfYear', 52);
+      return Array.from({ length: 52 }, (_, i) => ({ period: `W${i + 1}`, current: cur[i], previous: prev[i] }));
+    } else if (financialTimePeriod === 'all') {
+      const grouped = new Array(12).fill(0);
+      ordersWithItems.forEach(o => {
+        const ds = o.confirmed_date || o.order_date || o.created_at || o.createdAt;
+        if (!ds) return;
+        const d = new Date(ds);
+        if (!isNaN(d.getTime())) grouped[d.getMonth()]++;
+      });
+      return (t.monthsShort as string[]).map((p, i) => ({ period: p, current: grouped[i], previous: 0 }));
     }
     return [];
   };
@@ -896,29 +952,33 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             </div>
           </div>
 
-          {/* 📊 ДИАГРАММЫ ПРИБЫЛИ И ЗАТРАТ */}
-          <div className="space-y-5 mb-6" key={`charts-${financialTimePeriod}`}>
-            {/* Chart 1: Orders Count */}
+          {/* 📊 ДИАГРАММЫ — ЗАКАЗЫ И ВЫРУЧКА В ОДНОМ БЛОКЕ */}
+          <div className="mb-6" key={`charts-${financialTimePeriod}`}>
             <div style={{
-              background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 55%, #1e3a5f 100%)',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 8px 32px rgba(99,102,241,0.28), 0 2px 8px rgba(0,0,0,0.15)',
+              background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 40%, #0c2340 70%, #052e16 100%)',
+              borderRadius: '20px',
+              padding: '28px',
+              boxShadow: '0 8px 40px rgba(99,102,241,0.22), 0 4px 16px rgba(16,185,129,0.12)',
             }}>
-              <div style={{ marginBottom: '20px' }}>
+              {/* Block header */}
+              <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <h3 style={{ color: '#e0e7ff', fontSize: '20px', fontWeight: 700, margin: 0 }}>
-                  {language === 'uz' ? 'Buyurtmalar' : 'Заказы'}
+                  {language === 'uz' ? 'Buyurtmalar & Daromad' : 'Заказы & Выручка'}
                 </h3>
-                <p style={{ color: '#a5b4fc', fontSize: '13px', marginTop: '4px' }}>
-                  {language === 'uz' ? "Vaqt bo'yicha buyurtmalar soni" : 'Количество заказов по периоду'}
-                </p>
               </div>
-              {financialTimePeriod === 'all' ? (
-                <div style={{ color: '#818cf8', textAlign: 'center', padding: '48px 0', fontSize: '14px' }}>
-                  {t.selectSpecificPeriod}
+              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
+                {language === 'uz' ? "Vaqt bo'yicha dinamika" : 'Динамика по выбранному периоду'}
+              </p>
+
+              {/* Orders chart */}
+              <div style={{ marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#818cf8' }} />
+                  <span style={{ color: '#a5b4fc', fontSize: '14px', fontWeight: 600 }}>
+                    {language === 'uz' ? 'Buyurtmalar (dona)' : 'Заказы (шт)'}
+                  </span>
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={270}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={getOrderCountData()} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="ordCurGrad" x1="0" y1="0" x2="0" y2="1">
@@ -930,53 +990,43 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                         <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="period" tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                    <XAxis dataKey="period" tick={{ fill: '#a5b4fc', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={32} />
                     <Tooltip
                       contentStyle={{ background: '#1e1b4b', border: '1px solid #4338ca', borderRadius: '10px', color: '#e0e7ff', fontSize: '13px' }}
                       formatter={(value: number) => [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, '']}
                       labelStyle={{ color: '#a5b4fc' }}
                     />
-                    <Legend wrapperStyle={{ color: '#a5b4fc', fontSize: '12px', paddingTop: '12px' }} />
+                    <Legend wrapperStyle={{ color: '#a5b4fc', fontSize: '12px', paddingTop: '8px' }} />
                     <Area type="monotone" dataKey="current" stroke="#818cf8" strokeWidth={2.5} fill="url(#ordCurGrad)"
-                      dot={{ fill: '#818cf8', r: 4, strokeWidth: 2, stroke: '#1e1b4b' }}
-                      activeDot={{ r: 6, fill: '#818cf8', stroke: '#e0e7ff', strokeWidth: 2 }}
+                      dot={false} activeDot={{ r: 5, fill: '#818cf8', stroke: '#e0e7ff', strokeWidth: 2 }}
                       animationDuration={1100} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : t.periodThisYear}
+                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : financialTimePeriod === 'all' ? (language === 'uz' ? 'Barcha vaqt' : 'Всё время') : t.periodThisYear}
                     />
-                    <Area type="monotone" dataKey="previous" stroke="#c4b5fd" strokeWidth={2} strokeDasharray="6 4" fill="url(#ordPrevGrad)"
-                      dot={{ fill: '#c4b5fd', r: 3, strokeWidth: 2, stroke: '#1e1b4b' }}
-                      activeDot={{ r: 5, fill: '#c4b5fd' }}
-                      animationDuration={1300} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
-                    />
+                    {financialTimePeriod !== 'all' && (
+                      <Area type="monotone" dataKey="previous" stroke="#c4b5fd" strokeWidth={2} strokeDasharray="6 4" fill="url(#ordPrevGrad)"
+                        dot={false} activeDot={{ r: 4, fill: '#c4b5fd' }}
+                        animationDuration={1300} animationEasing="ease-out"
+                        name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
+                      />
+                    )}
                   </AreaChart>
                 </ResponsiveContainer>
-              )}
-            </div>
-
-            {/* Chart 2: Revenue */}
-            <div style={{
-              background: 'linear-gradient(135deg, #052e16 0%, #065f46 55%, #0c4a2e 100%)',
-              borderRadius: '16px',
-              padding: '24px',
-              boxShadow: '0 8px 32px rgba(16,185,129,0.22), 0 2px 8px rgba(0,0,0,0.15)',
-            }}>
-              <div style={{ marginBottom: '20px' }}>
-                <h3 style={{ color: '#d1fae5', fontSize: '20px', fontWeight: 700, margin: 0 }}>
-                  {language === 'uz' ? 'Daromad' : 'Выручка'}
-                </h3>
-                <p style={{ color: '#6ee7b7', fontSize: '13px', marginTop: '4px' }}>
-                  {language === 'uz' ? "Vaqt bo'yicha daromad" : 'Выручка по периоду'}
-                </p>
               </div>
-              {financialTimePeriod === 'all' ? (
-                <div style={{ color: '#6ee7b7', textAlign: 'center', padding: '48px 0', fontSize: '14px' }}>
-                  {t.selectSpecificPeriod}
+
+              {/* Divider */}
+              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0 20px' }} />
+
+              {/* Revenue chart */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399' }} />
+                  <span style={{ color: '#6ee7b7', fontSize: '14px', fontWeight: 600 }}>
+                    {language === 'uz' ? 'Daromad (so\'m)' : 'Выручка (сум)'}
+                  </span>
                 </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={270}>
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={getRealLineChartData()} margin={{ top: 5, right: 16, left: 10, bottom: 5 }}>
                     <defs>
                       <linearGradient id="revCurGrad" x1="0" y1="0" x2="0" y2="1">
@@ -988,32 +1038,31 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                         <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="period" tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                    <XAxis dataKey="period" tick={{ fill: '#6ee7b7', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
                     <YAxis tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={56} />
                     <Tooltip
                       contentStyle={{ background: '#052e16', border: '1px solid #065f46', borderRadius: '10px', color: '#d1fae5', fontSize: '13px' }}
                       formatter={(value: number) => [formatPrice(value), '']}
                       labelStyle={{ color: '#6ee7b7' }}
                     />
-                    <Legend wrapperStyle={{ color: '#6ee7b7', fontSize: '12px', paddingTop: '12px' }} />
+                    <Legend wrapperStyle={{ color: '#6ee7b7', fontSize: '12px', paddingTop: '8px' }} />
                     <Area type="monotone" dataKey="current" stroke="#34d399" strokeWidth={2.5} fill="url(#revCurGrad)"
-                      dot={{ fill: '#34d399', r: 4, strokeWidth: 2, stroke: '#052e16' }}
-                      activeDot={{ r: 6, fill: '#34d399', stroke: '#d1fae5', strokeWidth: 2 }}
+                      dot={false} activeDot={{ r: 5, fill: '#34d399', stroke: '#d1fae5', strokeWidth: 2 }}
                       animationDuration={1100} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : t.periodThisYear}
+                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : financialTimePeriod === 'all' ? (language === 'uz' ? 'Barcha vaqt' : 'Всё время') : t.periodThisYear}
                     />
-                    <Area type="monotone" dataKey="previous" stroke="#6ee7b7" strokeWidth={2} strokeDasharray="6 4" fill="url(#revPrevGrad)"
-                      dot={{ fill: '#6ee7b7', r: 3, strokeWidth: 2, stroke: '#052e16' }}
-                      activeDot={{ r: 5, fill: '#6ee7b7' }}
-                      animationDuration={1300} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
-                    />
+                    {financialTimePeriod !== 'all' && (
+                      <Area type="monotone" dataKey="previous" stroke="#6ee7b7" strokeWidth={2} strokeDasharray="6 4" fill="url(#revPrevGrad)"
+                        dot={false} activeDot={{ r: 4, fill: '#6ee7b7' }}
+                        animationDuration={1300} animationEasing="ease-out"
+                        name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
+                      />
+                    )}
                   </AreaChart>
                 </ResponsiveContainer>
-              )}
+              </div>
             </div>
-
           </div>
 
           <AdvancedInsightsPanel

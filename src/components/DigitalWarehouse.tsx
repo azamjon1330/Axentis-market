@@ -1471,7 +1471,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
               </div>
 
               {/* Content */}
-              <div className="overflow-y-auto flex-1 p-6 space-y-6 dark:bg-gray-800">
+              <div className="overflow-y-auto flex-1 min-h-0 p-6 space-y-6 dark:bg-gray-800">
 
                 {/* ── Шаг 1: Основная информация ── */}
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
@@ -1558,7 +1558,12 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Naценка %' : 'Наценка %'}</label>
                           <input
                             type="number" placeholder="0" value={smartMarkup}
-                            onChange={e => setSmartMarkup(e.target.value)}
+                            onChange={e => {
+                              setSmartMarkup(e.target.value);
+                              if (addModalVariants.length > 0) {
+                                setAddModalVariants(prev => prev.map(row => ({ ...row, markupPercent: e.target.value })));
+                              }
+                            }}
                             className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-purple-400 outline-none"
                           />
                         </div>
@@ -1779,7 +1784,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.categoryHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.quantityHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.basePriceHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.markupHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.sellingPriceHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.barcodeHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">Barid</th>
@@ -1789,7 +1793,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
               <tbody>
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       {searchTerm || selectedCategory !== 'all' 
                         ? t.productsNotFound
                         : t.noProducts}
@@ -1818,18 +1822,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-gray-700 dark:text-gray-300">{product.markupPercent || 0}%</span>
-                        </td>
-                        <td className="px-6 py-4">
                           {product.price > 0 || product.sellingPrice > 0
                             ? <span className="text-green-700 dark:text-green-400">{(product.sellingPrice || product.price).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
                             : (() => {
                               const variants = productVariants[String(product.id)] || [];
-                              const maxPrice = variants.length > 0
-                                ? Math.max(...variants.map((v: any) => v.sellingPrice || v.price || 0))
-                                : 0;
-                              return maxPrice > 0
-                                ? <span className="text-green-700 dark:text-green-400 font-semibold">{maxPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
+                              const prices = variants.map((v: any) => v.sellingPrice || v.price || 0).filter((p: number) => p > 0);
+                              const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+                              return minPrice > 0
+                                ? <span className="text-green-700 dark:text-green-400 font-semibold">{minPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
                                 : <span className="text-indigo-400 text-xs italic">SKU</span>;
                             })()
                           }
@@ -1859,17 +1859,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                               title={t.addPhotoTitle}
                             >
                               <ImageIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setPurchasingProduct(product);
-                                setShowPurchaseModal(true);
-                                setPurchaseForm({ quantity: '', purchasePrice: '' });
-                              }}
-                              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                              title={language === 'uz' ? 'Tovar sotib olish' : 'Купить товар'}
-                            >
-                              <ShoppingCart className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(product.id)}
