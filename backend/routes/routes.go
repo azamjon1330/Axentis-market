@@ -12,16 +12,26 @@ import (
 func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 	// CORS middleware
 	router.Use(func(c *gin.Context) {
-		origins := strings.Split(cfg.AllowedOrigins, ",")
 		origin := c.Request.Header.Get("Origin")
-		
-		for _, o := range origins {
-			if o == origin {
-				c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-				break
+
+		// Always allow localhost/127.0.0.1 for dev (any port)
+		allowed := strings.HasPrefix(origin, "http://localhost:") ||
+			strings.HasPrefix(origin, "http://127.0.0.1:") ||
+			strings.HasPrefix(origin, "http://192.168.")
+
+		if !allowed {
+			for _, o := range strings.Split(cfg.AllowedOrigins, ",") {
+				if strings.TrimSpace(o) == origin {
+					allowed = true
+					break
+				}
 			}
 		}
-		
+
+		if allowed {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")

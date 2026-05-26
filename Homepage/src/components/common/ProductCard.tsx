@@ -34,8 +34,10 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
   const displayPrice = product.discountedPrice || product.sellingPrice || product.price;
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;
   const hasDiscount = !!product.discountPercent && product.discountPercent > 0;
+  const hasVariants = product.hasColorOptions;
 
   const formatPrice = (p: number) => `${p.toLocaleString('ru-RU')} сум`;
+  const priceLabel = hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
 
   if (horizontal) {
     return (
@@ -62,7 +64,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
             <Text style={[styles.brand, { color: colors.textMuted }]} numberOfLines={1}>{product.brand}</Text>
           ) : null}
           <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]}>{formatPrice(displayPrice)}</Text>
+            <Text style={[styles.price, { color: colors.text }]}>{priceLabel}</Text>
             {originalPrice && (
               <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{formatPrice(originalPrice)}</Text>
             )}
@@ -124,7 +126,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         {product.brand ? (
           <Text style={[styles.brand, { color: colors.textMuted }]} numberOfLines={1}>{product.brand}</Text>
         ) : null}
-        <Text style={[styles.price, { color: colors.text }]}>{formatPrice(displayPrice)}</Text>
+        <Text style={[styles.price, { color: colors.text }]}>{priceLabel}</Text>
         {originalPrice && (
           <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{formatPrice(originalPrice)}</Text>
         )}

@@ -338,6 +338,50 @@ export default function ProductDetailScreen() {
           </View>
         </View>
 
+        {/* Variant quick-pick strip (shown below image when variants exist) */}
+        {hasVariants && uniqueColors.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={[styles.variantStrip, { backgroundColor: colors.background }]}
+            contentContainerStyle={styles.variantStripContent}
+          >
+            {uniqueColors.map((color) => {
+              const cv = variants.filter(v => v.color === color);
+              const minPrice = Math.min(...cv.map(v => v.sellingPrice || v.price));
+              const sizes = [...new Set(cv.map(v => v.size).filter(Boolean))] as string[];
+              const inStock = cv.some(v => v.stockQuantity > 0);
+              const isSelected = selectedColor === color;
+              return (
+                <TouchableOpacity
+                  key={color}
+                  onPress={() => inStock && handleSelectColor(color)}
+                  activeOpacity={0.75}
+                  style={[
+                    styles.variantPill,
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                      opacity: inStock ? 1 : 0.45,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.variantPillColor, { color: isSelected ? '#fff' : colors.text }]} numberOfLines={1}>{color}</Text>
+                  {sizes.length > 0 && (
+                    <Text style={[styles.variantPillSizes, { color: isSelected ? 'rgba(255,255,255,0.8)' : colors.textMuted }]} numberOfLines={1}>
+                      {sizes.slice(0, 4).join(' · ')}{sizes.length > 4 ? ' …' : ''}
+                    </Text>
+                  )}
+                  <Text style={[styles.variantPillPrice, { color: isSelected ? '#fff' : colors.primary }]}>
+                    {minPrice.toLocaleString('ru-RU')} сум
+                  </Text>
+                  {!inStock && <Text style={[styles.variantPillOos, { color: isSelected ? '#fff' : colors.error }]}>нет</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+
         <View style={styles.body}>
           {/* Title + rating */}
           <Text style={[styles.prodName, { color: colors.text }]}>{product.name}</Text>
@@ -759,6 +803,21 @@ const styles = StyleSheet.create({
   badges: { position: 'absolute', top: 110, left: 16, flexDirection: 'row', gap: 6 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  variantStrip: { flexShrink: 0 },
+  variantStripContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  variantPill: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minWidth: 90,
+    maxWidth: 140,
+    gap: 2,
+  },
+  variantPillColor: { fontSize: 13, fontWeight: '700' },
+  variantPillSizes: { fontSize: 10 },
+  variantPillPrice: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  variantPillOos: { fontSize: 10, fontWeight: '500' },
   body: { padding: 16 },
   prodName: { fontSize: 20, fontWeight: '700', marginBottom: 10, lineHeight: 28 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 12 },

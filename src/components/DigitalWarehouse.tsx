@@ -118,14 +118,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     stockQuantity: string; barcode: string; sku: string; barid: string; description: string;
   }[]>([]);
 
-  // Quick variant matrix generator state
-  const [quickColors, setQuickColors] = useState('');
-  const [quickSizes, setQuickSizes] = useState('');
-  const [quickBasePrice, setQuickBasePrice] = useState('');
-  const [quickMarkup, setQuickMarkup] = useState('0');
-
-  // Smart color matrix: per-color qty + sizes
-  const [smartMode, setSmartMode] = useState(false);
+  // SKU matrix: per-color qty + sizes
   const [smartColors, setSmartColors] = useState<{color: string; qty: string; sizes: string}[]>([]);
   const [smartBasePrice, setSmartBasePrice] = useState('');
   const [smartMarkup, setSmartMarkup] = useState('0');
@@ -578,7 +571,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   };
   // ── End variant handlers ───────────────────────────────────────────────────
 
-  // Generates variants from smart per-color matrix (each color has its own qty + sizes)
+  // Generates SKU variants: each color has its own qty + optional sizes
   const generateVariantsFromSmartMatrix = () => {
     if (smartColors.length === 0) {
       alert(language === 'uz' ? 'Kamida bitta rang kiriting' : 'Введите хотя бы один цвет');
@@ -608,33 +601,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     setAddModalVariants(prev => [...prev, ...rows]);
     setSmartColors([]);
     setSmartMode(false);
-  };
-
-  // Generates all color×size combinations as variant rows
-  const generateVariantsFromMatrix = () => {
-    const colors = quickColors.split(',').map(s => s.trim()).filter(Boolean);
-    const sizes = quickSizes.split(',').map(s => s.trim()).filter(Boolean);
-    if (colors.length === 0 && sizes.length === 0) {
-      alert(language === 'uz' ? 'Rang yoki razmer kiriting' : 'Введите цвета или размеры');
-      return;
-    }
-    const rows: typeof addModalVariants = [];
-    if (colors.length > 0 && sizes.length > 0) {
-      for (const color of colors) {
-        for (const size of sizes) {
-          rows.push({ color, size, price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '', description: '' });
-        }
-      }
-    } else if (colors.length > 0) {
-      for (const color of colors) {
-        rows.push({ color, size: '', price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '', description: '' });
-      }
-    } else {
-      for (const size of sizes) {
-        rows.push({ color: '', size, price: quickBasePrice, markupPercent: quickMarkup, stockQuantity: '', barcode: '', sku: '', barid: '', description: '' });
-      }
-    }
-    setAddModalVariants(prev => [...prev, ...rows]);
   };
 
   const handleAddProduct = async () => {
@@ -764,8 +730,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
       setNewProduct({ name: '', category: '', price: 0 });
       setAddModalVariants([]);
-      setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
-      setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
+      setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
       setShowAddForm(false);
     } catch (error: any) {
       console.error('Error adding product:', error);
@@ -1427,7 +1392,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => { setShowAddForm(true); if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]); }}
               className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-green-600 text-white rounded-lg sm:rounded-xl hover:bg-green-700 transition-colors shadow-lg text-sm sm:text-base"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1483,8 +1448,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     setShowAddForm(false);
                     setNewProduct({ name: '', category: '', price: 0 });
                     setAddModalVariants([]);
-                    setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
-                    setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
+                    setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
                   }}
                   className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
                 >
@@ -1556,34 +1520,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4">
                   <h4 className="text-sm font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide mb-3 flex items-center gap-2">
                     <Package className="w-4 h-4" />
-                    {language === 'uz' ? '2. Variantlar (rang, razmer, narx)' : '2. Варианты (цвет, размер, цена)'}
+                    {language === 'uz' ? '2. SKU — Variantlar' : '2. SKU — Варианты'}
                     {addModalVariants.length > 0 && (
                       <span className="ml-2 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{addModalVariants.length}</span>
                     )}
                   </h4>
 
-                  {/* Generator mode toggle */}
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={() => setSmartMode(false)}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${!smartMode ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-indigo-400'}`}
-                    >
-                      ⚡ {language === 'uz' ? 'Tez yaratuvchi' : 'Быстрый'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSmartMode(true);
-                        if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]);
-                      }}
-                      className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${smartMode ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600 hover:border-purple-400'}`}
-                    >
-                      🎨 {language === 'uz' ? 'Rang bo\'yicha' : 'По цветам'}
-                    </button>
-                  </div>
-
-                  {/* Smart Matrix */}
-                  {smartMode && (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-purple-200 dark:border-purple-700">
+                  {/* SKU Matrix */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-purple-200 dark:border-purple-700">
                       <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2">
                         🎨 {language === 'uz' ? 'Har bir rang uchun miqdor va razmerlar' : 'Количество и размеры для каждого цвета'}
                       </p>
@@ -1659,66 +1603,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           {language === 'uz' ? 'Variantlar yaratish' : 'Создать варианты'}
                         </button>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Quick Generator */}
-                  {!smartMode && (
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3 mb-3 border border-indigo-200 dark:border-indigo-700">
-                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                      {language === 'uz' ? '⚡ Tez yaratuvchi' : '⚡ Быстрый генератор'}
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Ranglar (vergul)' : 'Цвета (через запятую)'}</label>
-                        <input
-                          type="text"
-                          placeholder={language === 'uz' ? 'Qora, Oq, Ko\'k' : 'Чёрный, Белый, Синий'}
-                          value={quickColors}
-                          onChange={e => setQuickColors(e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-indigo-400 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Razmerlar (vergul)' : 'Размеры (через запятую)'}</label>
-                        <input
-                          type="text"
-                          placeholder="S, M, L, XL, XXL"
-                          value={quickSizes}
-                          onChange={e => setQuickSizes(e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-indigo-400 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Asosiy narx' : 'Базовая цена'}</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={quickBasePrice}
-                          onChange={e => setQuickBasePrice(e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-indigo-400 outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">{language === 'uz' ? 'Naценка %' : 'Наценка %'}</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={quickMarkup}
-                          onChange={e => setQuickMarkup(e.target.value)}
-                          className="w-full px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:border-indigo-400 outline-none"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      onClick={generateVariantsFromMatrix}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      <Plus className="w-3 h-3" />
-                      {language === 'uz' ? 'Variantlar yaratish' : 'Создать варианты'}
-                    </button>
                   </div>
-                  )}
 
                   {/* Variants Table */}
                   {addModalVariants.length > 0 && (
@@ -1836,7 +1721,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
                   {/* Add single variant button */}
                   <button
-                    onClick={() => setAddModalVariants(prev => [...prev, { color: '', size: '', price: quickBasePrice || String(newProduct.price || ''), markupPercent: quickMarkup || '0', stockQuantity: '', barcode: '', sku: '', barid: '', description: '' }])}
+                    onClick={() => setAddModalVariants(prev => [...prev, { color: '', size: '', price: smartBasePrice || String(newProduct.price || ''), markupPercent: smartMarkup || '0', stockQuantity: '', barcode: '', sku: '', barid: '', description: '' }])}
                     className="flex items-center gap-1.5 px-3 py-2 border-2 border-dashed border-indigo-300 dark:border-indigo-600 text-indigo-600 dark:text-indigo-400 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-xs font-medium"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1859,8 +1744,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                     setShowAddForm(false);
                     setNewProduct({ name: '', category: '', price: 0 });
                     setAddModalVariants([]);
-                    setQuickColors(''); setQuickSizes(''); setQuickBasePrice(''); setQuickMarkup('0');
-                    setSmartMode(false); setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
+                    setSmartColors([]); setSmartBasePrice(''); setSmartMarkup('0');
                   }}
                   className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
                 >
