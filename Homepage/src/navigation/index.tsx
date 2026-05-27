@@ -13,7 +13,7 @@ import { RootStackParamList, MainTabParamList } from '../types';
 
 // Screens
 import LoginScreen from '../screens/Auth/LoginScreen';
-import HomeScreen from '../screens/Home/HomeScreen';
+import HomeScreen from '../screens/Home/HomeScreen.js';
 import CategoryProductsScreen from '../screens/Catalog/CategoryProductsScreen';
 import CartScreen from '../screens/Cart/CartScreen';
 import FavoritesScreen from '../screens/Favorites/FavoritesScreen';
