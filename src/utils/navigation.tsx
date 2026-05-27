@@ -8,8 +8,7 @@
  * Использует History API для создания правильной истории навигации.
  */
 
-export type PageType = 
-  | 'customerModeSelector'
+export type PageType =
   | 'login'
   | 'sms'
   | 'companyLogin'
@@ -20,9 +19,7 @@ export type PageType =
   | 'admin'
   | 'company'
   | 'payment'
-  | 'companyModeSelector'
-  | 'companyRegistration'
-  | 'privateAccess';
+  | 'referralAgent';
 
 interface NavigationState {
   page: PageType;
@@ -36,7 +33,7 @@ class NavigationManager {
   constructor() {
     // Инициализируем начальное состояние
     const initialState = this.getStateFromHistory() || {
-      page: 'customerModeSelector' as PageType,
+      page: 'companyLogin' as PageType,
       data: {}
     };
     
@@ -87,7 +84,7 @@ class NavigationManager {
     } else {
       // Если состояние пустое - это начальная страница
       const initialState: NavigationState = {
-        page: 'customerModeSelector',
+        page: 'companyLogin',
         data: {}
       };
       this.currentState = initialState;
@@ -175,7 +172,7 @@ class NavigationManager {
   /**
    * Очистить историю и начать заново
    */
-  reset(page: PageType = 'customerModeSelector') {
+  reset(page: PageType = 'companyLogin') {
     console.log('🔄 [Navigation] Сброс навигации к:', page);
     
     const newState: NavigationState = {
@@ -261,7 +258,7 @@ if (typeof window !== 'undefined') {
       console.log('⚠️ [Navigation] Попытка выхода из приложения предотвращена');
       
       // Возвращаем пользователя на начальную страницу
-      navigationManager.reset('customerModeSelector');
+      navigationManager.reset('companyLogin');
     }
   });
 }

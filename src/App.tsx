@@ -15,10 +15,6 @@ import LoadingScreen from './components/LoadingScreen';
 import PaymentPage from './components/PaymentPage';
 import MobileOptimization from './components/MobileOptimization'; // 📱 МОБИЛЬНАЯ ОПТИМИЗАЦИЯ для покупателей
 import CompanyMobileOptimization from './components/CompanyMobileOptimization'; // 🌐 Для компании как веб-сайт
-import CompanyModeSelector from './components/CompanyModeSelector'; // 🔒 ПРИВАТНОСТЬ: Выбор режима
-import CompanyRegistrationForm from './components/CompanyRegistrationForm'; // 🔒 ПРИВАТНОСТЬ: Форма регистрации
-import PrivateCompanyAccess from './components/PrivateCompanyAccess'; // 🔒 ПРИВАТНОСТЬ: Доступ по ID
-import UserModeSelector from './components/UserModeSelector'; // 🆕 НОВЫЙ: Выбор между Public/Private
 import UserAuthPage from './components/UserAuthPage'; // 🆕 НОВЫЙ: Объединенная страница входа/регистрации
 import PWAInstallPrompt from './components/PWAInstallPrompt'; // 🚀 PWA: Install Prompt
 import api, { getUserCart, saveUserCart } from './utils/api';
@@ -37,7 +33,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'userModeSelector' | 'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'companyModeSelector' | 'companyRegistration' | 'privateAccess' | 'referralAgent'>(() => {
+  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent'>(() => {
     // 🔄 Восстановление страницы при загрузке
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
@@ -61,13 +57,6 @@ function AppContent() {
   const [currentReferralAgent, setCurrentReferralAgent] = useState<any>(null);
   const [currentCompany, setCurrentCompany] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // 🔒 ПРИВАТНОСТЬ: Состояния для регистрации приватных компаний
-  const [selectedCompanyMode, setSelectedCompanyMode] = useState<'public' | 'private' | null>(null);
-  const [privateCompanyId, setPrivateCompanyId] = useState<string | null>(null); // ID приватной компании для покупателя
-  
-  // 🔒 НОВЫЙ: Режим регистрации покупателя (публичный/приватный)
-  const [customerRegistrationMode, setCustomerRegistrationMode] = useState<'public' | 'private'>('public'); // 🎯 По умолчанию public режим
   
 // Likes state — loaded from backend on login/session restore
   const [likedProductIds, setLikedProductIds] = useState<number[]>([]);
@@ -440,43 +429,12 @@ function AppContent() {
       return;
     }
     
-    // 🔒 ПРИВАТНОСТЬ: Если это приватная регистрация с ID компании
-    if (userData.companyId) {
-      console.log('🔒 Private registration with company ID:', userData.companyId);
-      setPrivateCompanyId(userData.companyId);
-    }
-    
     // Regular customer - login directly without SMS verification
     handleCustomerLogin(userData);
   };
 
   const handleCustomerLogin = async (userData: any) => {
     try {
-      let actualCompanyId = null; // 🔒 Основной ID компании из базы данных
-      
-      // 🔒 ПРИВАТНОСТЬ: Проверяем, есть ли ID компании (приватный режим)
-      if (userData.companyId) {
-        console.log('🔒 Verifying company ID before registration...');
-        try {
-          const company = await api.companies.getByCompanyId(userData.companyId);
-          console.log('✅ Company verified:', company.name, 'with DB ID:', company.id);
-          
-          // Проверяем, что компания приватная
-          if (!company.is_private) {
-            alert('❌ Эта компания не является приватной. Пожалуйста, используйте публичную регистрацию.');
-            return;
-          }
-          
-          // Сохраняем основной ID компании из базы данных
-          actualCompanyId = company.id;
-          console.log('🔒 Will save user with company DB ID:', actualCompanyId);
-        } catch (error) {
-          console.error('❌ Invalid company ID:', error);
-          alert('❌ Компания с таким ID не найдена. Проверьте правильность ID.');
-          return;
-        }
-      }
-      
       // Регистрация/вход пользователя (API сам определит существует ли пользователь)
       const fullName = `${userData.firstName} ${userData.lastName}`.trim();
       const response = await api.auth.registerUser(userData.phone, fullName);
@@ -495,7 +453,6 @@ function AppContent() {
           id: response.user.id,
           firstName: firstName,
           lastName: lastName,
-          // 🔒 ПРИВАТНОСТЬ: Сохраняем company_id из базы данных
           companyId: response.user.company_id
         });
       }
@@ -524,11 +481,9 @@ function AppContent() {
         userData: {
           ...userData,
           id: response.user?.id,
-          // Split name from backend into firstName and lastName
           firstName: response.user?.name?.split(' ')[0] || userData.firstName,
           lastName: response.user?.name?.split(' ').slice(1).join(' ') || userData.lastName,
           phone: userData.phone,
-          // 🔒 ПРИВАТНОСТЬ: Сохраняем company_id в сессию
           companyId: response.user?.company_id
         }
       };
@@ -735,8 +690,6 @@ function AppContent() {
     setCurrentCompany(null);
     setCurrentReferralAgent(null);
     setCurrentPage('companyLogin');
-    setCustomerRegistrationMode('public');
-    setPrivateCompanyId(null);
     localStorage.removeItem('userSession');
     // Clear user-specific cart and likes from localStorage on logout
     localStorage.removeItem('userCart');
@@ -880,55 +833,6 @@ function AppContent() {
             />
           )}
 
-          {/* 🔒 ПРИВАТНОСТЬ: Выбор режима компании */}
-          {currentPage === 'companyModeSelector' && (
-            <CompanyModeSelector
-              onSelectMode={(mode) => {
-                setSelectedCompanyMode(mode);
-                setCurrentPage('companyRegistration');
-              }}
-            />
-          )}
-
-          {/* 🔒 ПРИВАТНОСТЬ: Форма регистрации компании */}
-          {currentPage === 'companyRegistration' && selectedCompanyMode && (
-            <CompanyRegistrationForm
-              mode={selectedCompanyMode}
-              onBack={() => setCurrentPage('companyModeSelector')}
-              onSubmit={async (data) => {
-                try {
-                  const response = await api.auth.registerCompany(data);
-                  alert(`✅ Компания \"${data.name}\" успешно создана!`);
-                  setSelectedCompanyMode(null);
-                  // ✅ ИСПРАВЛЕНО: После регистрации компании возвращаемся к панели входа
-                  setCurrentPage('companyLogin');
-                } catch (error: any) {
-                  console.error('Error creating company:', error);
-                  alert('Ошибка: ' + (error.message || 'Не удалось создать компанию'));
-                }
-              }}
-            />
-          )}
-
-          {/* 🔒 ПРИВАТНОСТЬ: Доступ к приватной компании */}
-          {currentPage === 'privateAccess' && (
-            <PrivateCompanyAccess
-              onAccessGranted={async (companyId) => {
-                try {
-                  const company = await api.companies.getByCompanyId(companyId);
-                  setPrivateCompanyId(companyId);
-                  // TODO: Redirect to home page with filtered products for this company
-                  alert(`✅ Доступ получен к компании: ${company.name}`);
-                  setCurrentPage('home');
-                } catch (error) {
-                  console.error('Error accessing private company:', error);
-                  alert('❌ Компия с таким ID не найдена');
-                }
-              }}
-              // ✅ ИСПРАВЛЕНО: Возвращаемся к панели входа
-              onBack={() => setCurrentPage('companyLogin')}
-            />
-          )}
         </>
       )}
     </div>
