@@ -59,6 +59,20 @@ export default function OrdersScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Realtime polling — updates status badges without full reload feel
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getUserOrders(user.phone);
+        setOrders(data);
+      } catch {
+        // silent — don't show error on background refresh
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load();

@@ -38,6 +38,19 @@ export default function OrderDetailScreen() {
       .finally(() => setIsLoading(false));
   }, [orderId]);
 
+  // Polling for live status updates
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const updated = await getOrderDetail(orderId);
+        if (updated) setOrder(updated);
+      } catch {
+        // silent background refresh
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [orderId]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>

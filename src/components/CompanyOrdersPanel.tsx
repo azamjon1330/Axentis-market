@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Check, X, Clock, Package, Phone, User, Receipt, DollarSign, RefreshCw, AlertTriangle, ArrowUpDown, Calendar, MapPin, Navigation } from 'lucide-react';
+import { Search, Check, X, Clock, Package, Phone, User, Receipt, DollarSign, RefreshCw, Calendar, MapPin, Navigation, Truck } from 'lucide-react';
 import api from '../utils/api';
 import { formatUzbekistanFullDateTime } from '../utils/uzbekTime';
 import { toast } from 'sonner@2.0.3';
@@ -21,7 +21,7 @@ interface Order {
   user_name: string;
   user_phone: string;
   total_amount: number;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
   payment_method?: string;
   created_at?: string;
   order_date?: string;
@@ -39,11 +39,9 @@ interface CompanyOrdersPanelProps {
 }
 
 export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProps) {
-  // 🌍 Переводы
   const [language, setLanguage] = useState<Language>(getCurrentLanguage());
   const t = useTranslation(language);
-  
-  // 🔄 Слушаем изменения языка
+
   useEffect(() => {
     const handleLanguageChange = (e: CustomEvent) => {
       setLanguage(e.detail);
@@ -51,31 +49,28 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     window.addEventListener('languageChange', handleLanguageChange as EventListener);
     return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
   }, []);
-  
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
   const [selectedDeliveryCoords, setSelectedDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [companyCoords, setCompanyCoords] = useState<{lat: number, lng: number} | null>(null);
   const [companyAddress, setCompanyAddress] = useState<string>('');
-  
-  // 📱 Адаптивность
-  const { isMobile, isTablet } = useResponsive();
+
+  const { isMobile } = useResponsive();
   const responsive = useResponsiveClasses();
 
   useEffect(() => {
     loadOrders();
     loadCompanyData();
-    
-    // 🔄 Realtime автообновление каждые 3 секунды для моментального отображения
+
     const interval = setInterval(() => {
-      console.log('🔄 [CompanyOrdersPanel] Realtime refresh orders');
       loadOrders();
-    }, 3000); // 3 секунды
+    }, 3000);
     return () => clearInterval(interval);
   }, [companyId]);
 
@@ -96,15 +91,11 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const loadOrders = async () => {
     try {
       const data = await api.orders.list({ companyId });
-      // Handle both array and object responses
       const rawOrders = Array.isArray(data) ? data : (data?.orders || []);
-      
-      // Map orderCode to order_code and sort by date descending
+
       const mapped = rawOrders.map((order: any) => {
-        // Items should be an array from backend now
         let items = Array.isArray(order.items) ? order.items : [];
-        
-        // Fallback: parse if string (old double-encoded data)
+
         if (typeof order.items === 'string' && order.items.length > 0) {
           try {
             const parsed = JSON.parse(order.items);
@@ -113,8 +104,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             console.error('⚠️ Failed to parse items for order', order.id, e);
           }
         }
-        
-        // Map items with correct field names
+
         const mappedItems = items.map((item: any) => ({
           name: item.productName || item.product_name || item.name || 'Товар',
           quantity: item.quantity || 1,
@@ -123,7 +113,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           color: item.color,
           markupAmount: item.markupAmount || item.markup_amount || 0
         }));
-        
+
         return {
           ...order,
           order_code: order.orderCode || order.order_code || '',
@@ -139,7 +129,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           items: mappedItems
         };
       });
-      
+
       const sorted = mapped.sort((a: Order, b: Order) => {
         const dateA = new Date(a.order_date || a.created_at || '').getTime();
         const dateB = new Date(b.order_date || b.created_at || '').getTime();
@@ -154,18 +144,37 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
-  const handleConfirmPayment = async (orderId: number, e: React.MouseEvent) => {
+  // Принять заказ: pending → confirmed (уменьшает склад)
+  const handleAcceptOrder = async (orderId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm(t.confirmPaymentReceived)) return;
-    
+    if (!confirm(t.acceptOrderConfirm)) return;
+
+    setProcessingId(orderId);
+    try {
+      await api.orders.updateStatus(String(orderId), 'confirmed');
+      toast.success(t.orderAccepted);
+      loadOrders();
+    } catch (error) {
+      console.error('Error accepting order:', error);
+      toast.error(t.acceptOrderError);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // В пути: confirmed → shipped (рассчитывает прибыль)
+  const handleMarkAsShipped = async (orderId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(t.markAsShippedConfirm)) return;
+
     setProcessingId(orderId);
     try {
       await api.orders.confirmPayment(orderId);
-      toast.success(t.paymentConfirmed);
+      toast.success(t.orderShipped);
       loadOrders();
     } catch (error) {
-      console.error('Error confirming payment:', error);
-      toast.error(t.confirmError);
+      console.error('Error marking as shipped:', error);
+      toast.error(t.markAsShippedError);
     } finally {
       setProcessingId(null);
     }
@@ -174,7 +183,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const handleCancelOrder = async (orderId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(t.cancelOrderConfirm)) return;
-    
+
     setProcessingId(orderId);
     try {
       await api.orders.cancel(orderId);
@@ -191,7 +200,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const handleShowDeliveryMap = (deliveryCoordinates: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      // Парсим координаты из строки формата "lat,lng"
       const coords = deliveryCoordinates.split(',').map(c => parseFloat(c.trim()));
       if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
         setSelectedDeliveryCoords({ lat: coords[0], lng: coords[1] });
@@ -215,6 +223,18 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case 'confirmed':
+        return (
+          <span className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
+            <Check className="w-3 h-3" /> {t.statusConfirmed}
+          </span>
+        );
+      case 'shipped':
+        return (
+          <span className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
+            <Truck className="w-3 h-3" /> {t.statusShipped}
+          </span>
+        );
       case 'completed':
         return (
           <span className="flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
@@ -237,13 +257,13 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = 
+    const matchesSearch =
       (order.order_code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.user_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.user_phone || '').includes(searchQuery);
-    
+
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -267,8 +287,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               {orders.length}
             </span>
           </h2>
-          
-          <button 
+
+          <button
             onClick={loadOrders}
             className={`${responsive.buttonSmall} hover:bg-gray-100 rounded-lg transition-colors text-gray-600`}
             title={t.refreshList}
@@ -288,14 +308,12 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               className={`w-full pl-10 pr-4 ${isMobile ? 'py-2' : 'py-2.5'} border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${responsive.body}`}
             />
           </div>
-          
+
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
             <button
               onClick={() => setStatusFilter('all')}
               className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'all' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                statusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
               {t.all}
@@ -303,29 +321,31 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             <button
               onClick={() => setStatusFilter('pending')}
               className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'pending' 
-                  ? 'bg-yellow-500 text-white' 
-                  : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
+                statusFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
               }`}
             >
               {t.waitingOrders}
             </button>
             <button
-              onClick={() => setStatusFilter('completed')}
+              onClick={() => setStatusFilter('confirmed')}
               className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'completed' 
-                  ? 'bg-green-600 text-white' 
-                  : 'bg-green-50 text-green-700 hover:bg-green-100'
+                statusFilter === 'confirmed' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
               }`}
             >
-              {t.completedOrders}
+              {t.confirmedOrders}
+            </button>
+            <button
+              onClick={() => setStatusFilter('shipped')}
+              className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
+                statusFilter === 'shipped' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              }`}
+            >
+              {t.shippedOrders}
             </button>
             <button
               onClick={() => setStatusFilter('cancelled')}
               className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'cancelled' 
-                  ? 'bg-red-600 text-white' 
-                  : 'bg-red-50 text-red-700 hover:bg-red-100'
+                statusFilter === 'cancelled' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'
               }`}
             >
               {t.cancelledOrders}
@@ -343,13 +363,13 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           </div>
         ) : (
           filteredOrders.map((order) => (
-            <div 
-              key={order.id} 
+            <div
+              key={order.id}
               className={`bg-white ${responsive.card} shadow-sm border transition-all duration-200 overflow-hidden ${
                 expandedOrderId === order.id ? 'ring-2 ring-blue-500 shadow-md' : 'border-gray-100 hover:border-blue-200'
               }`}
             >
-              <div 
+              <div
                 onClick={() => toggleExpand(order.id)}
                 className={`${isMobile ? 'p-3' : 'p-5'} cursor-pointer flex flex-col ${!isMobile && 'md:flex-row md:items-center'} ${responsive.gap}`}
               >
@@ -360,7 +380,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                   </div>
                   <div className={`${responsive.small} text-gray-500 flex items-center ${responsive.gap} mt-1`}>
                     <Calendar className={responsive.iconSmall} />
-                    {new Date(order.order_date || order.created_at || '').toLocaleDateString('ru-RU', 
+                    {new Date(order.order_date || order.created_at || '').toLocaleDateString('ru-RU',
                       isMobile ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'long' }
                     )}
                   </div>
@@ -396,7 +416,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                       {order.items?.length || 0} {t.products}
                     </div>
                   </div>
-                  
+
                   <div>
                     {getStatusBadge(order.status)}
                   </div>
@@ -449,7 +469,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                           <div className="flex justify-between">
                             <span className="text-gray-500">{t.paymentMethod}:</span>
                             <span className="font-medium">
-                              {order.payment_method === 'demo_online' ? t.demoOnline : 
+                              {order.payment_method === 'demo_online' ? t.demoOnline :
                                order.payment_method === 'real_online' ? t.onlineCard : t.cashCheck}
                             </span>
                           </div>
@@ -487,6 +507,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                         </div>
                       )}
 
+                      {/* Action buttons based on status */}
                       {order.status === 'pending' && (
                         <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
                           <button
@@ -498,16 +519,37 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                             {t.cancel}
                           </button>
                           <button
-                            onClick={(e) => handleConfirmPayment(order.id, e)}
+                            onClick={(e) => handleAcceptOrder(order.id, e)}
                             disabled={processingId === order.id}
-                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
+                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
                           >
                             <Check className={responsive.iconSmall} />
-                            {t.confirm}
+                            {t.acceptOrder}
                           </button>
                         </div>
                       )}
-                      
+
+                      {order.status === 'confirmed' && (
+                        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
+                          <button
+                            onClick={(e) => handleCancelOrder(order.id, e)}
+                            disabled={processingId === order.id}
+                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors disabled:opacity-50`}
+                          >
+                            <X className={responsive.iconSmall} />
+                            {t.cancel}
+                          </button>
+                          <button
+                            onClick={(e) => handleMarkAsShipped(order.id, e)}
+                            disabled={processingId === order.id}
+                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
+                          >
+                            <Truck className={responsive.iconSmall} />
+                            {t.markAsShipped}
+                          </button>
+                        </div>
+                      )}
+
                       {processingId === order.id && (
                         <div className={`text-center ${responsive.small} text-blue-600 animate-pulse`}>
                           {t.processing}
@@ -526,7 +568,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
       {showMapModal && selectedDeliveryCoords && (
         <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center" onClick={() => setShowMapModal(false)}>
           <div className={`bg-white rounded-lg shadow-2xl ${isMobile ? 'w-full h-full' : 'w-[95vw] h-[95vh]'} flex flex-col`} onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 className={`font-bold ${responsive.h3} text-gray-900 flex items-center gap-2`}>
                 <MapPin className={responsive.iconMedium} />
@@ -540,7 +581,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               </button>
             </div>
 
-            {/* Map Content */}
             <div className="flex-1 relative">
               {companyCoords ? (
                 <iframe
@@ -563,7 +603,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               )}
             </div>
 
-            {/* Footer with info */}
             <div className={`${isMobile ? 'p-3' : 'p-4'} border-t border-gray-200 bg-gray-50 ${responsive.spacing}`}>
               <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-2'} gap-3`}>
                 {companyCoords && (

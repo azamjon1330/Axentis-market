@@ -635,7 +635,19 @@ export interface Translations {
   cancelOrderConfirm: string;
   cancelError: string;
   waitingOrders: string;
-  
+  confirmedOrders: string;
+  shippedOrders: string;
+  acceptOrder: string;
+  acceptOrderConfirm: string;
+  orderAccepted: string;
+  acceptOrderError: string;
+  markAsShipped: string;
+  markAsShippedConfirm: string;
+  orderShipped: string;
+  markAsShippedError: string;
+  statusConfirmed: string;
+  statusShipped: string;
+
   // Реферальные агенты (AdminReferralPanel, ReferralAgentPanel)
   referralAgents: string;
   referralAgentsManagement: string;
@@ -1614,7 +1626,19 @@ export const translations: Record<Language, Translations> = {
     cancelOrderConfirm: 'Отменить этот заказ? Это действие нельзя отменить.',
     cancelError: 'Ошибка при отмене',
     waitingOrders: 'Ожидают',
-    
+    confirmedOrders: 'Принятые',
+    shippedOrders: 'В пути',
+    acceptOrder: 'Принять заказ',
+    acceptOrderConfirm: 'Принять этот заказ?',
+    orderAccepted: 'Заказ принят',
+    acceptOrderError: 'Ошибка при принятии заказа',
+    markAsShipped: 'В пути',
+    markAsShippedConfirm: 'Передать заказ доставщику?',
+    orderShipped: 'Заказ передан доставщику',
+    markAsShippedError: 'Ошибка при обновлении статуса',
+    statusConfirmed: 'Принят',
+    statusShipped: 'В пути',
+
     // Реферальные агенты (AdminReferralPanel, ReferralAgentPanel)
     referralAgents: 'Реферальные агенты',
     referralAgentsManagement: 'Управление реферальными агентами',
@@ -2578,7 +2602,19 @@ export const translations: Record<Language, Translations> = {
     cancelOrderConfirm: 'Bu buyurtmani bekor qilasizmi? Bu amalni qaytarib bo\'lmaydi.',
     cancelError: 'Bekor qilishda xato',
     waitingOrders: 'Kutilmoqda',
-    
+    confirmedOrders: 'Qabul qilingan',
+    shippedOrders: 'Yo\'lda',
+    acceptOrder: 'Buyurtmani qabul qilish',
+    acceptOrderConfirm: 'Bu buyurtmani qabul qilasizmi?',
+    orderAccepted: 'Buyurtma qabul qilindi',
+    acceptOrderError: 'Buyurtmani qabul qilishda xato',
+    markAsShipped: 'Yo\'lda',
+    markAsShippedConfirm: 'Buyurtmani yetkazib beruvchiga topshirasizmi?',
+    orderShipped: 'Buyurtma yetkazib beruvchiga topshirildi',
+    markAsShippedError: 'Statusni yangilashda xato',
+    statusConfirmed: 'Qabul qilindi',
+    statusShipped: 'Yo\'lda',
+
     // Реферальные агенты (AdminReferralPanel, ReferralAgentPanel)
     referralAgents: 'Referal agentlar',
     referralAgentsManagement: 'Referal agentlarni boshqarish',

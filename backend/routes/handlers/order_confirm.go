@@ -10,25 +10,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ConfirmOrder - подтверждает заказ, создаёт продажу и уменьшает количество товаров на складе
+// ConfirmOrder - переводит заказ в статус "В пути" и рассчитывает прибыль
+// Вызывается из панели компании когда заказ передан доставщику
 func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		orderID := c.Param("id")
-		
-		log.Printf("📦 ConfirmOrder called for orderID=%s", orderID)
 
-		// Получаем заказ
+		log.Printf("📦 ConfirmOrder (ship) called for orderID=%s", orderID)
+
 		var order struct {
 			ID          int64
 			CompanyID   int64
-			Items       []byte // JSONB stored as []byte
+			Items       []byte
 			TotalAmount float64
 			Status      string
 		}
 
 		err := db.QueryRow(`
 			SELECT id, company_id, items, total_amount, status
-			FROM orders 
+			FROM orders
 			WHERE id = $1
 		`, orderID).Scan(&order.ID, &order.CompanyID, &order.Items, &order.TotalAmount, &order.Status)
 
@@ -42,16 +42,15 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Проверяем что заказ ещё не подтверждён
-		if order.Status == "completed" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Order already confirmed"})
+		// Принимаем только заказы со статусом confirmed (принятые)
+		if order.Status == "shipped" || order.Status == "delivered" || order.Status == "completed" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Order already shipped"})
 			return
 		}
 
-		// Парсим items - handle both new and old double-encoded formats
+		// Парсим items
 		var items []map[string]interface{}
 		if err := json.Unmarshal(order.Items, &items); err != nil {
-			// Try double-encoded format
 			var itemsString string
 			if err2 := json.Unmarshal(order.Items, &itemsString); err2 == nil {
 				if err3 := json.Unmarshal([]byte(itemsString), &items); err3 != nil {
@@ -65,13 +64,9 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 		}
-		
-		log.Printf("✅ ConfirmOrder: Parsed %d items from order", len(items))
-		
-		// Create enriched items array with markup information for sale record
-		enrichedItems := make([]map[string]interface{}, 0, len(items))
 
-		// Начинаем транзакцию
+		log.Printf("✅ ConfirmOrder: Parsed %d items from order", len(items))
+
 		tx, err := db.Begin()
 		if err != nil {
 			log.Printf("❌ ConfirmOrder: Failed to begin transaction: %v", err)
@@ -80,12 +75,11 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Обновляем количество товаров и создаём продажу для каждого товара
+		// Рассчитываем прибыль из items
 		var totalRevenue float64
 		var totalMarkup float64
 
 		for _, item := range items {
-			// Extract product ID — frontend sends "productId", legacy stored as "id"
 			var productID int64
 			for _, key := range []string{"productId", "product_id", "id"} {
 				if idVal, ok := item[key]; ok {
@@ -95,153 +89,95 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 					}
 				}
 			}
-			
+
 			log.Printf("🔍 Item raw data: %+v", item)
-			log.Printf("🔍 Extracted productID: %d", productID)
-			
+
 			if productID == 0 {
 				log.Printf("⚠️ ConfirmOrder: Item missing valid ID, skipping: %+v", item)
 				continue
 			}
-			
-			// Extract quantity
+
 			var quantity int
 			if qtyVal, ok := item["quantity"]; ok {
 				if qtyFloat, ok := qtyVal.(float64); ok {
 					quantity = int(qtyFloat)
 				}
 			}
-			
-			log.Printf("🔍 Extracted quantity: %d", quantity)
-			
+
 			if quantity <= 0 {
 				log.Printf("⚠️ ConfirmOrder: Item has invalid quantity, skipping: %+v", item)
 				continue
 			}
-			
-			// Extract prices - support both formats
+
+			// Всегда берём актуальные цены из БД (base price и selling price)
+			// Это гарантирует корректный расчёт прибыли независимо от того, что прислал клиент
 			var price float64
 			var priceWithMarkup float64
-			
-			if priceVal, ok := item["price"]; ok {
-				if pFloat, ok := priceVal.(float64); ok {
-					price = pFloat
+
+			dbErr := db.QueryRow(`
+				SELECT price, selling_price FROM products WHERE id = $1 AND company_id = $2
+			`, productID, order.CompanyID).Scan(&price, &priceWithMarkup)
+
+			if dbErr != nil || priceWithMarkup == 0 {
+				// Если не нашли в БД — берём из item как запасной вариант
+				if priceVal, ok := item["price"]; ok {
+					if pFloat, ok := priceVal.(float64); ok {
+						price = pFloat
+					}
 				}
-			}
-			
-			// Try price_with_markup (snake_case), then priceWithMarkup (camelCase), then total
-			if pwmVal, ok := item["price_with_markup"]; ok {
-				if pwmFloat, ok := pwmVal.(float64); ok {
-					priceWithMarkup = pwmFloat
-				}
-			}
-			if priceWithMarkup == 0 {
-				if pwmVal, ok := item["priceWithMarkup"]; ok {
+				if pwmVal, ok := item["price_with_markup"]; ok {
 					if pwmFloat, ok := pwmVal.(float64); ok {
 						priceWithMarkup = pwmFloat
 					}
 				}
-			}
-			if priceWithMarkup == 0 {
-				if totalVal, ok := item["total"]; ok {
-					if totalFloat, ok := totalVal.(float64); ok && quantity > 0 {
-						priceWithMarkup = totalFloat / float64(quantity)
+				if priceWithMarkup == 0 {
+					if pwmVal, ok := item["priceWithMarkup"]; ok {
+						if pwmFloat, ok := pwmVal.(float64); ok {
+							priceWithMarkup = pwmFloat
+						}
 					}
 				}
+				if priceWithMarkup == 0 {
+					priceWithMarkup = price
+				}
+				log.Printf("⚠️ Product %d not in DB, using item prices: base=%.2f, selling=%.2f", productID, price, priceWithMarkup)
+			} else {
+				log.Printf("📊 Product %d DB prices: base=%.2f, selling=%.2f", productID, price, priceWithMarkup)
 			}
 
-			// Fallback: if no markup price, assume same as purchase price
-			if priceWithMarkup == 0 {
-				priceWithMarkup = price
-			}
-			
 			markupAmount := priceWithMarkup - price
 			totalRevenue += priceWithMarkup * float64(quantity)
 			totalMarkup += markupAmount * float64(quantity)
-			
-			// Add enriched item data for sale record
-			enrichedItem := map[string]interface{}{
-				"productId":       productID,
-				"quantity":        quantity,
-				"price":           price,
-				"priceWithMarkup": priceWithMarkup,
-				"markupAmount":    markupAmount,
-				"total":           priceWithMarkup * float64(quantity),
-			}
-			// Copy other fields if they exist
-			if name, ok := item["productName"]; ok {
-				enrichedItem["productName"] = name
-			}
-			enrichedItems = append(enrichedItems, enrichedItem)
-			
-			log.Printf("📦 Processing item: ID=%d, Qty=%d, Price=%.2f, PriceWithMarkup=%.2f, Markup=%.2f", 
+
+			log.Printf("📦 Item: ID=%d, Qty=%d, Price=%.2f, PriceWithMarkup=%.2f, Markup=%.2f",
 				productID, quantity, price, priceWithMarkup, markupAmount)
-
-			// Уменьшаем количество товара на складе
-			result, err := tx.Exec(`
-				UPDATE products 
-				SET quantity = quantity - $1, updated_at = NOW()
-				WHERE id = $2 AND company_id = $3 AND quantity >= $1
-			`, quantity, productID, order.CompanyID)
-
-			if err != nil {
-				log.Printf("❌ ConfirmOrder: Failed to update product %d: %v", productID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update product %d", productID)})
-				return
-			}
-
-			rowsAffected, _ := result.RowsAffected()
-			if rowsAffected == 0 {
-				log.Printf("❌ ConfirmOrder: Insufficient quantity for product %d", productID)
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Insufficient quantity for product %d", productID)})
-				return
-			}
-
-			log.Printf("✅ Product %d: decreased by %d", productID, quantity)
 		}
 
-		// Если не удалось рассчитать revenue из items — берём сохранённый total_amount заказа
 		if totalRevenue == 0 && order.TotalAmount > 0 {
 			totalRevenue = order.TotalAmount
 			log.Printf("⚠️ ConfirmOrder: totalRevenue was 0, falling back to order.TotalAmount=%.2f", totalRevenue)
 		}
 
-		// Создаём одну запись продажи для всего заказа с enriched items
-		enrichedItemsBytes, _ := json.Marshal(enrichedItems)
+		// Обновляем markup_profit в orders и меняем статус на 'shipped' (В пути)
 		_, err = tx.Exec(`
-			INSERT INTO sales (company_id, items, total_amount, markup_profit, payment_method)
-			VALUES ($1, $2::jsonb, $3, $4, $5)
-		`, order.CompanyID, enrichedItemsBytes, totalRevenue, totalMarkup, "cash")
-
-		if err != nil {
-			log.Printf("❌ ConfirmOrder: Failed to create sale record: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create sale record"})
-			return
-		}
-		
-		log.Printf("✅ Sale record created: revenue=%.2f, markup=%.2f", totalRevenue, totalMarkup)
-
-		// Обновляем статус заказа
-		_, err = tx.Exec(`
-			UPDATE orders 
-			SET status = 'completed', updated_at = NOW()
+			UPDATE orders
+			SET status = 'shipped', markup_profit = $2, updated_at = NOW()
 			WHERE id = $1
-		`, orderID)
+		`, orderID, totalMarkup)
 
 		if err != nil {
-			log.Printf("❌ ConfirmOrder: Failed to update order status: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order status"})
+			log.Printf("❌ ConfirmOrder: Failed to update order: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update order: %v", err)})
 			return
 		}
 
-		// Коммитим транзакцию
 		if err := tx.Commit(); err != nil {
 			log.Printf("❌ ConfirmOrder: Failed to commit transaction: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm order"})
 			return
 		}
 
-		log.Printf("✅ Order %s confirmed successfully! Revenue: %.2f, Markup: %.2f", orderID, totalRevenue, totalMarkup)
+		log.Printf("✅ Order %s marked as shipped! Revenue: %.2f, Markup: %.2f", orderID, totalRevenue, totalMarkup)
 		c.JSON(http.StatusOK, gin.H{
 			"success":      true,
 			"orderID":      order.ID,
