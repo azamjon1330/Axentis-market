@@ -53,7 +53,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				log.Printf("🔒 GetProducts: Private mode for company %s", privateCompanyID)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
-					       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
+					       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), p.selling_price) as selling_price,
+					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name
 					FROM products p
@@ -68,7 +69,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				log.Printf("🌐 GetProducts: Public mode, limit=%d offset=%d", limit, offset)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
-					       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
+					       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), p.selling_price) as selling_price,
+					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name
 					FROM products p
@@ -83,7 +85,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			// Товары конкретной компании (для админ-панели компании)
 			rows, err = db.Query(`
 				SELECT id, company_id, name, quantity, price, markup_percent,
-				       selling_price, markup_amount, barcode, barid, category, images,
+				       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.selling_price > 0), selling_price) as selling_price,
+				       markup_amount, barcode, barid, category, images,
 				       description, color, size, brand, has_color_options, available_for_customers, sold_count, created_at, updated_at
 				FROM products
 				WHERE company_id = $1

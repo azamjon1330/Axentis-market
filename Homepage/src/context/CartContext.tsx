@@ -8,8 +8,8 @@ interface CartContextType {
   count: number;
   total: number;
   isLoading: boolean;
-  addItem: (productId: number, quantity?: number, color?: string) => Promise<void>;
-  updateItem: (productId: number, quantity: number, color?: string) => Promise<void>;
+  addItem: (productId: number, quantity?: number, color?: string, size?: string) => Promise<void>;
+  updateItem: (productId: number, quantity: number, color?: string, size?: string) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
   clearAllItems: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -39,22 +39,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refresh();
   }, [refresh]);
 
-  const addItem = async (productId: number, quantity = 1, color?: string) => {
+  const addItem = async (productId: number, quantity = 1, color?: string, size?: string) => {
     if (!user) return;
-    await addToCart({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
+    await addToCart({ user_phone: user.phone, product_id: productId, quantity, selected_color: color, selected_size: size });
     await refresh();
   };
 
-  const updateItem = async (productId: number, quantity: number, color?: string) => {
+  const updateItem = async (productId: number, quantity: number, color?: string, size?: string) => {
     if (!user) return;
-    // Optimistic update — no full refresh
     setItems(prev => prev.map(item =>
-      item.productId === productId && (item.selected_color || '') === (color || '')
+      item.productId === productId && (item.selected_color || '') === (color || '') && (item.selected_size || '') === (size || '')
         ? { ...item, quantity }
         : item
     ));
     try {
-      await setCartItem({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
+      await setCartItem({ user_phone: user.phone, product_id: productId, quantity, selected_color: color, selected_size: size });
     } catch {
       await refresh();
     }

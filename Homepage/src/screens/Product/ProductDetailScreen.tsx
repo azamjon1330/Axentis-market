@@ -123,7 +123,7 @@ export default function ProductDetailScreen() {
   const handleAddToCart = async () => {
     if (!product || !user) return;
     if (hasVariants && !selectedVariant) {
-      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер');
+      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Сначала выберите цвет, затем размер' : 'Выберите размер');
       return;
     }
     if (inCart) {
@@ -132,7 +132,11 @@ export default function ProductDetailScreen() {
     }
     setIsAddingToCart(true);
     try {
-      await addItem(productId, 1, selectedVariant?.color || selectedColor || undefined);
+      await addItem(
+        productId, 1,
+        selectedVariant?.color || selectedColor || undefined,
+        selectedVariant?.size || selectedSize || undefined,
+      );
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (err: any) {
@@ -144,9 +148,17 @@ export default function ProductDetailScreen() {
 
   const handleBuyNow = async () => {
     if (!product || !user) return;
+    if (hasVariants && !selectedVariant) {
+      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Сначала выберите цвет, затем размер' : 'Выберите размер');
+      return;
+    }
     if (!inCart) {
       try {
-        await addItem(productId, 1, selectedColor || undefined);
+        await addItem(
+          productId, 1,
+          selectedVariant?.color || selectedColor || undefined,
+          selectedVariant?.size || selectedSize || undefined,
+        );
       } catch { /* ignore */ }
     }
     navigation.navigate('Checkout');

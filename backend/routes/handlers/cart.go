@@ -42,7 +42,17 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				COALESCE(ci.selected_color, '') as selected_color,
 				COALESCE(ci.selected_size, '') as selected_size,
 				ci.added_at, ci.updated_at,
-				p.name, p.selling_price, COALESCE(p.images::text, '[]') as images,
+				p.name,
+				COALESCE(
+					(SELECT pv.selling_price FROM product_variants pv
+					 WHERE pv.product_id = ci.product_id
+					   AND (ci.selected_color = '' OR pv.color = ci.selected_color)
+					   AND (ci.selected_size  = '' OR pv.size  = ci.selected_size)
+					   AND pv.selling_price > 0
+					 ORDER BY pv.id LIMIT 1),
+					p.selling_price
+				) as product_price,
+				COALESCE(p.images::text, '[]') as images,
 				p.company_id
 			FROM cart_items ci
 			JOIN products p ON ci.product_id = p.id

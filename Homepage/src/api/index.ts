@@ -163,6 +163,7 @@ export const addToCart = async (data: {
   product_id: number;
   quantity?: number;
   selected_color?: string;
+  selected_size?: string;
 }): Promise<CartItem> => {
   const res = await api.post(ENDPOINTS.cartAdd, data);
   return res.data;
@@ -173,6 +174,7 @@ export const setCartItem = async (data: {
   product_id: number;
   quantity: number;
   selected_color?: string;
+  selected_size?: string;
 }): Promise<void> => {
   await api.post(ENDPOINTS.cartSet, data);
 };
