@@ -148,7 +148,13 @@ export default function ProductDetailScreen() {
 
   const handleShare = async () => {
     if (!product) return;
-    await Share.share({ message: `${product.name} — ${(product.sellingPrice || product.price).toLocaleString('ru-RU')} сум` });
+    const price = (selectedVariant?.sellingPrice || selectedVariant?.price || product.sellingPrice || product.price || 0).toLocaleString('ru-RU');
+    const url = `https://axentis.uz/#product-${productId}`;
+    await Share.share({
+      title: product.name,
+      message: `${product.name}\n${price} сум\n\n${url}`,
+      url,
+    });
   };
 
   const handleVote = async (reviewId, voteType) => {
@@ -229,6 +235,11 @@ export default function ProductDetailScreen() {
   const discount = product.discountPercent;
   const minVariantPrice = variants.length > 0 ? Math.min(...variants.map(v => v.sellingPrice || v.price)) : null;
   const maxVariantPrice = variants.length > 0 ? Math.max(...variants.map(v => v.sellingPrice || v.price)) : null;
+  const bottomDisplayPrice = selectedVariant
+    ? (selectedVariant.sellingPrice || selectedVariant.price)
+    : (hasVariants && minVariantPrice !== null ? minVariantPrice : basePrice);
+  const hasReviews = (stats?.totalReviews ?? 0) > 0;
+  const displayRating = hasReviews ? (stats?.averageRating ?? 5) : 5;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -364,13 +375,13 @@ export default function ProductDetailScreen() {
 
           <View style={styles.ratingRow}>
             {[1, 2, 3, 4, 5].map((s) => (
-              <Ionicons key={s} name={s <= Math.round(stats?.averageRating || 4.5) ? 'star' : 'star-outline'} size={14} color={colors.star} />
+              <Ionicons key={s} name={s <= Math.round(displayRating) ? 'star' : 'star-outline'} size={14} color={colors.star} />
             ))}
             <Text style={[styles.ratingNum, { color: colors.textSecondary }]}>
-              {stats?.averageRating?.toFixed(1) || '4.8'}
+              {displayRating.toFixed(1)}
             </Text>
             <Text style={[styles.ratingCount, { color: colors.textMuted }]}>
-              · {stats?.totalReviews ? `${stats.totalReviews} отзывов` : 'Нет отзывов'}
+              · {hasReviews ? `${stats.totalReviews} отзывов` : 'Нет отзывов'}
             </Text>
           </View>
 
@@ -651,7 +662,10 @@ export default function ProductDetailScreen() {
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomPriceBlock}>
           <Text style={[styles.bottomPrice, { color: selectedVariant ? colors.primary : colors.text }]}>
-            {displayPrice.toLocaleString('ru-RU')} сум
+            {hasVariants && !selectedVariant && minVariantPrice !== maxVariantPrice
+              ? `от ${bottomDisplayPrice.toLocaleString('ru-RU')} сум`
+              : `${bottomDisplayPrice.toLocaleString('ru-RU')} сум`
+            }
           </Text>
           {hasVariants && !selectedVariant && minVariantPrice !== maxVariantPrice && (
             <Text style={[styles.bottomOldPrice, { color: colors.textMuted }]}>

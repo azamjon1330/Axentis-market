@@ -77,7 +77,10 @@ export const getProductReviews = async (id: number, userPhone?: string): Promise
 
 export const getProductReviewStats = async (id: number): Promise<ReviewStats> => {
   const res = await api.get(ENDPOINTS.productReviewStats(id));
-  return res.data;
+  return {
+    averageRating: res.data.average_rating ?? res.data.averageRating ?? 0,
+    totalReviews: res.data.count ?? res.data.totalReviews ?? 0,
+  };
 };
 
 export const getProductVariants = async (id: number): Promise<ProductVariant[]> => {
@@ -213,7 +216,7 @@ export const createOrder = async (data: {
   companyId?: number;
   customerName: string;
   customerPhone: string;
-  items: { productId: number; productName?: string; quantity: number; price: number; imageUrl?: string }[];
+  items: { productId: number; productName?: string; quantity: number; price: number; price_with_markup?: number; imageUrl?: string }[];
   totalAmount: number;
   deliveryType: 'pickup' | 'delivery';
   deliveryAddress?: string;
