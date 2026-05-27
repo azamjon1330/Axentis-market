@@ -224,23 +224,26 @@ export default function ProductCard({
   const isNight = displayMode === 'night';
 
   return (
-    <div 
+    <div
       key={product.id}
       id={`product-${product.id}`}
-      className={`bg-transparent flex flex-col relative
-        ${highlightedProductId === product.id ? 'ring-4 ring-purple-500 ring-opacity-75 animate-pulse' : ''}
+      className={`flex flex-col relative cursor-pointer rounded-xl overflow-hidden transition-transform duration-150 active:scale-[0.97]
+        ${isNight
+          ? 'bg-[#1C1C26] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
+          : 'bg-white shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
+        ${highlightedProductId === product.id ? 'ring-2 ring-purple-500' : ''}
       `}
-      onClick={onClick || onDoubleClick} // ✅ НОВЫЙ: Используем onClick, если он предоставлен
+      onClick={onClick || onDoubleClick}
     >
-      {/* 🖼️ Картинка с скругленными углами */}
-      <div 
-        className={`relative w-full aspect-[4/6] rounded-[2rem] overflow-hidden mb-2 group
-          ${isNight ? 'bg-[#dcdcdc]' : 'bg-[#C4C4C4]'}
+      {/* Image area */}
+      <div
+        className={`relative w-full aspect-[3/4] overflow-hidden group
+          ${isNight ? 'bg-[#2A2A3A]' : 'bg-[#F4F4F6]'}
         `}
       >
         {images.length > 0 ? (
           <>
-            <div 
+            <div
               className="relative w-full h-full overflow-hidden cursor-pointer"
               onClick={handleImageClick}
               onTouchStart={onTouchStart}
@@ -267,98 +270,102 @@ export default function ProductCard({
                     key={index}
                     src={image.url}
                     alt={product.name}
-                    className="absolute top-0 left-0 w-full h-full object-contain"
-                    style={{ 
-                      transform, 
-                      transition: 'transform 500ms cubic-bezier(0.4, 0.0, 0.2, 1)',
-                      imageRendering: 'auto',
-                      maxWidth: '100%',
-                      height: '100%',
-                      objectFit: 'contain'
+                    className="absolute top-0 left-0 w-full h-full object-cover"
+                    style={{
+                      transform,
+                      transition: 'transform 400ms cubic-bezier(0.4, 0.0, 0.2, 1)',
                     }}
                     loading="lazy"
                     onError={(e) => {
-                      console.error(`Ошибка загрузки изображения товара ${product.id}:`, image.url);
                       const target = e.target as HTMLImageElement;
-                      // Fallback на серую заглушку с иконкой
-                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjxnIG9wYWNpdHk9IjAuMyI+PHBhdGggZD0iTTYwIDYwaDgwdjgwSDYweiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjQiLz48Y2lyY2xlIGN4PSI4NSIgY3k9Ijg1IiByPSI4IiBmaWxsPSIjOTk5Ii8+PHBhdGggZD0iTTYwIDEzMGwyMC0yNSAyMCAyMCAzMC0zNSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjQiLz48L2c+PHRleHQgeD0iNTAlIiB5PSIxNzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5OTkiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtZmFtaWx5PSJBcmlhbCI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
-                      target.onerror = null; // Предотвращаем бесконечный цикл
+                      target.style.display = 'none';
+                      target.onerror = null;
                     }}
                   />
                 );
               })}
             </div>
-            
-            {/* ⬅️➡️ ARROWS (Re-added for manual navigation) */}
+
+            {/* Nav arrows */}
             {hasMultipleImages && (
               <>
-                <button 
-                  onClick={goToPrevImage} 
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                <button
+                  onClick={goToPrevImage}
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button 
-                  onClick={goToNextImage} 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                <button
+                  onClick={goToNextImage}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </>
             )}
 
-            {/* Dots */}
+            {/* Image dots */}
             {rawImages.length > 1 && (
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 z-10">
                 {rawImages.map((_, index) => (
                   <button
                     key={index}
                     onClick={(e) => goToImage(index, e)}
-                    className={`transition-all duration-300 rounded-full shadow-sm ${index === (currentImageIndex % rawImages.length) ? 'w-2 h-2 bg-white' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/75'}`}
+                    className={`transition-all duration-300 rounded-full ${
+                      index === (currentImageIndex % rawImages.length)
+                        ? 'w-3 h-1.5 bg-white'
+                        : 'w-1.5 h-1.5 bg-white/50'
+                    }`}
                   />
                 ))}
               </div>
             )}
           </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-500 text-sm font-medium">Нет фото</div>
+          <div className={`w-full h-full flex flex-col items-center justify-center gap-1 ${isNight ? 'text-gray-600' : 'text-gray-300'}`}>
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
         )}
-        
-        {/* Like Button */}
+
+        {/* Like Button — top right */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleLike(product.id);
           }}
-          className="absolute top-2 left-2 bg-white/90 rounded-full p-2 shadow-sm hover:scale-110 transition-transform z-20"
+          className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md transition-transform active:scale-90 z-20 ${
+            isNight ? 'bg-black/50' : 'bg-white/90'
+          }`}
         >
-          <Heart className={`w-5 h-5 ${isLiked ? 'text-pink-500 fill-current' : 'text-gray-400'}`} />
+          <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-400' : 'text-gray-400'}`} />
         </button>
-        
-        {/* Cart Badge */}
+
+        {/* Cart badge */}
         {cartQuantity && (
-          <div className="absolute top-2 right-2 bg-green-500 text-white rounded-full px-2 py-0.5 text-xs font-bold z-20 shadow-sm">
+          <div className="absolute top-2 left-2 bg-[#5B3CF5] text-white rounded-lg px-2 py-0.5 text-xs font-semibold z-20 shadow-sm">
             {cartQuantity}
           </div>
         )}
-        
-        {/* Like Animation */}
+
+        {/* Like animation */}
         {likeAnimation?.productId === product.id && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-            <Heart 
-              className={`w-20 h-20 animate-ping ${likeAnimation.isLiked ? 'text-pink-500 fill-current' : 'text-gray-400'}`}
-              style={{ animation: 'likeScale 1s ease-out' }}
+            <Heart
+              className={`w-16 h-16 ${likeAnimation.isLiked ? 'text-red-500 fill-current' : 'text-gray-400'}`}
+              style={{ animation: 'likeScale 0.6s ease-out forwards' }}
             />
           </div>
         )}
       </div>
 
-      {/* 📝 Текст под картинкой без фона */}
-      <div className="px-1 flex flex-col">
-        <h3 className={`text-xs font-medium leading-tight line-clamp-2 mb-1 ${isNight ? 'text-white' : 'text-black'}`}>
+      {/* Product info */}
+      <div className="px-3 py-2.5">
+        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1.5 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
           {product.name}
         </h3>
-        <div className={`text-sm font-bold ${isNight ? 'text-white' : 'text-black'}`}>
+        <div className={`text-[13px] font-bold tracking-tight ${isNight ? 'text-white' : 'text-gray-900'}`}>
           {formatPrice(getPriceWithMarkup(product))}
         </div>
       </div>

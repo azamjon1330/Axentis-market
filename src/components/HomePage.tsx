@@ -738,9 +738,19 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
   }, [products]);
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-  );
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set<string>();
+    products.forEach(p => { if (p.category) cats.add(p.category); });
+    return Array.from(cats).sort();
+  }, [products]);
+
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    const matchesCategory = !activeCategory || product.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const addToCart = (productId: number) => {
     const product = products.find(p => p.id === productId);
@@ -1196,13 +1206,13 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       <div className="w-full px-4 py-4 relative z-10">
         
         {/* Catalog Panel */}
-      <CatalogPanel 
-        isOpen={showCatalog} 
-        onClose={handleCloseCatalog} 
+      <CatalogPanel
+        isOpen={showCatalog}
+        onClose={handleCloseCatalog}
         isNight={isNight}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        products={filteredProducts}
+        products={products}
         cart={cart}
         likedProductIds={likedProductIds}
         displayMode={displayMode}
@@ -1210,6 +1220,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         onToggleLike={toggleLike}
         formatPrice={formatPrice}
         getPriceWithMarkup={getPriceWithMarkup}
+        onOpenProduct={handleOpenProduct}
       />
 
       {/* Product Details Panel */}
@@ -1269,6 +1280,35 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               </div>
             )}
 
+            {/* Category filter pills */}
+            {!loading && uniqueCategories.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+                <button
+                  onClick={() => setActiveCategory(null)}
+                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                    activeCategory === null
+                      ? 'bg-indigo-600 text-white'
+                      : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
+                  }`}
+                >
+                  Все
+                </button>
+                {uniqueCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      activeCategory === cat
+                        ? 'bg-indigo-600 text-white'
+                        : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Product Grid */}
             {loading ? (
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -1286,7 +1326,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 md:gap-6">
+              <div className="grid grid-cols-2 gap-3">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -1300,11 +1340,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                     formatPrice={formatPrice}
                     getPriceWithMarkup={getPriceWithMarkup}
                     onToggleLike={toggleLike}
-                    onViewImage={(url, name, index) => {
-                      handleOpenProduct(product);
-                    }}
+                    onViewImage={() => handleOpenProduct(product)}
                     onViewCompany={(companyId) => handleOpenCompany(companyId)}
                     onDoubleClick={() => handleOpenProduct(product)}
+                    onClick={() => handleOpenProduct(product)}
                   />
                 ))}
               </div>

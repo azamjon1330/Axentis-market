@@ -1844,15 +1844,13 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.quantityHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.basePriceHeader}</th>
                   <th className="px-6 py-4 text-left text-white font-semibold">{t.sellingPriceHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.barcodeHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">Barid</th>
                   <th className="px-6 py-4 text-right text-white font-semibold">{t.actionsHeader}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       {searchTerm || selectedCategory !== 'all' 
                         ? t.productsNotFound
                         : t.noProducts}
@@ -1900,23 +1898,21 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          {product.price > 0 || product.sellingPrice > 0
-                            ? <span className="text-green-700 dark:text-green-400">{(product.sellingPrice || product.price).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
-                            : (() => {
-                              const variants = productVariants[String(product.id)] || [];
-                              const prices = variants.map((v: any) => v.sellingPrice || v.price || 0).filter((p: number) => p > 0);
-                              const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-                              return minPrice > 0
-                                ? <span className="text-green-700 dark:text-green-400 font-semibold">{minPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>
-                                : <span className="text-indigo-400 text-xs italic">SKU</span>;
-                            })()
-                          }
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-gray-600 dark:text-gray-400 text-sm">{product.barcode || '—'}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-purple-600 dark:text-purple-400 font-medium text-sm">{product.barid || '—'}</span>
+                          {(() => {
+                            const variants = productVariants[String(product.id)] || [];
+                            const skuPrices = variants.map((v: any) => v.sellingPrice || v.price || 0).filter((p: number) => p > 0);
+                            if (skuPrices.length > 0) {
+                              const minPrice = Math.min(...skuPrices);
+                              return <span className="text-green-700 dark:text-green-400 font-semibold">{minPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
+                            }
+                            if ((product.sellingPrice || 0) > 0) {
+                              return <span className="text-green-700 dark:text-green-400">{product.sellingPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
+                            }
+                            if ((product.price || 0) > 0) {
+                              return <span className="text-green-700 dark:text-green-400">{product.price.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
+                            }
+                            return <span className="text-indigo-400 text-xs italic">SKU</span>;
+                          })()}
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-end gap-2">
@@ -1950,7 +1946,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       {/* Variants Tree Panel */}
                       {expandedVariants.has(String(product.id)) && (
                         <tr>
-                          <td colSpan={9} className="px-4 py-4 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900">
+                          <td colSpan={7} className="px-4 py-4 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900">
                             <div className="max-w-5xl mx-auto">
                               <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
                                 <Package className="w-4 h-4" />
