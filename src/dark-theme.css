@@ -4,11 +4,11 @@
 ═══════════════════════════════════════════════════════ */
 
 :root {
-  --ax-bg:            #F0F4F8;
-  --ax-surface:       #FFFFFF;
-  --ax-sidebar:       #E2E8F0;
+  --ax-bg:            #E4E9EF;
+  --ax-surface:       #F2F4F8;
+  --ax-sidebar:       #D4DCE8;
   --ax-sidebar-hover: rgba(79, 70, 229, 0.08);
-  --ax-border:        #CBD5E1;
+  --ax-border:        #B8C5D4;
   --ax-text:          #0F172A;
   --ax-text-2:        #475569;
   --ax-text-3:        #94A3B8;
@@ -17,9 +17,9 @@
   --ax-success:       #16A34A;
   --ax-danger:        #DC2626;
   --ax-warning:       #D97706;
-  --ax-card:          #FFFFFF;
-  --ax-input:         #FFFFFF;
-  --ax-shadow:        0 1px 3px rgba(15,23,42,0.08), 0 4px 16px rgba(15,23,42,0.06);
+  --ax-card:          #F2F4F8;
+  --ax-input:         #EAEFF5;
+  --ax-shadow:        0 1px 3px rgba(15,23,42,0.10), 0 4px 16px rgba(15,23,42,0.08);
 }
 
 .dark {

@@ -23,21 +23,33 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			companyID = c.Query("companyId")
 		}
 
-		// 🔐 Параметры приватности
-		userMode := c.Query("mode") // "public" или "private"
-		privateCompanyID := c.Query("privateCompanyId") // ID приватной компании пользователя
+		// Параметры приватности
+		userMode := c.Query("mode")
+		privateCompanyID := c.Query("privateCompanyId")
 
 		if userMode == "" {
-			userMode = "public" // По умолчанию публичный режим
+			userMode = "public"
+		}
+
+		// Пагинация
+		limit := 50
+		offset := 0
+		if l := c.Query("limit"); l != "" {
+			if v, err := strconv.Atoi(l); err == nil && v > 0 {
+				limit = v
+			}
+		}
+		if o := c.Query("offset"); o != "" {
+			if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+				offset = v
+			}
 		}
 
 		var rows *sql.Rows
 		var err error
 
 		if companyID == "" {
-			// Все товары с фильтрацией по приватности
 			if userMode == "private" && privateCompanyID != "" {
-				// 🔒 ПРИВАТНЫЙ РЕЖИМ: показываем только товары связанной приватной компании
 				log.Printf("🔒 GetProducts: Private mode for company %s", privateCompanyID)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
@@ -46,14 +58,14 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       c.name as company_name
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
-					WHERE p.available_for_customers = true 
+					WHERE p.available_for_customers = true
 					  AND c.id = $1
 					  AND c.mode = 'private'
 					ORDER BY p.created_at DESC
-				`, privateCompanyID)
+					LIMIT $2 OFFSET $3
+				`, privateCompanyID, limit, offset)
 			} else {
-				// 🌐 ПУБЛИЧНЫЙ РЕЖИМ: показываем только товары публичных компаний
-				log.Printf("🌐 GetProducts: Public mode")
+				log.Printf("🌐 GetProducts: Public mode, limit=%d offset=%d", limit, offset)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
 					       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
@@ -61,10 +73,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       c.name as company_name
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
-					WHERE p.available_for_customers = true 
+					WHERE p.available_for_customers = true
 					  AND (c.mode = 'public' OR c.mode IS NULL)
 					ORDER BY p.created_at DESC
-				`)
+					LIMIT $1 OFFSET $2
+				`, limit, offset)
 			}
 		} else {
 			// Товары конкретной компании (для админ-панели компании)
@@ -75,7 +88,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				FROM products
 				WHERE company_id = $1
 				ORDER BY created_at DESC
-			`, companyID)
+				LIMIT $2 OFFSET $3
+			`, companyID, limit, offset)
 		}
 
 		if err != nil {

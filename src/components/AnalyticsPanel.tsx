@@ -6,7 +6,7 @@ import PaymentHistoryForCompany from './PaymentHistoryForCompany';
 import AdvancedInsightsPanel from './AdvancedInsightsPanel';
 import PurchaseAnalytics from './PurchaseAnalytics';
 import CompactPeriodSelector from './CompactPeriodSelector';
-import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, AreaChart, Area, Legend } from 'recharts';
+import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ComposedChart, Area } from 'recharts';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -817,6 +817,19 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     return [];
   };
 
+  const getCombinedChartData = () => {
+    const rev = getRealLineChartData();
+    const ord = getOrderCountData();
+    const len = Math.max(rev.length, ord.length);
+    return Array.from({ length: len }, (_, i) => ({
+      period: rev[i]?.period ?? ord[i]?.period ?? '',
+      revCurrent: rev[i]?.current ?? 0,
+      revPrevious: rev[i]?.previous ?? 0,
+      ordCurrent: ord[i]?.current ?? 0,
+      ordPrevious: ord[i]?.previous ?? 0,
+    }));
+  };
+
   if (loading) {
     return <div className="text-center py-12">{t.loadingAnalytics}</div>;
   }
@@ -952,7 +965,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             </div>
           </div>
 
-          {/* 📊 ДИАГРАММЫ — ЗАКАЗЫ И ВЫРУЧКА В ОДНОМ БЛОКЕ */}
+          {/* 📊 ДИАГРАММА — ЗАКАЗЫ & ВЫРУЧКА НА ОДНОМ ГРАФИКЕ */}
           <div className="mb-6" key={`charts-${financialTimePeriod}`}>
             <div style={{
               background: 'linear-gradient(160deg, #0f172a 0%, #1e1b4b 40%, #0c2340 70%, #052e16 100%)',
@@ -960,108 +973,80 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
               padding: '28px',
               boxShadow: '0 8px 40px rgba(99,102,241,0.22), 0 4px 16px rgba(16,185,129,0.12)',
             }}>
-              {/* Block header */}
+              {/* Header + legend */}
               <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <h3 style={{ color: '#e0e7ff', fontSize: '20px', fontWeight: 700, margin: 0 }}>
                   {language === 'uz' ? 'Buyurtmalar & Daromad' : 'Заказы & Выручка'}
                 </h3>
               </div>
-              <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '24px' }}>
-                {language === 'uz' ? "Vaqt bo'yicha dinamika" : 'Динамика по выбранному периоду'}
-              </p>
-
-              {/* Orders chart */}
-              <div style={{ marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#818cf8' }} />
-                  <span style={{ color: '#a5b4fc', fontSize: '14px', fontWeight: 600 }}>
-                    {language === 'uz' ? 'Buyurtmalar (dona)' : 'Заказы (шт)'}
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={getOrderCountData()} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="ordCurGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#818cf8" stopOpacity={0.45} />
-                        <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="ordPrevGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                    <XAxis dataKey="period" tick={{ fill: '#a5b4fc', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={32} />
-                    <Tooltip
-                      contentStyle={{ background: '#1e1b4b', border: '1px solid #4338ca', borderRadius: '10px', color: '#e0e7ff', fontSize: '13px' }}
-                      formatter={(value: number) => [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, '']}
-                      labelStyle={{ color: '#a5b4fc' }}
-                    />
-                    <Legend wrapperStyle={{ color: '#a5b4fc', fontSize: '12px', paddingTop: '8px' }} />
-                    <Area type="monotone" dataKey="current" stroke="#818cf8" strokeWidth={2.5} fill="url(#ordCurGrad)"
-                      dot={false} activeDot={{ r: 5, fill: '#818cf8', stroke: '#e0e7ff', strokeWidth: 2 }}
-                      animationDuration={1100} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : financialTimePeriod === 'all' ? (language === 'uz' ? 'Barcha vaqt' : 'Всё время') : t.periodThisYear}
-                    />
-                    {financialTimePeriod !== 'all' && (
-                      <Area type="monotone" dataKey="previous" stroke="#c4b5fd" strokeWidth={2} strokeDasharray="6 4" fill="url(#ordPrevGrad)"
-                        dot={false} activeDot={{ r: 4, fill: '#c4b5fd' }}
-                        animationDuration={1300} animationEasing="ease-out"
-                        name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
-                      />
-                    )}
-                  </AreaChart>
-                </ResponsiveContainer>
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a5b4fc', fontSize: '13px' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#818cf8', display: 'inline-block' }} />
+                  {language === 'uz' ? 'Buyurtmalar (dona)' : 'Заказы (шт)'}
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6ee7b7', fontSize: '13px' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
+                  {language === 'uz' ? "Daromad (so'm)" : 'Выручка (сум)'}
+                </span>
               </div>
 
-              {/* Divider */}
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', margin: '16px 0 20px' }} />
-
-              {/* Revenue chart */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399' }} />
-                  <span style={{ color: '#6ee7b7', fontSize: '14px', fontWeight: 600 }}>
-                    {language === 'uz' ? 'Daromad (so\'m)' : 'Выручка (сум)'}
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart data={getRealLineChartData()} margin={{ top: 5, right: 16, left: 10, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="revCurGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#34d399" stopOpacity={0.45} />
-                        <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="revPrevGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
-                    <XAxis dataKey="period" tick={{ fill: '#6ee7b7', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
-                    <YAxis tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={56} />
-                    <Tooltip
-                      contentStyle={{ background: '#052e16', border: '1px solid #065f46', borderRadius: '10px', color: '#d1fae5', fontSize: '13px' }}
-                      formatter={(value: number) => [formatPrice(value), '']}
-                      labelStyle={{ color: '#6ee7b7' }}
+              <ResponsiveContainer width="100%" height={280}>
+                <ComposedChart data={getCombinedChartData()} margin={{ top: 5, right: 16, left: 0, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="ordCurGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="ordPrevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#c4b5fd" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#c4b5fd" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="revCurGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="revPrevGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6ee7b7" stopOpacity={0.18} />
+                      <stop offset="95%" stopColor="#6ee7b7" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.07)" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                  {/* Left Y-axis: orders */}
+                  <YAxis yAxisId="ord" orientation="left" tick={{ fill: '#a5b4fc', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+                  {/* Right Y-axis: revenue */}
+                  <YAxis yAxisId="rev" orientation="right" tick={{ fill: '#6ee7b7', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={58} />
+                  <Tooltip
+                    contentStyle={{ background: '#1e1b4b', border: '1px solid #4338ca', borderRadius: '12px', color: '#e0e7ff', fontSize: '13px' }}
+                    labelStyle={{ color: '#94a3b8', marginBottom: '6px' }}
+                    formatter={(value: number, name: string) => {
+                      if (name === 'ordCurrent' || name === 'ordPrevious')
+                        return [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, name === 'ordCurrent' ? (language === 'uz' ? 'Buyurtmalar' : 'Заказы') : (language === 'uz' ? 'Oldingi davr' : 'Пред. период')];
+                      return [formatPrice(value), name === 'revCurrent' ? (language === 'uz' ? 'Daromad' : 'Выручка') : (language === 'uz' ? 'Oldingi davr' : 'Пред. период')];
+                    }}
+                  />
+                  <Area yAxisId="ord" type="monotone" dataKey="ordCurrent" stroke="#818cf8" strokeWidth={2.5} fill="url(#ordCurGrad)"
+                    dot={false} activeDot={{ r: 5, fill: '#818cf8', stroke: '#e0e7ff', strokeWidth: 2 }}
+                    animationDuration={1100} animationEasing="ease-out" legendType="none"
+                  />
+                  {financialTimePeriod !== 'all' && (
+                    <Area yAxisId="ord" type="monotone" dataKey="ordPrevious" stroke="#c4b5fd" strokeWidth={1.5} strokeDasharray="5 4" fill="url(#ordPrevGrad)"
+                      dot={false} activeDot={{ r: 3, fill: '#c4b5fd' }}
+                      animationDuration={1300} animationEasing="ease-out" legendType="none"
                     />
-                    <Legend wrapperStyle={{ color: '#6ee7b7', fontSize: '12px', paddingTop: '8px' }} />
-                    <Area type="monotone" dataKey="current" stroke="#34d399" strokeWidth={2.5} fill="url(#revCurGrad)"
-                      dot={false} activeDot={{ r: 5, fill: '#34d399', stroke: '#d1fae5', strokeWidth: 2 }}
-                      animationDuration={1100} animationEasing="ease-out"
-                      name={financialTimePeriod === 'day' ? t.periodToday : financialTimePeriod === 'yesterday' ? t.periodYesterday : financialTimePeriod === 'week' ? t.periodThisWeek : financialTimePeriod === 'month' ? t.periodThisMonth : financialTimePeriod === 'all' ? (language === 'uz' ? 'Barcha vaqt' : 'Всё время') : t.periodThisYear}
+                  )}
+                  <Area yAxisId="rev" type="monotone" dataKey="revCurrent" stroke="#34d399" strokeWidth={2.5} fill="url(#revCurGrad)"
+                    dot={false} activeDot={{ r: 5, fill: '#34d399', stroke: '#d1fae5', strokeWidth: 2 }}
+                    animationDuration={1100} animationEasing="ease-out" legendType="none"
+                  />
+                  {financialTimePeriod !== 'all' && (
+                    <Area yAxisId="rev" type="monotone" dataKey="revPrevious" stroke="#6ee7b7" strokeWidth={1.5} strokeDasharray="5 4" fill="url(#revPrevGrad)"
+                      dot={false} activeDot={{ r: 3, fill: '#6ee7b7' }}
+                      animationDuration={1300} animationEasing="ease-out" legendType="none"
                     />
-                    {financialTimePeriod !== 'all' && (
-                      <Area type="monotone" dataKey="previous" stroke="#6ee7b7" strokeWidth={2} strokeDasharray="6 4" fill="url(#revPrevGrad)"
-                        dot={false} activeDot={{ r: 4, fill: '#6ee7b7' }}
-                        animationDuration={1300} animationEasing="ease-out"
-                        name={financialTimePeriod === 'day' ? t.periodYesterday : financialTimePeriod === 'yesterday' ? t.periodPrevYesterday : financialTimePeriod === 'week' ? t.periodWeekAgo : financialTimePeriod === 'month' ? t.periodMonthAgo : t.periodYearAgo}
-                      />
-                    )}
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+                  )}
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
           </div>
 

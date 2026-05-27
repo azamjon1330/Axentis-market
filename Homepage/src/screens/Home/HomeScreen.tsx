@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   ActivityIndicator, RefreshControl, Animated,
-  TextInput, TouchableWithoutFeedback, useWindowDimensions,
+  TextInput, Pressable, useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,10 +78,17 @@ export default function HomeScreen() {
     ]).start(() => setDrawerOpen(false));
   };
 
+  const getModeParams = useCallback(() => {
+    if (user?.mode === 'private' && user.privateCompanyId) {
+      return { mode: 'private' as const, privateCompanyId: user.privateCompanyId };
+    }
+    return {};
+  }, [user?.mode, user?.privateCompanyId]);
+
   const loadInitial = useCallback(async () => {
     try {
       const [prodRes, catRes] = await Promise.allSettled([
-        getProducts({ limit: LIMIT, offset: 0 }),
+        getProducts({ limit: LIMIT, offset: 0, ...getModeParams() }),
         getCategories(),
       ]);
       if (prodRes.status === 'fulfilled') {
@@ -94,7 +101,7 @@ export default function HomeScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [getModeParams]);
 
   useEffect(() => { loadInitial(); }, [loadInitial]);
 
@@ -104,7 +111,7 @@ export default function HomeScreen() {
     setHasMore(true);
     try {
       const [prodRes, catRes] = await Promise.allSettled([
-        getProducts({ limit: LIMIT, offset: 0 }),
+        getProducts({ limit: LIMIT, offset: 0, ...getModeParams() }),
         getCategories(),
       ]);
       if (prodRes.status === 'fulfilled') {
@@ -122,7 +129,7 @@ export default function HomeScreen() {
     setIsLoadingMore(true);
     try {
       const newOffset = offset + LIMIT;
-      const more = await getProducts({ limit: LIMIT, offset: newOffset });
+      const more = await getProducts({ limit: LIMIT, offset: newOffset, ...getModeParams() });
       if (more.length > 0) {
         setProducts(prev => [...prev, ...more]);
         setOffset(newOffset);
@@ -235,11 +242,9 @@ export default function HomeScreen() {
 
       {/* Drawer overlay */}
       {drawerOpen && (
-        <TouchableWithoutFeedback onPress={closeDrawer}>
-          <Animated.View
-            style={[styles.overlay, { opacity: overlayOpacity }]}
-          />
-        </TouchableWithoutFeedback>
+        <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+          <Pressable style={{ flex: 1 }} onPress={closeDrawer} />
+        </Animated.View>
       )}
 
       {/* Drawer panel */}

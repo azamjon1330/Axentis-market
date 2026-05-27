@@ -150,6 +150,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
   // 🆕 ГЛОБАЛЬНЫЕ КАТЕГОРИИ из админки
   const [globalCategories, setGlobalCategories] = useState<{id: number, name: string, icon: string}[]>([]);
+  const [changingCategoryId, setChangingCategoryId] = useState<string | null>(null);
   
   // Загружаем глобальные категории из API
   useEffect(() => {
@@ -522,6 +523,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         description: form.description || undefined,
       });
       await loadVariants(productId);
+      await updateProductMinPrice(productId);
       setNewVariantForms(prev => ({
         ...prev,
         [productId]: { color: '', size: '', price: '', markupPercent: '0', stockQuantity: '0', barcode: '', sku: '', barid: '', description: '' }
@@ -565,6 +567,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       });
       setEditingVariant(null);
       await loadVariants(productId);
+      await updateProductMinPrice(productId);
       ramCache.delete(`company_products_${companyId}`);
       await refetch();
     } catch (err: any) {
@@ -577,12 +580,68 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     try {
       await api.products.deleteVariant(productId, variantId);
       await loadVariants(productId);
+      await updateProductMinPrice(productId);
       ramCache.delete(`company_products_${companyId}`);
       await refetch();
     } catch (err: any) {
       alert(err?.message || 'Ошибка при удалении варианта');
     }
   };
+  const handleInlineCategoryChange = async (productId: string, newCategory: string) => {
+    const originalProduct = products.find((p: any) => String(p.id) === productId);
+    const oldCategory = originalProduct?.category;
+    try {
+      if (newCategory && newCategory !== oldCategory) {
+        const marker = products.find((p: any) =>
+          p.name === `__CATEGORY_MARKER__${newCategory}` && p.category === newCategory
+        );
+        if (marker) await api.products.delete(marker.id);
+      }
+      await api.products.update(productId, { category: newCategory });
+      if (oldCategory && oldCategory !== newCategory) {
+        const oldCatProducts = products.filter((p: any) =>
+          p.category === oldCategory && !p.name?.startsWith('__CATEGORY_MARKER__')
+        );
+        if (oldCatProducts.length === 1 && String(oldCatProducts[0].id) === productId) {
+          await api.products.create({
+            companyId,
+            name: `__CATEGORY_MARKER__${oldCategory}`,
+            quantity: 0,
+            price: 0,
+            markupPercent: 0,
+            barcode: '',
+            hasColorOptions: false,
+            availableForCustomers: false,
+          });
+        }
+      }
+      ramCache.delete(`company_products_${companyId}`);
+      setChangingCategoryId(null);
+      await refetch();
+    } catch (err: any) {
+      alert(err?.message || 'Ошибка при смене категории');
+    }
+  };
+
+  const updateProductMinPrice = async (productId: string) => {
+    const variants = productVariants[productId] || [];
+    if (variants.length === 0) return;
+    const withPrice = variants.filter((v: any) => (v.price || 0) > 0);
+    if (withPrice.length === 0) return;
+    const minVariant = withPrice.reduce((min: any, v: any) =>
+      (v.sellingPrice || v.price) < (min.sellingPrice || min.price) ? v : min
+    );
+    try {
+      await api.products.update(productId, {
+        price: minVariant.price,
+        markupPercent: minVariant.markupPercent || 0,
+      });
+      ramCache.delete(`company_products_${companyId}`);
+    } catch {
+      // non-critical, silently ignore
+    }
+  };
+
   // ── End variant handlers ───────────────────────────────────────────────────
 
   // Generates SKU variants: each color has its own qty + optional sizes
@@ -1807,9 +1866,28 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                           <span className="text-gray-800 dark:text-gray-200">{product.name}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium">
-                            {product.category || t.noCategory}
-                          </span>
+                          {changingCategoryId === String(product.id) ? (
+                            <select
+                              autoFocus
+                              value={product.category || ''}
+                              onChange={(e) => handleInlineCategoryChange(String(product.id), e.target.value)}
+                              onBlur={() => setChangingCategoryId(null)}
+                              className="text-sm border border-indigo-400 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-400"
+                            >
+                              <option value="">{t.noCategory}</option>
+                              {globalCategories.map(cat => (
+                                <option key={cat.id} value={cat.name}>{cat.name}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span
+                              className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all"
+                              title={language === 'uz' ? 'Kategoriyani o\'zgartirish' : 'Изменить категорию'}
+                              onClick={() => setChangingCategoryId(String(product.id))}
+                            >
+                              {product.category || t.noCategory}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-gray-700 dark:text-gray-300">{product.quantity}</span>

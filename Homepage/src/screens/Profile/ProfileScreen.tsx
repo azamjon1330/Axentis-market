@@ -178,26 +178,27 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Theme toggle */}
-        <View style={[styles.themeCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.themeLeft}>
-            <View style={[styles.menuIconBg, { backgroundColor: (isDark ? '#FFD700' : '#7B5CF0') + '20' }]}>
+        {/* Menu items (includes theme toggle as first row) */}
+        <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {/* Theme row */}
+          <TouchableOpacity style={styles.menuItem} onPress={toggleTheme} activeOpacity={0.7}>
+            <View style={[styles.menuIconBg, { backgroundColor: (isDark ? '#FFD700' : colors.primary) + '20' }]}>
               <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={isDark ? '#FFD700' : colors.primary} />
             </View>
-            <Text style={[styles.menuLabel, { color: colors.text }]}>
-              {isDark ? t('darkTheme') : t('lightTheme')}
-            </Text>
-          </View>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuLabel, { color: colors.text }]}>
+                {isDark ? t('darkTheme') : t('lightTheme')}
+              </Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </TouchableOpacity>
+          <View style={[styles.separator, { backgroundColor: colors.divider }]} />
 
-        {/* Menu items */}
-        <View style={[styles.menuCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {MENU_ITEMS.map((item, index) => (
             <React.Fragment key={item.id}>
               <TouchableOpacity
@@ -324,15 +325,6 @@ const styles = StyleSheet.create({
   },
   userName: { fontSize: 18, fontWeight: '700' },
   userPhone: { fontSize: 14, marginTop: 2 },
-  themeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-  },
-  themeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   menuCard: {
     borderRadius: 20,
     borderWidth: 1,

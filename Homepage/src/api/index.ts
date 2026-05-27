@@ -43,6 +43,8 @@ export const getProducts = async (params: {
   availableOnly?: boolean;
   limit?: number;
   offset?: number;
+  mode?: 'public' | 'private';
+  privateCompanyId?: number;
 } = {}): Promise<Product[]> => {
   const res = await api.get(ENDPOINTS.products, { params: { ...params, availableOnly: true } });
   // Backend returns plain array
