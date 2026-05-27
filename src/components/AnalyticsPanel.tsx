@@ -449,19 +449,19 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     return totalInventoryCost + fixedExpenses;
   };
 
-  // 💎 НОВОЕ: Итоговый баланс компании  
+  // 💎 НОВОЕ: Итоговый баланс компании
   const getFinalBalance = (period: PeriodType = 'all') => {
-    const balance = companyEarnings; // ✅ Используем прибыль от наценок
+    const balance = getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
     const expenses = getTotalCompanyExpenses(true); // Всегда игнорируем период для затрат
     const final = balance - expenses;
-    
+
     console.log('💎 [Final Balance]:');
     console.log('   📅 Период:', period);
-    console.log('   💰 Прибыль от наценок:', balance.toLocaleString(), 'сум');
+    console.log('   💰 Прибыль от наценок (за период):', balance.toLocaleString(), 'сум');
     console.log('   💸 Затраты компании (общие):', expenses.toLocaleString(), 'сум');
     console.log('   💎 ИТОГОВЫЙ БАЛАНС:', final.toLocaleString(), 'сум');
     console.log('   📐 Формула:', `${balance} - ${expenses} = ${final}`);
-    
+
     return final;
   };
 
@@ -897,30 +897,28 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           />
 
 
-          {/* 🆕 СЕЛЕКТОР ПЕРИОДА ДЛЯ ВСЕЙ АНАЛИТИКИ */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6 max-w-7xl mx-auto">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-1">📅 {t.periodAnalysis}</h4>
-                <p className="text-sm text-gray-600">{t.selectPeriodAnalytics}</p>
-              </div>
-              <CompactPeriodSelector
-                value={financialTimePeriod}
-                onChange={setFinancialTimePeriod}
-              />
+          {/* ========== ЗАГОЛОВОК + СЕЛЕКТОР ПЕРИОДА ========== */}
+          <div className="flex flex-wrap items-center justify-between gap-3 max-w-7xl mx-auto mb-4">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-gray-500" />
+              <h4 className="text-base font-semibold text-gray-800">{t.periodAnalysis}</h4>
             </div>
+            <CompactPeriodSelector
+              value={financialTimePeriod}
+              onChange={setFinancialTimePeriod}
+            />
           </div>
 
           {/* ========== 3 ПАНЕЛИ ========== */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-6">
-            {/* 1️⃣ Общий баланс (Выручка) */}
+            {/* 1️⃣ Прибыль (отфильтрованная по периоду) */}
             <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-5 text-white">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-6 h-6" />
                 <div className="text-green-100 text-base">{t.profit}</div>
               </div>
               <div className="text-3xl font-bold mb-1">
-                {formatPrice(companyEarnings)}
+                {formatPrice(getFilteredOrders(financialTimePeriod).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0))}
               </div>
               <div className="text-green-100 text-xs">
                 {t.profitFromMarkups}
@@ -939,30 +937,24 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             </div>
 
             {/* 3️⃣ Итоговый баланс */}
-            <div className={`bg-gradient-to-br ${
-              getFinalBalance(financialTimePeriod) >= 0 
-                ? 'from-cyan-500 to-cyan-600' 
-                : 'from-rose-500 to-rose-600'
-            } rounded-lg shadow-lg p-5 text-white`}>
-              <div className="flex items-center gap-2 mb-2">
-                <CreditCard className="w-6 h-6" />
-                <div className={`${
-                  getFinalBalance(financialTimePeriod) >= 0 
-                    ? 'text-cyan-100' 
-                    : 'text-rose-100'
-                } text-base`}>{t.finalBalance}</div>
-              </div>
-              <div className="text-3xl font-bold mb-1">
-                {formatPrice(getFinalBalance(financialTimePeriod))}
-              </div>
-              <div className={`${
-                getFinalBalance(financialTimePeriod) >= 0 
-                  ? 'text-cyan-100' 
-                  : 'text-rose-100'
-              } text-xs`}>
-                {formatPrice(companyEarnings)} - {formatPrice(getTotalCompanyExpenses())}
-              </div>
-            </div>
+            {(() => {
+              const balance = getFinalBalance(financialTimePeriod);
+              const filteredProfit = getFilteredOrders(financialTimePeriod).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
+              return (
+                <div className={`bg-gradient-to-br ${balance >= 0 ? 'from-cyan-500 to-cyan-600' : 'from-rose-500 to-rose-600'} rounded-lg shadow-lg p-5 text-white`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-6 h-6" />
+                    <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-base`}>{t.finalBalance}</div>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    {formatPrice(balance)}
+                  </div>
+                  <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-xs`}>
+                    {formatPrice(filteredProfit)} - {formatPrice(getTotalCompanyExpenses())}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* 📊 ДИАГРАММА — ЗАКАЗЫ & ВЫРУЧКА НА ОДНОМ ГРАФИКЕ */}

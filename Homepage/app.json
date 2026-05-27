@@ -24,7 +24,10 @@
         "backgroundColor": "#0F0F1E"
       },
       "package": "com.axentis.homepage",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,6 +40,12 @@
           "color": "#7B5CF0"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "92815e18-d136-4475-8357-a6156bfc5775"
+      }
+    },
+    "owner": "spm_supreme"
   }
 }

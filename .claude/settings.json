@@ -39,7 +39,10 @@
       "Bash(xargs grep -h \"^func \")",
       "Bash(grep \"\\\\.sql$\")",
       "PowerShell(\\(Get-Content \"d:\\\\app\\\\Birzumda\\\\src\\\\components\\\\DigitalWarehouse.tsx\" | Measure-Object -Line\\).Lines)",
-      "PowerShell(Get-ChildItem -Path \"d:\\\\app\\\\Birzumda\\\\backend\" -Recurse | Where-Object { $_.Extension -eq '.js' -or $_.Extension -eq '.ts' } | Select-Object FullName)"
+      "PowerShell(Get-ChildItem -Path \"d:\\\\app\\\\Birzumda\\\\backend\" -Recurse | Where-Object { $_.Extension -eq '.js' -or $_.Extension -eq '.ts' } | Select-Object FullName)",
+      "Bash(xargs grep -l -i \"product\\\\|warehouse\\\\|inventory\\\\|catalog\")",
+      "Bash(Format-Table)",
+      "Bash(grep -E \"^0+[0-9]{2,3}_\")"
     ],
     "additionalDirectories": [
       "D:\\app\\Birzumda\\Homepage\\.git",

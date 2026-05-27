@@ -2,19 +2,13 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
-import { RootStackParamList } from '../../types';
-
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-type RouteProps = RouteProp<RootStackParamList, 'MapLocationPicker'>;
 
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
-  const navigation = useNavigation<Nav>();
-  useRoute<RouteProps>();
+  const navigation = useNavigation();
 
   const [locating, setLocating] = useState(false);
 
