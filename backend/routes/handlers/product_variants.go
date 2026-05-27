@@ -315,13 +315,14 @@ func nullableString(s string) interface{} {
 	return s
 }
 
-// syncProductQuantity updates the parent product's quantity and min price from variants
+// syncProductQuantity updates the parent product's quantity, min price, and min selling_price from variants
 func syncProductQuantity(db *sql.DB, productID int64) {
 	_, err := db.Exec(`
 		UPDATE products
-		SET quantity = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
-		    price    = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
-		    updated_at = NOW()
+		SET quantity      = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
+		    price         = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
+		    selling_price = COALESCE((SELECT MIN(selling_price) FROM product_variants WHERE product_id = $1 AND selling_price > 0), selling_price),
+		    updated_at    = NOW()
 		WHERE id = $1
 	`, productID)
 	if err != nil {

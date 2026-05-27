@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, Settings } from 'lucide-react';
 import { DigitalWarehouse } from './DigitalWarehouse';
 import SalesPanel from './SalesPanel';
 import CompanyOrdersPanel from './CompanyOrdersPanel';
@@ -8,6 +8,7 @@ import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
 import CompanyDiscountsManager from './CompanyDiscountsManager';
 import CompanyInboxPanel from './CompanyInboxPanel';
+import CompanySettingsPanel from './CompanySettingsPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { useTheme } from '../utils/ThemeContext';
@@ -27,7 +28,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
 
-  const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts'>('warehouse');
+  const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'settings'>('warehouse');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -88,7 +89,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs: Array<typeof activeTab> = ['warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts'];
+    const validTabs: Array<typeof activeTab> = ['warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'settings'];
     const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'warehouse';
 
     const currentState = window.history.state || {};
@@ -128,6 +129,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'barcode' as const,    icon: Barcode,      label: t.searchByBarcode },
     { key: 'smm' as const,        icon: Megaphone,    label: t.smm },
     { key: 'discounts' as const,  icon: Tag,          label: t.discountsManagement },
+    { key: 'settings' as const,   icon: Settings,     label: t.privacySettings || 'Sozlamalar' },
   ];
 
   return (
@@ -365,6 +367,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'barcode' && t.searchByBarcode}
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
+                {activeTab === 'settings' && (t.privacySettings || 'Sozlamalar')}
               </h1>
             </div>
 
@@ -409,6 +412,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'barcode' && <BarcodeSearchPanel companyId={companyId} />}
           {activeTab === 'smm' && <CompanySMMPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'discounts' && <CompanyDiscountsManager companyId={companyId} products={[]} />}
+          {activeTab === 'settings' && <CompanySettingsPanel companyId={companyId} companyName={companyName} />}
         </div>
       </main>
 

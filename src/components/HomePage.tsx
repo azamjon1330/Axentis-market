@@ -941,10 +941,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   const getPriceWithMarkup = (product: Product) => {
     const markupPercent = product.markupPercent || 0;
-    const basePrice = product.price; // Цена закупки
-    const markupAmount = basePrice * (markupPercent / 100); // Сумма наценки в деньгах
-    const priceWithMarkup = basePrice + markupAmount; // Полная цена
-    
+    const basePrice = product.price;
+    const markupAmount = basePrice * (markupPercent / 100);
+    // Use sellingPrice from API (цена продажи) if available, otherwise calculate
+    const sellingPrice = (product as any).sellingPrice;
+    const priceWithMarkup = (sellingPrice && sellingPrice > 0) ? sellingPrice : basePrice + markupAmount;
+
     // Check if product has a discount
     const discount = discounts.find((d: any) => (d.productId === product.id));
     if (discount && discount.discountPercent > 0) {
@@ -952,17 +954,16 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         // 🔥 Aggressive discount - applies to FULL PRICE (can go below cost)
         const discountAmount = priceWithMarkup * (discount.discountPercent / 100);
         const discountedPrice = priceWithMarkup - discountAmount;
-        console.log(`🔥 [Aggressive Discount] Product ${product.id}: ${priceWithMarkup} -> ${discountedPrice} (-${discount.discountPercent}%)`);
         return discountedPrice;
       } else {
-        // 🏷️ Regular discount - applies ONLY to markup
-        const discountAmount = markupAmount * (discount.discountPercent / 100);
+        // 🏷️ Regular discount - applies ONLY to markup portion
+        const markupInSelling = priceWithMarkup - basePrice;
+        const discountAmount = markupInSelling * (discount.discountPercent / 100);
         const discountedPrice = priceWithMarkup - discountAmount;
-        console.log(`🏷️ [Regular Discount] Product ${product.id}: ${priceWithMarkup} -> ${discountedPrice} (-${discount.discountPercent}% on markup)`);
         return discountedPrice;
       }
     }
-    
+
     return priceWithMarkup;
   };
 
@@ -971,12 +972,13 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     return discounts.find((d: any) => (d.productId === product.id));
   };
 
-  // Get original price before discount
+  // Get original price before discount (selling price without discount)
   const getOriginalPrice = (product: Product) => {
     const markupPercent = product.markupPercent || 0;
     const basePrice = product.price;
     const markupAmount = basePrice * (markupPercent / 100);
-    return basePrice + markupAmount;
+    const sellingPrice = (product as any).sellingPrice;
+    return (sellingPrice && sellingPrice > 0) ? sellingPrice : basePrice + markupAmount;
   };
 
   const getTotalCart = () => {
