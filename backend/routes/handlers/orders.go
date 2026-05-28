@@ -320,37 +320,68 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 		
 		log.Printf("✅ CreateOrder: Parsed %d items", len(itemsArray))
 
-	// Calculate markup profit
+	// Calculate markup profit — if frontend prices are missing, look up from DB
 	var markupProfit float64
 	for _, item := range itemsArray {
 		quantity := 0.0
 		basePrice := 0.0
 		priceWithMarkup := 0.0
-		
-		// Get quantity
+
 		if q, ok := item["quantity"].(float64); ok {
 			quantity = q
 		}
-		
-		// Get base price
 		if p, ok := item["price"].(float64); ok {
 			basePrice = p
 		}
-		
-		// Get price with markup
 		if pwm, ok := item["price_with_markup"].(float64); ok {
 			priceWithMarkup = pwm
 		} else if pwm, ok := item["priceWithMarkup"].(float64); ok {
 			priceWithMarkup = pwm
 		}
-		
-		// Calculate markup profit for this item
-		if priceWithMarkup > 0 && basePrice > 0 {
-			itemMarkup := (priceWithMarkup - basePrice) * quantity
-			markupProfit += itemMarkup
+
+		// If prices are missing/zero, look up from product_variants or products table
+		if (basePrice == 0 || priceWithMarkup == 0 || priceWithMarkup == basePrice) && quantity > 0 {
+			var productId int64
+			if pid, ok := item["productId"].(float64); ok {
+				productId = int64(pid)
+			} else if pid, ok := item["product_id"].(float64); ok {
+				productId = int64(pid)
+			}
+			if productId > 0 {
+				color, _ := item["color"].(string)
+				size, _ := item["size"].(string)
+				var dbBase, dbSelling float64
+				// Try variant-specific price first
+				if color != "" || size != "" {
+					err := db.QueryRow(`
+						SELECT price, COALESCE(selling_price, price)
+						FROM product_variants
+						WHERE product_id = $1
+						  AND ($2 = '' OR color = $2)
+						  AND ($3 = '' OR size  = $3)
+						LIMIT 1
+					`, productId, color, size).Scan(&dbBase, &dbSelling)
+					if err == nil && dbBase > 0 {
+						basePrice = dbBase
+						priceWithMarkup = dbSelling
+					}
+				}
+				// Fallback to product-level prices
+				if basePrice == 0 {
+					db.QueryRow(`SELECT price, COALESCE(selling_price, price) FROM products WHERE id = $1`, productId).Scan(&dbBase, &dbSelling)
+					if dbBase > 0 {
+						basePrice = dbBase
+						priceWithMarkup = dbSelling
+					}
+				}
+			}
+		}
+
+		if priceWithMarkup > basePrice && quantity > 0 {
+			markupProfit += (priceWithMarkup - basePrice) * quantity
 		}
 	}
-	
+
 	log.Printf("💰 CreateOrder: Calculated markup_profit: %.2f", markupProfit)
 
 	// Generate unique order code

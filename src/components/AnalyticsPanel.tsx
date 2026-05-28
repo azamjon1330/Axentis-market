@@ -57,12 +57,12 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   // 📑 Вкладки
   const [activeTab, setActiveTab] = useState<'analytics' | 'payments' | 'purchases'>('analytics');
   
-  // 💰 Expenses state - НОВОЕ: хранить все затраты с датами
-  const [allCustomExpenses, setAllCustomExpenses] = useState<any[]>([]); // Пользовательские затраты с датами
+  const [allCustomExpenses, setAllCustomExpenses] = useState<any[]>([]);
   const [employeeExpenses, setEmployeeExpenses] = useState(0);
   const [electricityExpenses, setElectricityExpenses] = useState(0);
   const [purchaseCosts, setPurchaseCosts] = useState(0);
-  const [customExpenses, setCustomExpenses] = useState(0); // 💰 НОВОЕ: Пользовательские затраты (отфильтрованные)
+  const [customExpenses, setCustomExpenses] = useState(0);
+  const [inventoryCost, setInventoryCost] = useState(0); // Себестоимость склада из вариантов
   
   // 💰 НОВОЕ: Количество продаж из financial_stats
   const [salesCount, setSalesCount] = useState(0);
@@ -208,7 +208,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       setProducts(products);
       setSalesHistory(sales);
       setCustomerOrders(orders);
-      setOrdersWithItems(financialStatsData.orders || []); // 🆕 Заказы с items для аналитики
+      setOrdersWithItems(financialStatsData.orders || []);
       setTotalRevenue(financialStatsData.totalRevenue);
       setCompanyEarnings(financialStatsData.totalMarkupProfit);
       setSalesCount(financialStatsData.salesCount);
@@ -216,6 +216,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       setElectricityExpenses(electricityExp);
       setPurchaseCosts(purchaseCost);
       setCustomExpenses(customExp);
+      setInventoryCost(financialStatsData.inventoryCost || financialStatsData.inventoryValue || purchaseCost);
       setAllCustomExpenses(expenses.filter((e: any) => e.category === 'custom' || e.category === 'other'));
       
       console.log('✅ [Analytics Panel] Данные успешно загружены и установлены в state');
@@ -315,33 +316,33 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     });
   };
 
-  // Прибыль = наценка (markup_profit) с проданных заказов за период
+  // ═══════════════════════════════════════════════════════════
+  // ПРИБЫЛЬ = наценка с проданных заказов в выбранном периоде
+  //   markup_profit = selling_price - purchase_price (per item × qty)
+  // ═══════════════════════════════════════════════════════════
   const getPeriodProfit = (period: PeriodType = 'day') => {
     return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
   };
 
-  // Затраты компании = ручные затраты (ExpensesManager), пропорционально периоду
-  const getTotalCompanyExpenses = (period: PeriodType = 'day') => {
-    const now = new Date();
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const dayOfMonth = now.getDate();
-    // customExpenses - накопленная сумма за текущий месяц до сегодня
-    const monthlyRate = dayOfMonth > 0 ? customExpenses / dayOfMonth * daysInMonth : customExpenses;
-    const dailyRate = monthlyRate / daysInMonth;
-    if (period === 'day') return dailyRate;
-    if (period === 'week') return dailyRate * 7;
-    if (period === 'month') return monthlyRate;
-    if (period === 'year') return monthlyRate * 12;
-    if (period === 'custom' && financialStartDate && financialEndDate) {
-      const days = Math.ceil((financialEndDate.getTime() - financialStartDate.getTime()) / (1000*60*60*24)) + 1;
-      return dailyRate * days;
-    }
-    return customExpenses;
+  // ═══════════════════════════════════════════════════════════
+  // ЗАТРАТЫ КОМПАНИИ = стоимость товаров на складе (цифровой склад)
+  //   = сумма(вариант.цена_закупки × кол-во на складе) по всем вариантам
+  //   + ежемесячные расходы из ExpensesManager (зарплата, аренда, ...)
+  //
+  // Примечание: inventory автоматически уменьшается по мере продаж,
+  // поэтому затраты тоже уменьшаются когда товары продаются.
+  // ═══════════════════════════════════════════════════════════
+  const getTotalCompanyExpenses = () => {
+    return inventoryCost + customExpenses;
   };
 
-  // 💎 Итоговый баланс = прибыль - затраты (если затраты > прибыли → минус)
+  // ═══════════════════════════════════════════════════════════
+  // ИТОГОВЫЙ БАЛАНС = Прибыль − Затраты
+  //   Если затраты > прибыли → отрицательный (красный)
+  //   Если прибыль > затрат → положительный (синий/зелёный)
+  // ═══════════════════════════════════════════════════════════
   const getFinalBalance = (period: PeriodType = 'day') => {
-    return getPeriodProfit(period) - getTotalCompanyExpenses(period);
+    return getPeriodProfit(period) - getTotalCompanyExpenses();
   };
 
   // 💳 НОВОЕ: Разбивка виртуальных платежей по методам (demo/real)
@@ -759,54 +760,71 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             />
           </div>
 
-          {/* ========== 3 ПАНЕЛИ ========== */}
+          {/* ═══════════════════════════════════════════════════════
+               3 ПАНЕЛИ: ПРИБЫЛЬ / ЗАТРАТЫ / ИТОГОВЫЙ БАЛАНС
+          ═══════════════════════════════════════════════════════ */}
           {(() => {
             const profit = getPeriodProfit(financialTimePeriod);
-            const expenses = getTotalCompanyExpenses(financialTimePeriod);
+            const expenses = getTotalCompanyExpenses();
             const balance = getFinalBalance(financialTimePeriod);
+            const isPositive = balance >= 0;
             return (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-6">
-                {/* 1️⃣ Прибыль = наценка с проданных товаров */}
-                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-5 text-white">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-6 h-6" />
-                    <div className="text-green-100 text-base">{t.profit}</div>
+
+                {/* ── 1. ПРИБЫЛЬ ── */}
+                <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl shadow-lg p-5 text-white">
+                  <div className="flex items-center gap-2 mb-3">
+                    <TrendingUp className="w-6 h-6 text-emerald-200" />
+                    <span className="text-emerald-100 font-semibold text-sm uppercase tracking-wide">
+                      {language === 'uz' ? 'Foyda' : 'Прибыль'}
+                    </span>
                   </div>
-                  <div className="text-3xl font-bold mb-1">
+                  <div className="text-4xl font-extrabold mb-2">
                     +{formatPrice(profit)}
                   </div>
-                  <div className="text-green-100 text-xs">
-                    {t.profitFromMarkups}
+                  <div className="text-emerald-200 text-xs leading-relaxed">
+                    {language === 'uz'
+                      ? `Sotilgan tovarlarning solishtirma narxi va sotish narxi o'rtasidagi farq (${getFilteredOrders(financialTimePeriod).length} buyurtma)`
+                      : `Разница между ценой закупки и ценой продажи по проданным товарам (${getFilteredOrders(financialTimePeriod).length} заказов)`}
                   </div>
                 </div>
 
-                {/* 2️⃣ Затраты компании = себестоимость проданных товаров (МИНУС) */}
-                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-5 text-white">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-6 h-6" />
-                    <div className="text-red-100 text-base">{t.companyExpenses}</div>
+                {/* ── 2. ЗАТРАТЫ КОМПАНИИ ── */}
+                <div className="bg-gradient-to-br from-red-500 to-red-700 rounded-xl shadow-lg p-5 text-white">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Package className="w-6 h-6 text-red-200" />
+                    <span className="text-red-100 font-semibold text-sm uppercase tracking-wide">
+                      {language === 'uz' ? 'Kompaniya xarajatlari' : 'Затраты компании'}
+                    </span>
                   </div>
-                  <div className="text-3xl font-bold mb-1">
+                  <div className="text-4xl font-extrabold mb-2">
                     -{formatPrice(expenses)}
                   </div>
-                  <div className="text-red-100 text-xs">
-                    {language === 'uz' ? 'Oylik xarajatlar (kunlik hisob)' : 'Ежемесячные затраты (пропорционально)'}
+                  <div className="text-red-200 text-xs leading-relaxed">
+                    {language === 'uz'
+                      ? `Omborhona: ${formatPrice(inventoryCost)} · Oylik: ${formatPrice(customExpenses)}`
+                      : `Склад: ${formatPrice(inventoryCost)} · Ежемес.: ${formatPrice(customExpenses)}`}
                   </div>
                 </div>
 
-                {/* 3️⃣ Итоговый баланс = прибыль - затраты (минус если в убытке) */}
-                <div className={`bg-gradient-to-br ${balance >= 0 ? 'from-cyan-500 to-cyan-600' : 'from-rose-600 to-rose-700'} rounded-lg shadow-lg p-5 text-white`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <CreditCard className="w-6 h-6" />
-                    <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-base`}>{t.finalBalance}</div>
+                {/* ── 3. ИТОГОВЫЙ БАЛАНС ── */}
+                <div className={`bg-gradient-to-br ${isPositive ? 'from-blue-500 to-blue-700' : 'from-rose-600 to-rose-800'} rounded-xl shadow-lg p-5 text-white`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CreditCard className={`w-6 h-6 ${isPositive ? 'text-blue-200' : 'text-rose-200'}`} />
+                    <span className={`${isPositive ? 'text-blue-100' : 'text-rose-100'} font-semibold text-sm uppercase tracking-wide`}>
+                      {language === 'uz' ? 'Yakuniy balans' : 'Итоговый баланс'}
+                    </span>
                   </div>
-                  <div className="text-3xl font-bold mb-1">
-                    {balance >= 0 ? '+' : ''}{formatPrice(balance)}
+                  <div className="text-4xl font-extrabold mb-2">
+                    {isPositive ? '+' : ''}{formatPrice(balance)}
                   </div>
-                  <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-xs`}>
-                    {formatPrice(profit)} - {formatPrice(expenses)}
+                  <div className={`${isPositive ? 'text-blue-200' : 'text-rose-200'} text-xs leading-relaxed`}>
+                    {language === 'uz'
+                      ? `Foyda (${formatPrice(profit)}) − Xarajat (${formatPrice(expenses)})`
+                      : `Прибыль (${formatPrice(profit)}) − Затраты (${formatPrice(expenses)})`}
                   </div>
                 </div>
+
               </div>
             );
           })()}
@@ -819,21 +837,63 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
               padding: '28px',
               boxShadow: '0 8px 40px rgba(99,102,241,0.22), 0 4px 16px rgba(16,185,129,0.12)',
             }}>
-              {/* Header + legend */}
-              <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <h3 style={{ color: '#e0e7ff', fontSize: '20px', fontWeight: 700, margin: 0 }}>
-                  {language === 'uz' ? 'Buyurtmalar & Daromad' : 'Заказы & Выручка'}
-                </h3>
-              </div>
-              <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a5b4fc', fontSize: '13px' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#818cf8', display: 'inline-block' }} />
-                  {language === 'uz' ? 'Buyurtmalar (dona)' : 'Заказы (шт)'}
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6ee7b7', fontSize: '13px' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', display: 'inline-block' }} />
-                  {language === 'uz' ? "Daromad (so'm)" : 'Выручка (сум)'}
-                </span>
+              {/* Header + legend + info tooltip */}
+              <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <h3 style={{ color: '#e0e7ff', fontSize: '20px', fontWeight: 700, margin: '0 0 12px 0' }}>
+                    {language === 'uz' ? 'Buyurtmalar & Daromad' : 'Заказы & Выручка'}
+                  </h3>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a5b4fc', fontSize: '13px' }}>
+                      <span style={{ width: 24, height: 3, background: '#818cf8', display: 'inline-block', borderRadius: 2 }} />
+                      {language === 'uz' ? 'Buyurtmalar — joriy davr' : 'Заказы — текущий период'}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c4b5fd', fontSize: '13px' }}>
+                      <span style={{ width: 24, height: 3, background: '#c4b5fd', display: 'inline-block', borderRadius: 2, borderTop: '2px dashed #c4b5fd', marginTop: 0 }} />
+                      {language === 'uz' ? 'Buyurtmalar — oldingi davr' : 'Заказы — пред. период'}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#6ee7b7', fontSize: '13px' }}>
+                      <span style={{ width: 24, height: 3, background: '#34d399', display: 'inline-block', borderRadius: 2 }} />
+                      {language === 'uz' ? "Daromad — joriy davr" : 'Выручка — текущий период'}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#a7f3d0', fontSize: '13px' }}>
+                      <span style={{ width: 24, height: 3, background: '#6ee7b7', display: 'inline-block', borderRadius: 2 }} />
+                      {language === 'uz' ? "Daromad — oldingi davr" : 'Выручка — пред. период'}
+                    </span>
+                  </div>
+                </div>
+                {/* ℹ️ Hover tooltip */}
+                <div style={{ position: 'relative', display: 'inline-block' }} className="group">
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: '#e0e7ff', fontSize: 14, fontWeight: 700, userSelect: 'none',
+                  }}>?</div>
+                  <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    style={{
+                      position: 'absolute', right: 0, top: 36, width: 320, zIndex: 50,
+                      background: '#1e1b4b', border: '1px solid #4338ca', borderRadius: 12,
+                      padding: '14px 16px', color: '#e0e7ff', fontSize: 12, lineHeight: '1.6',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    }}>
+                    <div style={{ fontWeight: 700, marginBottom: 8, color: '#a5b4fc' }}>
+                      {language === 'uz' ? 'Diagramma haqida' : 'О диаграмме'}
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <span style={{ color: '#818cf8' }}>━━</span> {language === 'uz' ? 'Ko\'k to\'liq chiziq — joriy davrdagi buyurtmalar soni (chap shkala)' : 'Синяя сплошная — количество заказов в текущем периоде (левая шкала)'}
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <span style={{ color: '#c4b5fd' }}>╌╌</span> {language === 'uz' ? 'Ko\'k kesikli chiziq — oldingi davr buyurtmalari (taqqoslash uchun)' : 'Синяя пунктирная — заказы предыдущего периода (для сравнения)'}
+                    </div>
+                    <div style={{ marginBottom: 6 }}>
+                      <span style={{ color: '#34d399' }}>━━</span> {language === 'uz' ? 'Yashil to\'liq chiziq — joriy davr daromadi (o\'ng shkala)' : 'Зелёная сплошная — выручка текущего периода (правая шкала)'}
+                    </div>
+                    <div>
+                      <span style={{ color: '#6ee7b7' }}>╌╌</span> {language === 'uz' ? 'Yashil kesikli chiziq — oldingi davr daromadi (taqqoslash)' : 'Зелёная пунктирная — выручка предыдущего периода (сравнение)'}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <ResponsiveContainer width="100%" height={280}>

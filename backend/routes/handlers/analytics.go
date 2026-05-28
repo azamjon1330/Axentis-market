@@ -19,9 +19,14 @@ func GetCompanyAnalytics(db *sql.DB) gin.HandlerFunc {
 		var totalProducts int
 		db.QueryRow("SELECT COUNT(*) FROM products WHERE company_id = $1", companyID).Scan(&totalProducts)
 
-		// Get total inventory value
+		// Get total inventory value (from product_variants for accuracy)
 		var inventoryValue float64
-		db.QueryRow("SELECT COALESCE(SUM(price * quantity), 0) FROM products WHERE company_id = $1", companyID).Scan(&inventoryValue)
+		db.QueryRow(`
+			SELECT COALESCE(SUM(pv.price * pv.stock_quantity), 0)
+			FROM product_variants pv
+			JOIN products p ON p.id = pv.product_id
+			WHERE p.company_id = $1
+		`, companyID).Scan(&inventoryValue)
 
 // Get total sales and markup profit from orders AND sales (cash sales)
 	var totalSales float64
@@ -129,17 +134,18 @@ func GetCompanyAnalytics(db *sql.DB) gin.HandlerFunc {
 
 	analytics := map[string]interface{}{
 			"totalProducts":      totalProducts,
-			"inventoryValue":     inventoryValue,
-			"totalRevenue":       totalSales,      // Выручка (total_amount)
-			"totalSales":         totalSales,      // Для обратной совместимости
-			"totalMarkup":        totalMarkup,     // Прибыль от наценки
-			"totalMarkupProfit":  totalMarkup,     // Для обратной совместимости с frontend
-			"costOfGoodsSold":    costOfGoodsSold, // Себестоимость проданных товаров
+			"inventoryValue":     inventoryValue,  // Себестоимость товаров на складе (из вариантов)
+			"inventoryCost":      inventoryValue,  // Alias для фронтенда
+			"totalRevenue":       totalSales,
+			"totalSales":         totalSales,
+			"totalMarkup":        totalMarkup,
+			"totalMarkupProfit":  totalMarkup,
+			"costOfGoodsSold":    costOfGoodsSold,
 			"salesCount":         salesCount,
 			"ordersCount":        ordersCount,
 			"totalExpenses":      totalExpenses,
-			"netProfit":          totalMarkup - totalExpenses, // Чистая прибыль = наценка - расходы
-			"orders":             orders,                      // ✅ Список подтвержденных заказов для аналитики
+			"netProfit":          totalMarkup - totalExpenses,
+			"orders":             orders,
 		}
 
 		c.JSON(http.StatusOK, analytics)
