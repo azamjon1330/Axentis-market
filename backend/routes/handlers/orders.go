@@ -339,7 +339,7 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			priceWithMarkup = pwm
 		}
 
-		// If prices are missing/zero/equal, look up from product_variants or products table
+		// If prices are missing/zero/equal, look up real markup from DB
 		if (basePrice == 0 || priceWithMarkup == 0 || priceWithMarkup == basePrice) && quantity > 0 {
 			var productId int64
 			if pid, ok := item["productId"].(float64); ok {
@@ -351,33 +351,55 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 				color, _ := item["color"].(string)
 				size, _ := item["size"].(string)
 				var dbBase, dbSelling float64
-				// Try variant-specific price first
-				if color != "" || size != "" {
-					err := db.QueryRow(`
+
+				// Step 1: try matching variant (with or without color/size filter)
+				db.QueryRow(`
+					SELECT price,
+						CASE
+							WHEN selling_price > price THEN selling_price
+							WHEN markup_percent > 0    THEN price * (1.0 + markup_percent / 100.0)
+							ELSE price
+						END
+					FROM product_variants
+					WHERE product_id = $1
+					  AND ($2 = '' OR color = $2)
+					  AND ($3 = '' OR size  = $3)
+					LIMIT 1
+				`, productId, color, size).Scan(&dbBase, &dbSelling)
+
+				if dbBase > 0 {
+					basePrice = dbBase
+					priceWithMarkup = dbSelling
+				}
+
+				// Step 2: no matching variant found — try ANY variant for this product
+				if basePrice == 0 || priceWithMarkup == basePrice {
+					db.QueryRow(`
 						SELECT price,
 							CASE
-								WHEN selling_price IS NOT NULL AND selling_price > price THEN selling_price
-								WHEN markup_percent IS NOT NULL AND markup_percent > 0 THEN price * (1.0 + markup_percent / 100.0)
+								WHEN selling_price > price THEN selling_price
+								WHEN markup_percent > 0    THEN price * (1.0 + markup_percent / 100.0)
 								ELSE price
 							END
 						FROM product_variants
 						WHERE product_id = $1
-						  AND ($2 = '' OR color = $2)
-						  AND ($3 = '' OR size  = $3)
+						  AND price > 0
+						ORDER BY price ASC
 						LIMIT 1
-					`, productId, color, size).Scan(&dbBase, &dbSelling)
-					if err == nil && dbBase > 0 {
+					`, productId).Scan(&dbBase, &dbSelling)
+					if dbBase > 0 {
 						basePrice = dbBase
 						priceWithMarkup = dbSelling
 					}
 				}
-				// Fallback to product-level prices
-				if basePrice == 0 {
+
+				// Step 3: no variants at all — fall back to product-level
+				if basePrice == 0 || priceWithMarkup == basePrice {
 					db.QueryRow(`
 						SELECT price,
 							CASE
 								WHEN selling_price IS NOT NULL AND selling_price > price THEN selling_price
-								WHEN markup_percent IS NOT NULL AND markup_percent > 0 THEN price * (1.0 + markup_percent / 100.0)
+								WHEN markup_percent IS NOT NULL AND markup_percent > 0   THEN price * (1.0 + markup_percent / 100.0)
 								ELSE price
 							END
 						FROM products WHERE id = $1

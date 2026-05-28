@@ -315,14 +315,29 @@ func nullableString(s string) interface{} {
 	return s
 }
 
-// syncProductQuantity updates the parent product's quantity, min price, and min selling_price from variants
+// syncProductQuantity updates the parent product's quantity, price, selling_price, and markup_percent from variants.
+// selling_price is only synced from variants that actually have markup (selling_price > price).
+// markup_percent is taken from the cheapest variant that has a markup.
 func syncProductQuantity(db *sql.DB, productID int64) {
 	_, err := db.Exec(`
 		UPDATE products
-		SET quantity      = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
-		    price         = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
-		    selling_price = COALESCE((SELECT MIN(selling_price) FROM product_variants WHERE product_id = $1 AND selling_price > 0), selling_price),
-		    updated_at    = NOW()
+		SET quantity       = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
+		    price          = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
+		    selling_price  = COALESCE(
+		        (SELECT MIN(selling_price)
+		         FROM product_variants
+		         WHERE product_id = $1 AND selling_price > price),
+		        selling_price
+		    ),
+		    markup_percent = COALESCE(
+		        (SELECT markup_percent
+		         FROM product_variants
+		         WHERE product_id = $1 AND markup_percent > 0
+		         ORDER BY price ASC
+		         LIMIT 1),
+		        markup_percent
+		    ),
+		    updated_at     = NOW()
 		WHERE id = $1
 	`, productID)
 	if err != nil {
