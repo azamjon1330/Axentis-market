@@ -58,6 +58,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   const [activeTab, setActiveTab] = useState<'analytics' | 'payments' | 'purchases'>('analytics');
   
   const [allCustomExpenses, setAllCustomExpenses] = useState<any[]>([]);
+  const [operatingExpensesList, setOperatingExpensesList] = useState<any[]>([]);
   const [employeeExpenses, setEmployeeExpenses] = useState(0);
   const [electricityExpenses, setElectricityExpenses] = useState(0);
   const [purchaseCosts, setPurchaseCosts] = useState(0);
@@ -338,6 +339,58 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   // ═══════════════════════════════════════════════════════════
+  // ВЫРУЧКА ЗА ПЕРИОД
+  // ═══════════════════════════════════════════════════════════
+  const getPeriodRevenue = (period: PeriodType = 'day') => {
+    const ordRev = getFilteredOrders(period).reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+    const saleRev = getFilteredSales(period).reduce((s, s2) => s + (parseFloat(s2.total_amount || s2.totalAmount) || 0), 0);
+    return ordRev + saleRev;
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // ЗАТРАТЫ КОМПАНИИ = себестоимость проданных товаров (COGS)
+  //   = выручка за период - прибыль (наценка) за период
+  // ═══════════════════════════════════════════════════════════
+  const getPeriodCOGS = (period: PeriodType = 'day') => {
+    return Math.max(getPeriodRevenue(period) - getPeriodProfit(period), 0);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // РАСХОДЫ КОМПАНИИ за период (операционные)
+  //   monthly    → пропорционально периоду
+  //   percentage → % от выручки периода
+  //   one_time   → только если дата расхода попадает в период
+  // ═══════════════════════════════════════════════════════════
+  const getPeriodOperatingExpenses = (period: PeriodType = 'day', periodRevenue: number = 0) => {
+    const { start, end } = getPeriodRange(period);
+
+    let multiplier = 1;
+    if (period === 'day') multiplier = 1 / 30;
+    else if (period === 'week') multiplier = 7 / 30;
+    else if (period === 'month') multiplier = 1;
+    else if (period === 'year') multiplier = 12;
+    else if (period === 'custom' && financialStartDate && financialEndDate) {
+      const days = Math.ceil((financialEndDate.getTime() - financialStartDate.getTime()) / 86400000) + 1;
+      multiplier = days / 30;
+    }
+
+    return operatingExpensesList.reduce((total, exp) => {
+      const type: string = exp.expense_type || 'monthly';
+      if (type === 'monthly') {
+        return total + (exp.monthly_amount || 0) * multiplier;
+      } else if (type === 'percentage') {
+        return total + periodRevenue * ((exp.percentage_value || 0) / 100);
+      } else if (type === 'one_time') {
+        const d = new Date(exp.expense_date || exp.created_at);
+        if (!isNaN(d.getTime()) && d >= start && d <= end) {
+          return total + (exp.amount || 0);
+        }
+      }
+      return total;
+    }, 0);
+  };
+
+  // ═══════════════════════════════════════════════════════════
   // ЗАТРАТЫ КОМПАНИИ = стоимость товаров на складе (цифровой склад)
   //   = сумма(вариант.цена_закупки × кол-во на складе) по всем вариантам
   //   + ежемесячные расходы из ExpensesManager (зарплата, аренда, ...)
@@ -350,12 +403,14 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   // ═══════════════════════════════════════════════════════════
-  // ИТОГОВЫЙ БАЛАНС = Прибыль − Затраты
-  //   Если затраты > прибыли → отрицательный (красный)
-  //   Если прибыль > затрат → положительный (синий/зелёный)
+  // ИТОГОВЫЙ БАЛАНС = Прибыль (наценка) − Расходы компании за период
+  //   Расходы = операционные (аренда, зп, налоги, разовые)
+  //   COGS уже учтён в самой прибыли (markup = selling - cost)
   // ═══════════════════════════════════════════════════════════
   const getFinalBalance = (period: PeriodType = 'day') => {
-    return getPeriodProfit(period) - getTotalCompanyExpenses();
+    const revenue = getPeriodRevenue(period);
+    const opEx = getPeriodOperatingExpenses(period, revenue);
+    return getPeriodProfit(period) - opEx;
   };
 
   // 💳 НОВОЕ: Разбивка виртуальных платежей по методам (demo/real)
@@ -755,8 +810,9 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           {/* Expenses Manager */}
           <ExpensesManager
             companyId={companyId}
-            onCustomExpensesUpdate={(totalCustomExpenses) => {
+            onCustomExpensesUpdate={(totalCustomExpenses, expensesList) => {
               setCustomExpenses(totalCustomExpenses);
+              setOperatingExpensesList(expensesList || []);
             }}
           />
 
@@ -777,19 +833,21 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                3 ПАНЕЛИ: ПРИБЫЛЬ / ЗАТРАТЫ / ИТОГОВЫЙ БАЛАНС
           ═══════════════════════════════════════════════════════ */}
           {(() => {
-            const profit = getPeriodProfit(financialTimePeriod);
-            const expenses = getTotalCompanyExpenses();
-            const balance = getFinalBalance(financialTimePeriod);
+            const profit   = getPeriodProfit(financialTimePeriod);
+            const revenue  = getPeriodRevenue(financialTimePeriod);
+            const cogs     = getPeriodCOGS(financialTimePeriod);
+            const opEx     = getPeriodOperatingExpenses(financialTimePeriod, revenue);
+            const balance  = profit - opEx;
             const isPositive = balance >= 0;
             return (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-6">
 
-                {/* ── 1. ПРИБЫЛЬ ── */}
+                {/* ── 1. ПРИБЫЛЬ (наценка с проданных товаров) ── */}
                 <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl shadow-lg p-5 text-white">
                   <div className="flex items-center gap-2 mb-3">
                     <TrendingUp className="w-6 h-6 text-emerald-200" />
                     <span className="text-emerald-100 font-semibold text-sm uppercase tracking-wide">
-                      {language === 'uz' ? 'Foyda' : 'Прибыль'}
+                      {language === 'uz' ? 'Foyda (ustama)' : 'Прибыль (наценка)'}
                     </span>
                   </div>
                   <div className="text-4xl font-extrabold mb-2">
@@ -799,10 +857,14 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                     {language === 'uz'
                       ? `Buyurtmalar: ${getFilteredOrders(financialTimePeriod).length} ta · Kassa: ${getFilteredSales(financialTimePeriod).length} ta`
                       : `Заказы: ${getFilteredOrders(financialTimePeriod).length} · Касса: ${getFilteredSales(financialTimePeriod).length}`}
+                    <br />
+                    {language === 'uz'
+                      ? `Daromad: ${formatPrice(revenue)} · Tannarx: ${formatPrice(cogs)}`
+                      : `Выручка: ${formatPrice(revenue)} · Себест.: ${formatPrice(cogs)}`}
                   </div>
                 </div>
 
-                {/* ── 2. ЗАТРАТЫ КОМПАНИИ ── */}
+                {/* ── 2. ЗАТРАТЫ КОМПАНИИ (себестоимость + операционные) ── */}
                 <div className="bg-gradient-to-br from-red-500 to-red-700 rounded-xl shadow-lg p-5 text-white">
                   <div className="flex items-center gap-2 mb-3">
                     <Package className="w-6 h-6 text-red-200" />
@@ -810,17 +872,23 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                       {language === 'uz' ? 'Kompaniya xarajatlari' : 'Затраты компании'}
                     </span>
                   </div>
-                  <div className="text-4xl font-extrabold mb-2">
-                    -{formatPrice(expenses)}
+                  <div className="text-2xl font-extrabold mb-1">
+                    {language === 'uz' ? 'Tannarx' : 'Себестоимость'}: -{formatPrice(cogs)}
+                  </div>
+                  <div className="text-xl font-bold mb-2 text-red-100">
+                    {language === 'uz' ? 'Operatsion' : 'Операционные'}: -{formatPrice(opEx)}
                   </div>
                   <div className="text-red-200 text-xs leading-relaxed">
                     {language === 'uz'
-                      ? `Omborhona: ${formatPrice(inventoryCost)} · Oylik: ${formatPrice(customExpenses)}`
-                      : `Склад: ${formatPrice(inventoryCost)} · Ежемес.: ${formatPrice(customExpenses)}`}
+                      ? `Ombor qiymati: ${formatPrice(inventoryCost)}`
+                      : `Стоимость склада: ${formatPrice(inventoryCost)}`}
+                    {operatingExpensesList.length > 0 && (
+                      <> · {operatingExpensesList.length} {language === 'uz' ? 'ta xarajat' : 'расходов'}</>
+                    )}
                   </div>
                 </div>
 
-                {/* ── 3. ИТОГОВЫЙ БАЛАНС ── */}
+                {/* ── 3. ИТОГОВЫЙ БАЛАНС = Прибыль − Операционные расходы ── */}
                 <div className={`bg-gradient-to-br ${isPositive ? 'from-blue-500 to-blue-700' : 'from-rose-600 to-rose-800'} rounded-xl shadow-lg p-5 text-white`}>
                   <div className="flex items-center gap-2 mb-3">
                     <CreditCard className={`w-6 h-6 ${isPositive ? 'text-blue-200' : 'text-rose-200'}`} />
@@ -833,8 +901,8 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </div>
                   <div className={`${isPositive ? 'text-blue-200' : 'text-rose-200'} text-xs leading-relaxed`}>
                     {language === 'uz'
-                      ? `Foyda (${formatPrice(profit)}) − Xarajat (${formatPrice(expenses)})`
-                      : `Прибыль (${formatPrice(profit)}) − Затраты (${formatPrice(expenses)})`}
+                      ? `Foyda (${formatPrice(profit)}) − Xarajatlar (${formatPrice(opEx)})`
+                      : `Прибыль (${formatPrice(profit)}) − Расходы (${formatPrice(opEx)})`}
                   </div>
                 </div>
 
