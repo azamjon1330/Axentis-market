@@ -202,7 +202,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     return {
       totalProducts: realProducts.length,
       totalQuantity: realProducts.reduce((sum: number, p: any) => sum + (p.quantity || 0), 0),
-      totalValue: realProducts.reduce((sum: number, p: any) => sum + ((p.price || 0) * (p.quantity || 0)), 0),
+      totalValue: realProducts.reduce((sum: number, p: any) => sum + (p.inventoryCost || (p.price || 0) * (p.quantity || 0)), 0),
       categories: categories.length
     };
   }, [products, categories]);

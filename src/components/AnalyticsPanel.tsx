@@ -199,11 +199,9 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       // Calculate custom expenses from expenses table
       const customExp = expenses.filter((e: any) => e.category === 'custom' || e.category === 'other').reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
       
-      // Calculate purchase costs from products inventory (товары на складе)
+      // Calculate purchase costs from products inventory (variant-level prices if available)
       const purchaseCost = products.reduce((sum: number, p: any) => {
-        const quantity = p.quantity || 0;
-        const price = p.price || 0;
-        return sum + (quantity * price);
+        return sum + (p.inventoryCost || (p.quantity || 0) * (p.price || 0));
       }, 0);
       
       setProducts(products);

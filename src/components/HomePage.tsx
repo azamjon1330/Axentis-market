@@ -1262,27 +1262,163 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         </div>
       ) : (
         <>
-            {/* Banner Area (Matches the wireframe's top grey block) */}
-            <div className="mb-6">
-              <ApprovedAdsBanner 
-                onCompanyClick={(companyId) => handleOpenCompany(Number(companyId))} 
+            {/* ── BANNER ── */}
+            <div className="mb-4">
+              <ApprovedAdsBanner
+                onCompanyClick={(companyId) => handleOpenCompany(Number(companyId))}
                 onProductClick={(productId) => {
                   const product = products.find(p => p.id === Number(productId));
-                  if (product) {
-                    handleOpenProduct(product);
-                  }
+                  if (product) handleOpenProduct(product);
                 }}
               />
             </div>
 
             {/* Pull to refresh indicator */}
             {isRefreshing && (
-              <div className="flex justify-center mb-4">
-                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
+              <div className="flex justify-center mb-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600" />
               </div>
             )}
 
-            {/* Category filter pills */}
+            {/* ── CATEGORY ICONS ROW ── */}
+            {!loading && uniqueCategories.length > 0 && (() => {
+              const ICONS: Record<string, string> = {
+                'электроника': '📱', 'electronics': '📱',
+                'одежда': '👔', 'clothes': '👔', 'clothing': '👔',
+                'еда': '🍔', 'food': '🍔', 'продукты': '🛒',
+                'дом': '🏠', 'home': '🏠', 'мебель': '🪑',
+                'спорт': '⚽', 'sport': '⚽', 'sports': '⚽',
+                'детские': '🧸', 'kids': '🧸', 'children': '🧸',
+                'красота': '💄', 'beauty': '💄', 'косметика': '💅',
+                'авто': '🚗', 'auto': '🚗', 'автомобили': '🚗',
+                'книги': '📚', 'books': '📚',
+                'игрушки': '🎮', 'games': '🎮',
+                'обувь': '👟', 'shoes': '👟',
+                'аксессуары': '⌚', 'accessories': '⌚',
+              };
+              const getIcon = (cat: string) => ICONS[cat.toLowerCase()] || '📦';
+              return (
+                <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-5" style={{ scrollbarWidth: 'none' }}>
+                  <div className="flex gap-4 pb-1" style={{ width: 'max-content' }}>
+                    <button
+                      onClick={() => setActiveCategory(null)}
+                      className="flex flex-col items-center gap-1.5 shrink-0"
+                    >
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                        activeCategory === null
+                          ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
+                          : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
+                      }`}>
+                        🏪
+                      </div>
+                      <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] ${
+                        activeCategory === null ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        Все
+                      </span>
+                    </button>
+                    {uniqueCategories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                        className="flex flex-col items-center gap-1.5 shrink-0"
+                      >
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                          activeCategory === cat
+                            ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
+                            : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
+                        }`}>
+                          {getIcon(cat)}
+                        </div>
+                        <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] truncate ${
+                          activeCategory === cat ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {cat}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── ПОПУЛЯРНОЕ — горизонтальный скролл ── */}
+            {!loading && !searchQuery && !activeCategory && products.length > 0 && (() => {
+              const popular = [...products]
+                .filter(p => p.availableForCustomers !== false)
+                .sort((a: any, b: any) => (b.soldCount || 0) - (a.soldCount || 0))
+                .slice(0, 12);
+              if (popular.length < 2) return null;
+              return (
+                <div className="mb-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                      🔥 Популярное
+                    </h2>
+                    <span className={`text-xs font-medium ${isNight ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                      Смотреть все →
+                    </span>
+                  </div>
+                  <div
+                    className="-mx-4 px-4 overflow-x-auto scrollbar-none"
+                    style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as any}
+                  >
+                    <div className="flex gap-3 pb-1" style={{ width: 'max-content' }}>
+                      {popular.map(product => {
+                        const price = getPriceWithMarkup(product);
+                        const img = product.images && product.images.length > 0
+                          ? (typeof (product.images[0] as any) === 'string'
+                              ? (product.images[0] as any)
+                              : null)
+                          : null;
+                        const inCart = (cart[product.id] || 0) > 0;
+                        return (
+                          <button
+                            key={product.id}
+                            onClick={() => handleOpenProduct(product)}
+                            className={`shrink-0 w-36 rounded-2xl overflow-hidden text-left transition-transform active:scale-95 ${
+                              isNight ? 'bg-white/8' : 'bg-white shadow-sm'
+                            }`}
+                          >
+                            {/* Image */}
+                            <div className={`w-full h-32 relative ${isNight ? 'bg-white/5' : 'bg-gray-100'}`}>
+                              {img ? (
+                                <img
+                                  src={img.startsWith('http') ? img : `/uploads/${img}`}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-3xl">
+                                  📦
+                                </div>
+                              )}
+                              {inCart && (
+                                <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                                  <span className="text-white text-[9px] font-bold">{cart[product.id]}</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* Info */}
+                            <div className="p-2.5">
+                              <p className={`text-xs font-medium line-clamp-2 leading-tight mb-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                                {product.name}
+                              </p>
+                              <p className="text-xs font-bold text-indigo-600">
+                                {formatPrice(price)}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── CATEGORY PILLS (фильтр) ── */}
             {!loading && uniqueCategories.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
                 <button
@@ -1311,14 +1447,14 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               </div>
             )}
 
-            {/* Product Grid */}
+            {/* ── PRODUCT GRID ── */}
             {loading ? (
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
-                 {[1, 2, 3, 4, 5, 6].map(i => (
-                   <div key={i} className={`h-64 rounded-xl animate-pulse ${
-                     isNight ? 'bg-slate-800' : 'bg-gray-200'
-                   }`} />
-                 ))}
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className={`h-64 rounded-xl animate-pulse ${
+                    isNight ? 'bg-slate-800' : 'bg-gray-200'
+                  }`} />
+                ))}
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-12">

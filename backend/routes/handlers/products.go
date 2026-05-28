@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"database/sql"
@@ -99,7 +99,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				           price * (1.0 + COALESCE(markup_percent, 0) / 100.0)
 				       ) as selling_price,
 				       markup_amount, barcode, barid, category, images,
-				       description, color, size, brand, has_color_options, available_for_customers, sold_count, created_at, updated_at
+				       description, color, size, brand, has_color_options, available_for_customers, sold_count, created_at, updated_at,
+				       COALESCE(
+				           NULLIF((SELECT SUM(pv.price * pv.stock_quantity) FROM product_variants pv WHERE pv.product_id = products.id), 0),
+				           price * quantity
+				       ) as inventory_cost
 				FROM products
 				WHERE company_id = $1
 				ORDER BY created_at DESC
@@ -140,6 +144,7 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				CreatedAt             string
 				UpdatedAt             string
 				CompanyName           sql.NullString
+				InventoryCost         sql.NullFloat64
 			}
 
 			var err error
@@ -151,12 +156,12 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					&p.HasColorOptions, &p.AvailableForCustomers,
 					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName)
 			} else {
-				// Без company_name
+				// Без company_name, но с inventory_cost
 				err = rows.Scan(&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
 					&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 					&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 					&p.HasColorOptions, &p.AvailableForCustomers,
-					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt)
+					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.InventoryCost)
 			}
 
 			if err != nil {
@@ -225,6 +230,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				product["soldCount"] = p.SoldCount.Int64
 			} else {
 				product["soldCount"] = 0
+			}
+			if p.InventoryCost.Valid {
+				product["inventoryCost"] = p.InventoryCost.Float64
+			} else {
+				product["inventoryCost"] = p.Price * float64(p.Quantity)
 			}
 
 			// Парсим images
