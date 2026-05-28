@@ -288,6 +288,17 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     });
   };
 
+  const getFilteredSales = (period: PeriodType = 'day') => {
+    const { start, end } = getPeriodRange(period);
+    return salesHistory.filter(sale => {
+      const dateStr = sale.createdAt || sale.created_at;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return false;
+      return d >= start && d <= end;
+    });
+  };
+
   const getPreviousPeriodOrders = (period: PeriodType = 'day') => {
     const now = new Date();
     let start = new Date();
@@ -317,11 +328,13 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   // ═══════════════════════════════════════════════════════════
-  // ПРИБЫЛЬ = наценка с проданных заказов в выбранном периоде
+  // ПРИБЫЛЬ = наценка с проданных заказов + кассовых продаж
   //   markup_profit = selling_price - purchase_price (per item × qty)
   // ═══════════════════════════════════════════════════════════
   const getPeriodProfit = (period: PeriodType = 'day') => {
-    return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
+    const ordersProfit = getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
+    const salesProfit = getFilteredSales(period).reduce((sum, s) => sum + (parseFloat(s.markupProfit) || parseFloat(s.markup_profit) || 0), 0);
+    return ordersProfit + salesProfit;
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -784,8 +797,8 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </div>
                   <div className="text-emerald-200 text-xs leading-relaxed">
                     {language === 'uz'
-                      ? `Sotilgan tovarlarning solishtirma narxi va sotish narxi o'rtasidagi farq (${getFilteredOrders(financialTimePeriod).length} buyurtma)`
-                      : `Разница между ценой закупки и ценой продажи по проданным товарам (${getFilteredOrders(financialTimePeriod).length} заказов)`}
+                      ? `Buyurtmalar: ${getFilteredOrders(financialTimePeriod).length} ta · Kassa: ${getFilteredSales(financialTimePeriod).length} ta`
+                      : `Заказы: ${getFilteredOrders(financialTimePeriod).length} · Касса: ${getFilteredSales(financialTimePeriod).length}`}
                   </div>
                 </div>
 

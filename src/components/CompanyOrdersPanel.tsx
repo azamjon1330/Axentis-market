@@ -5,6 +5,7 @@ import { formatUzbekistanFullDateTime } from '../utils/uzbekTime';
 import { toast } from 'sonner@2.0.3';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
+import CompactPeriodSelector from './CompactPeriodSelector';
 
 interface OrderItem {
   name: string;
@@ -50,10 +51,15 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
   }, []);
 
+  type PeriodType = 'day' | 'week' | 'month' | 'year' | 'custom';
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled'>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodType>('day');
+  const [periodStartDate, setPeriodStartDate] = useState<Date | null>(null);
+  const [periodEndDate, setPeriodEndDate] = useState<Date | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [showMapModal, setShowMapModal] = useState(false);
@@ -221,6 +227,29 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     return new Intl.NumberFormat('uz-UZ').format(price) + ' сум';
   };
 
+  const getPeriodRange = (period: PeriodType): { start: Date; end: Date } => {
+    const now = new Date();
+    const start = new Date();
+    const end = new Date();
+    if (period === 'day') {
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (period === 'week') {
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'month') {
+      start.setMonth(now.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'year') {
+      start.setFullYear(now.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'custom') {
+      if (periodStartDate) { start.setTime(periodStartDate.getTime()); start.setHours(0, 0, 0, 0); }
+      if (periodEndDate) { end.setTime(periodEndDate.getTime()); end.setHours(23, 59, 59, 999); }
+    }
+    return { start, end };
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
@@ -256,6 +285,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
+  const { start: periodStart, end: periodEnd } = getPeriodRange(periodFilter);
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch =
       (order.order_code || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -264,8 +295,15 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
+    const dateStr = order.order_date || order.created_at || '';
+    const d = dateStr ? new Date(dateStr) : null;
+    const matchesPeriod = d && !isNaN(d.getTime()) ? d >= periodStart && d <= periodEnd : true;
+
+    return matchesSearch && matchesStatus && matchesPeriod;
   });
+
+  const periodRevenue = filteredOrders.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0);
+  const periodProfit = filteredOrders.reduce((sum, o) => sum + (Number(o.markup_profit) || 0), 0);
 
   if (loading) {
     return (
@@ -296,6 +334,56 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             <RefreshCw className={responsive.iconSmall} />
           </button>
         </div>
+
+        {/* Period Selector */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <span className={`${responsive.small} font-medium text-gray-600`}>
+              {language === 'uz' ? 'Davr' : 'Период'}
+            </span>
+          </div>
+          <CompactPeriodSelector value={periodFilter} onChange={setPeriodFilter} />
+        </div>
+
+        {/* Period Stats */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="bg-blue-50 rounded-lg p-2 text-center">
+            <div className={`font-bold text-blue-700 ${responsive.body}`}>{filteredOrders.length}</div>
+            <div className={`${responsive.small} text-blue-500`}>{language === 'uz' ? 'Buyurtma' : 'Заказов'}</div>
+          </div>
+          <div className="bg-indigo-50 rounded-lg p-2 text-center">
+            <div className={`font-bold text-indigo-700 ${responsive.body}`}>{formatPrice(periodRevenue)}</div>
+            <div className={`${responsive.small} text-indigo-500`}>{language === 'uz' ? 'Daromad' : 'Выручка'}</div>
+          </div>
+          <div className="bg-emerald-50 rounded-lg p-2 text-center">
+            <div className={`font-bold text-emerald-700 ${responsive.body}`}>+{formatPrice(periodProfit)}</div>
+            <div className={`${responsive.small} text-emerald-500`}>{language === 'uz' ? 'Foyda' : 'Прибыль'}</div>
+          </div>
+        </div>
+
+        {periodFilter === 'custom' && (
+          <div className="flex gap-2 mb-3">
+            <div className="flex-1">
+              <label className={`${responsive.small} text-gray-500 block mb-1`}>{language === 'uz' ? 'Boshidan' : 'С даты'}</label>
+              <input
+                type="date"
+                value={periodStartDate ? periodStartDate.toISOString().split('T')[0] : ''}
+                onChange={(e) => setPeriodStartDate(e.target.value ? new Date(e.target.value) : null)}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${responsive.small} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+            </div>
+            <div className="flex-1">
+              <label className={`${responsive.small} text-gray-500 block mb-1`}>{language === 'uz' ? 'Gacha' : 'По дату'}</label>
+              <input
+                type="date"
+                value={periodEndDate ? periodEndDate.toISOString().split('T')[0] : ''}
+                onChange={(e) => setPeriodEndDate(e.target.value ? new Date(e.target.value) : null)}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg ${responsive.small} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row gap-3">
           <div className="flex-1 relative">
