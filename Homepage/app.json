@@ -29,6 +29,11 @@
         "ACCESS_COARSE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
         "POST_NOTIFICATIONS"
       ]
     },
@@ -49,6 +54,12 @@
         "projectId": "92815e18-d136-4475-8357-a6156bfc5775"
       }
     },
-    "owner": "spm_supreme"
+    "owner": "spm_supreme",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/92815e18-d136-4475-8357-a6156bfc5775"
+    }
   }
 }

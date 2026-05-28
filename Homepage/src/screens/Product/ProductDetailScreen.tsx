@@ -264,11 +264,13 @@ export default function ProductDetailScreen() {
   const displayPrice = variantPrice ?? basePrice;
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;
   const discount = product.discountPercent;
-  const minVariantPrice = variants.length > 0 ? Math.min(...variants.filter(v => v.stockQuantity > 0 || true).map(v => v.sellingPrice || v.price)) : null;
-  const maxVariantPrice = variants.length > 0 ? Math.max(...variants.map(v => v.sellingPrice || v.price)) : null;
+  const validVariantPrices = variants.map(v => v.sellingPrice || v.price).filter(p => p > 0);
+  const minVariantPrice = validVariantPrices.length > 0 ? Math.min(...validVariantPrices) : null;
+  const maxVariantPrice = validVariantPrices.length > 0 ? Math.max(...validVariantPrices) : null;
+  const fallbackPrice = minVariantPrice ?? basePrice;
   const bottomDisplayPrice = selectedVariant
     ? (selectedVariant.sellingPrice || selectedVariant.price)
-    : (hasVariants && minVariantPrice !== null ? minVariantPrice : basePrice);
+    : (hasVariants ? fallbackPrice : basePrice);
   const hasReviews = (stats?.totalReviews ?? 0) > 0;
   const displayRating = hasReviews ? (stats?.averageRating ?? 5) : 5;
 

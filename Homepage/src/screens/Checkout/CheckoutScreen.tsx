@@ -221,6 +221,8 @@ export default function CheckoutScreen() {
           price: i.product?.price || 0,
           price_with_markup: i.product?.sellingPrice || i.product?.price || 0,
           imageUrl: i.product?.images?.[0] || undefined,
+          color: i.selected_color || undefined,
+          size: i.selected_size || undefined,
         })),
         totalAmount: total + deliveryCost,
         deliveryType: 'delivery',

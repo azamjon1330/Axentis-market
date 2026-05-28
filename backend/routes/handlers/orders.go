@@ -494,14 +494,47 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 						quantity = int(q)
 					}
 					if productId > 0 {
-						if _, err := tx.Exec(`
-							UPDATE products
-							SET quantity   = GREATEST(0, quantity - $1),
-							    sold_count = sold_count + $1,
-							    updated_at = NOW()
-							WHERE id = $2
-						`, quantity, productId); err != nil {
-							log.Printf("⚠️ UpdateOrderStatus: stock update failed for product %d: %v", productId, err)
+						// Try to decrement specific variant if color/size is known
+						color, _ := item["color"].(string)
+						size, _ := item["size"].(string)
+						variantDecremented := false
+						if color != "" || size != "" {
+							res, err := tx.Exec(`
+								UPDATE product_variants
+								SET stock_quantity = GREATEST(0, stock_quantity - $1),
+								    updated_at     = NOW()
+								WHERE product_id = $2
+								  AND ($3 = '' OR color = $3)
+								  AND ($4 = '' OR size  = $4)
+							`, quantity, productId, color, size)
+							if err == nil {
+								if affected, _ := res.RowsAffected(); affected > 0 {
+									variantDecremented = true
+								}
+							}
+						}
+						if variantDecremented {
+							// Sync parent product quantity from variants
+							if _, err := tx.Exec(`
+								UPDATE products
+								SET quantity   = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
+								    sold_count = sold_count + $2,
+								    updated_at = NOW()
+								WHERE id = $1
+							`, productId, quantity); err != nil {
+								log.Printf("⚠️ UpdateOrderStatus: product sync failed for product %d: %v", productId, err)
+							}
+						} else {
+							// No variant info — decrement product quantity directly
+							if _, err := tx.Exec(`
+								UPDATE products
+								SET quantity   = GREATEST(0, quantity - $1),
+								    sold_count = sold_count + $1,
+								    updated_at = NOW()
+								WHERE id = $2
+							`, quantity, productId); err != nil {
+								log.Printf("⚠️ UpdateOrderStatus: stock update failed for product %d: %v", productId, err)
+							}
 						}
 					}
 				}

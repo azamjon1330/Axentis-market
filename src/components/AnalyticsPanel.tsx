@@ -397,72 +397,25 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     return filtered;
   };
 
-  // 💰 Ра��чет общего баланса компании
-  // ФОРМУЛА: Выручка от продаж (это просто выручка)
-  const getTotalBalance = (period: PeriodType = 'all') => {
-    // ✅ ИСПРАВЛЕНО: Используем ОТФИЛЬТРОВАННЫЕ заказы для расчета выручки
-    const filteredOrders = getFilteredOrders(period);
-    
-    // Рассчитываем выручку из отфильтрованных заказов
-    const filteredRevenue = filteredOrders.reduce((sum, order) => {
-      return sum + (parseFloat(order.total_amount) || 0);
-    }, 0);
-    
-    console.log('💰 [Total Balance]:');
-    console.log('   📅 Период:', financialTimePeriod);
-    console.log('   📦 Отфильтровано заказов:', filteredOrders.length);
-    console.log('   � Выручка за период:', filteredRevenue.toLocaleString(), 'сум');
-    
-    return filteredRevenue; // ✅ Возвращаем выручку за ВЫБРАННЫЙ период
+  // 💰 Прибыль = наценка с проданных товаров за период (markup_profit)
+  const getPeriodProfit = (period: PeriodType = 'all') => {
+    return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
   };
 
-  // 💸 НОВОЕ: Расчет ЗАТРАТ компании (показывается как МИНУС) БЕЗ фильтрации по периоду
-  const getTotalCompanyExpenses = (ignorePeriod: boolean = false) => {
-    console.log('\n💸 [getTotalCompanyExpenses] НАЧАЛО РАСЧЕТА:');
-    console.log('   📅 Игнорировать период:', ignorePeriod);
-    console.log('   📊 Всего заказов в ordersWithItems:', ordersWithItems.length);
-    
-    // ✅ ВАЖНО: Затраты компании = стоимость товаров на складе
-    // Используем ТОЛЬКО price (без наценки) × quantity
-    const totalInventoryCost = products.reduce((sum, product) => {
-      const basePrice = product.price || 0; // 💰 Цена БЕЗ наценки (закупочная)
-      const quantity = product.quantity || 0;
-      const cost = basePrice * quantity;
-      
-      // 🔍 Логируем каждый товар для отладки
-      if (quantity > 0) {
-        console.log(`   📦 ${product.name}: ${quantity} × ${basePrice.toLocaleString()} = ${cost.toLocaleString()}`);
-      }
-      
-      return sum + cost;
+  // 💸 Затраты компании = себестоимость ПРОДАННЫХ товаров за период
+  // Формула: total_amount - markup_profit = закупочная цена × кол-во (затраты на проданные товары)
+  const getTotalCompanyExpenses = (period: PeriodType = 'all') => {
+    const filtered = getFilteredOrders(period);
+    return filtered.reduce((sum, o) => {
+      const totalAmt = parseFloat(o.total_amount) || 0;
+      const markup = parseFloat(o.markup_profit) || 0;
+      return sum + (totalAmt - markup);
     }, 0);
-    
-    console.log('   💰 Стоимость цифрового склада:', totalInventoryCost.toLocaleString(), 'сум');
-    console.log('   👉 Это себестоимость товаров (БЕЗ наценки)');
-    
-    // Фиксированные затраты (зарплата, электричество, прочее)
-    const fixedExpenses = employeeExpenses + electricityExpenses + customExpenses;
-    
-    console.log('   📊 Фиксированные расходы:', fixedExpenses.toLocaleString(), 'сум');
-    console.log('   ✅ ИТОГО затраты компании:', (totalInventoryCost + fixedExpenses).toLocaleString(), 'сум');
-    
-    return totalInventoryCost + fixedExpenses;
   };
 
-  // 💎 НОВОЕ: Итоговый баланс компании
+  // 💎 Итоговый баланс = прибыль + затраты (выручка = прибыль + себестоимость)
   const getFinalBalance = (period: PeriodType = 'all') => {
-    const balance = getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
-    const expenses = getTotalCompanyExpenses(true); // Всегда игнорируем период для затрат
-    const final = balance - expenses;
-
-    console.log('💎 [Final Balance]:');
-    console.log('   📅 Период:', period);
-    console.log('   💰 Прибыль от наценок (за период):', balance.toLocaleString(), 'сум');
-    console.log('   💸 Затраты компании (общие):', expenses.toLocaleString(), 'сум');
-    console.log('   💎 ИТОГОВЫЙ БАЛАНС:', final.toLocaleString(), 'сум');
-    console.log('   📐 Формула:', `${balance} - ${expenses} = ${final}`);
-
-    return final;
+    return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
   };
 
   // 💳 НОВОЕ: Разбивка виртуальных платежей по методам (demo/real)
@@ -910,52 +863,56 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           </div>
 
           {/* ========== 3 ПАНЕЛИ ========== */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-6">
-            {/* 1️⃣ Прибыль (отфильтрованная по периоду) */}
-            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-5 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-6 h-6" />
-                <div className="text-green-100 text-base">{t.profit}</div>
-              </div>
-              <div className="text-3xl font-bold mb-1">
-                {formatPrice(getFilteredOrders(financialTimePeriod).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0))}
-              </div>
-              <div className="text-green-100 text-xs">
-                {t.profitFromMarkups}
-              </div>
-            </div>
+          {(() => {
+            const profit = getPeriodProfit(financialTimePeriod);
+            const expenses = getTotalCompanyExpenses(financialTimePeriod);
+            const balance = getFinalBalance(financialTimePeriod);
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 max-w-7xl mx-auto mb-6">
+                {/* 1️⃣ Прибыль = наценка с проданных товаров */}
+                <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-lg p-5 text-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="w-6 h-6" />
+                    <div className="text-green-100 text-base">{t.profit}</div>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    +{formatPrice(profit)}
+                  </div>
+                  <div className="text-green-100 text-xs">
+                    {t.profitFromMarkups}
+                  </div>
+                </div>
 
-            {/* 2️⃣ Затраты компании (МИНУС) */}
-            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-5 text-white">
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="w-6 h-6" />
-                <div className="text-red-100 text-base">{t.companyExpenses}</div>
-              </div>
-              <div className="text-3xl font-bold">
-                -{formatPrice(getTotalCompanyExpenses())}
-              </div>
-            </div>
+                {/* 2️⃣ Затраты компании = себестоимость проданных товаров (МИНУС) */}
+                <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-lg p-5 text-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-6 h-6" />
+                    <div className="text-red-100 text-base">{t.companyExpenses}</div>
+                  </div>
+                  <div className="text-3xl font-bold mb-1">
+                    -{formatPrice(expenses)}
+                  </div>
+                  <div className="text-red-100 text-xs">
+                    {language === 'uz' ? 'Sotilgan mahsulotlar tannarxi' : 'Себестоимость проданных товаров'}
+                  </div>
+                </div>
 
-            {/* 3️⃣ Итоговый баланс */}
-            {(() => {
-              const balance = getFinalBalance(financialTimePeriod);
-              const filteredProfit = getFilteredOrders(financialTimePeriod).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
-              return (
-                <div className={`bg-gradient-to-br ${balance >= 0 ? 'from-cyan-500 to-cyan-600' : 'from-rose-500 to-rose-600'} rounded-lg shadow-lg p-5 text-white`}>
+                {/* 3️⃣ Итоговый баланс = выручка (прибыль + затраты) */}
+                <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg shadow-lg p-5 text-white">
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCard className="w-6 h-6" />
-                    <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-base`}>{t.finalBalance}</div>
+                    <div className="text-cyan-100 text-base">{t.finalBalance}</div>
                   </div>
                   <div className="text-3xl font-bold mb-1">
                     {formatPrice(balance)}
                   </div>
-                  <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-xs`}>
-                    {formatPrice(filteredProfit)} - {formatPrice(getTotalCompanyExpenses())}
+                  <div className="text-cyan-100 text-xs">
+                    +{formatPrice(profit)} - {formatPrice(expenses)}
                   </div>
                 </div>
-              );
-            })()}
-          </div>
+              </div>
+            );
+          })()}
 
           {/* 📊 ДИАГРАММА — ЗАКАЗЫ & ВЫРУЧКА НА ОДНОМ ГРАФИКЕ */}
           <div className="mb-6" key={`charts-${financialTimePeriod}`}>
