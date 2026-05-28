@@ -22,9 +22,11 @@ type CartItem struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 
 	// Дополнительная информация о товаре (для удобства фронтенда)
-	ProductName   string   `json:"product_name,omitempty"`
-	ProductPrice  float64  `json:"product_price,omitempty"`
-	ProductImages []string `json:"product_images,omitempty"`
+	ProductName    string   `json:"product_name,omitempty"`
+	ProductPrice   float64  `json:"product_price,omitempty"`  // selling price (with markup)
+	ProductBasePrice float64  `json:"product_base_price,omitempty"` // purchase/cost price
+	MarkupPercent  float64  `json:"markup_percent,omitempty"`
+	ProductImages  []string `json:"product_images,omitempty"`
 }
 
 // GetUserCart - получить корзину пользователя
@@ -43,6 +45,16 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				COALESCE(ci.selected_size, '') as selected_size,
 				ci.added_at, ci.updated_at,
 				p.name,
+				-- base_price: purchase/cost price
+				COALESCE(
+					(SELECT pv.price FROM product_variants pv
+					 WHERE pv.product_id = ci.product_id
+					   AND (ci.selected_color = '' OR pv.color = ci.selected_color)
+					   AND (ci.selected_size  = '' OR pv.size  = ci.selected_size)
+					 ORDER BY pv.id LIMIT 1),
+					p.price
+				) as base_price,
+				-- product_price: selling price with markup
 				COALESCE(
 					(SELECT pv.selling_price FROM product_variants pv
 					 WHERE pv.product_id = ci.product_id
@@ -50,10 +62,12 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 					   AND (ci.selected_size  = '' OR pv.size  = ci.selected_size)
 					   AND pv.selling_price > 0
 					 ORDER BY pv.id LIMIT 1),
-					p.selling_price
+					NULLIF(p.selling_price, 0),
+					p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
 				) as product_price,
 				COALESCE(p.images::text, '[]') as images,
-				p.company_id
+				p.company_id,
+				p.markup_percent
 			FROM cart_items ci
 			JOIN products p ON ci.product_id = p.id
 			WHERE ci.user_phone = $1
@@ -75,8 +89,8 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				&item.ID, &item.UserPhone, &item.ProductID, &item.Quantity,
 				&item.SelectedColor, &item.SelectedSize,
 				&item.AddedAt, &item.UpdatedAt,
-				&item.ProductName, &item.ProductPrice, &imagesJSON,
-				&item.CompanyID,
+				&item.ProductName, &item.ProductBasePrice, &item.ProductPrice, &imagesJSON,
+				&item.CompanyID, &item.MarkupPercent,
 			)
 			if err != nil {
 				continue

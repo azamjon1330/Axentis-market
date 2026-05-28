@@ -426,6 +426,11 @@ export const products = {
     console.log(`📊 Import completed: ${successCount} success, ${errorCount} errors`);
     return results;
   },
+
+  // Find product by barcode/sku — also searches product_variants
+  findByBarcode: async (companyId: number, barcode: string) => {
+    return apiCall(`/products/find-by-barcode?companyId=${companyId}&q=${encodeURIComponent(barcode)}`, { requiresAuth: false });
+  },
 };
 
 // ============================================================================

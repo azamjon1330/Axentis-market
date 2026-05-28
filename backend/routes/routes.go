@@ -68,6 +68,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		products := api.Group("/products")
 		{
 			products.GET("", handlers.GetProducts(db)) // Все товары или с query param companyId
+			products.GET("/find-by-barcode", handlers.FindProductByBarcode(db)) // Поиск по штрих-коду (включая варианты)
 			products.POST("", handlers.CreateProduct(db))
 			products.PUT("/:id", handlers.UpdateProduct(db))
 			products.DELETE("/:id", handlers.DeleteProduct(db))

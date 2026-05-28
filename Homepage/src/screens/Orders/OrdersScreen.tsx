@@ -11,7 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getUserOrders } from '../../api';
 import { Order, RootStackParamList } from '../../types';
-import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -97,9 +97,9 @@ export default function OrdersScreen() {
         <View style={styles.cardTop}>
           {/* Product thumbnail */}
           <View style={[styles.thumbnail, { backgroundColor: colors.cardAlt }]}>
-            {firstItem?.imageUrl ? (
+            {firstItem?.imageUrl && getImageUrl(firstItem.imageUrl) ? (
               <Image
-                source={{ uri: firstItem.imageUrl.startsWith('http') ? firstItem.imageUrl : `${UPLOADS_URL}/${firstItem.imageUrl}` }}
+                source={{ uri: getImageUrl(firstItem.imageUrl)! }}
                 style={styles.thumbnailImg}
                 resizeMode="contain"
               />

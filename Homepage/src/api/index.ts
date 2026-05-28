@@ -123,14 +123,17 @@ export const getCategoryProducts = async (category: string, params: { limit?: nu
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 const mapCartItem = (item: any): CartItem => {
   const productId = item.productId ?? item.product_id ?? 0;
+  // base_price = purchase/cost price; product_price = selling price (with markup)
+  const basePrice = item.product_base_price ?? item.product_price ?? item.productPrice ?? 0;
+  const sellingPrice = item.product_price ?? item.productPrice ?? basePrice;
   const product: any = item.product ?? {
     id: productId,
     companyId: item.companyId ?? item.company_id ?? 0,
     name: item.product_name ?? item.productName ?? '',
-    price: item.product_price ?? item.productPrice ?? 0,
-    sellingPrice: item.product_price ?? item.sellingPrice ?? item.product_price ?? 0,
-    markupPercent: 0,
-    markupAmount: 0,
+    price: basePrice,
+    sellingPrice: sellingPrice,
+    markupPercent: item.markup_percent ?? 0,
+    markupAmount: sellingPrice - basePrice,
     quantity: 0,
     hasColorOptions: false,
     availableForCustomers: true,

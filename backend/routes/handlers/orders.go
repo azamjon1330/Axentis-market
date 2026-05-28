@@ -339,7 +339,7 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			priceWithMarkup = pwm
 		}
 
-		// If prices are missing/zero, look up from product_variants or products table
+		// If prices are missing/zero/equal, look up from product_variants or products table
 		if (basePrice == 0 || priceWithMarkup == 0 || priceWithMarkup == basePrice) && quantity > 0 {
 			var productId int64
 			if pid, ok := item["productId"].(float64); ok {
@@ -354,7 +354,12 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 				// Try variant-specific price first
 				if color != "" || size != "" {
 					err := db.QueryRow(`
-						SELECT price, COALESCE(selling_price, price)
+						SELECT price,
+							CASE
+								WHEN selling_price IS NOT NULL AND selling_price > price THEN selling_price
+								WHEN markup_percent IS NOT NULL AND markup_percent > 0 THEN price * (1.0 + markup_percent / 100.0)
+								ELSE price
+							END
 						FROM product_variants
 						WHERE product_id = $1
 						  AND ($2 = '' OR color = $2)
@@ -368,7 +373,15 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 				}
 				// Fallback to product-level prices
 				if basePrice == 0 {
-					db.QueryRow(`SELECT price, COALESCE(selling_price, price) FROM products WHERE id = $1`, productId).Scan(&dbBase, &dbSelling)
+					db.QueryRow(`
+						SELECT price,
+							CASE
+								WHEN selling_price IS NOT NULL AND selling_price > price THEN selling_price
+								WHEN markup_percent IS NOT NULL AND markup_percent > 0 THEN price * (1.0 + markup_percent / 100.0)
+								ELSE price
+							END
+						FROM products WHERE id = $1
+					`, productId).Scan(&dbBase, &dbSelling)
 					if dbBase > 0 {
 						basePrice = dbBase
 						priceWithMarkup = dbSelling

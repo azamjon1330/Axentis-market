@@ -53,7 +53,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				log.Printf("🔒 GetProducts: Private mode for company %s", privateCompanyID)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
-					       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), p.selling_price) as selling_price,
+					       COALESCE(
+					           NULLIF((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), 0),
+					           NULLIF(p.selling_price, 0),
+					           p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
+					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name
@@ -69,7 +73,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				log.Printf("🌐 GetProducts: Public mode, limit=%d offset=%d", limit, offset)
 				rows, err = db.Query(`
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
-					       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), p.selling_price) as selling_price,
+					       COALESCE(
+					           NULLIF((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), 0),
+					           NULLIF(p.selling_price, 0),
+					           p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
+					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name
@@ -85,7 +93,11 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			// Товары конкретной компании (для админ-панели компании)
 			rows, err = db.Query(`
 				SELECT id, company_id, name, quantity, price, markup_percent,
-				       COALESCE((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.selling_price > 0), selling_price) as selling_price,
+				       COALESCE(
+				           NULLIF((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = products.id AND pv.selling_price > 0), 0),
+				           NULLIF(selling_price, 0),
+				           price * (1.0 + COALESCE(markup_percent, 0) / 100.0)
+				       ) as selling_price,
 				       markup_amount, barcode, barid, category, images,
 				       description, color, size, brand, has_color_options, available_for_customers, sold_count, created_at, updated_at
 				FROM products
@@ -1002,5 +1014,48 @@ func GetSimilarProducts(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, products)
+	}
+}
+
+// FindProductByBarcode searches products and variants by barcode/sku/barid for a company
+func FindProductByBarcode(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Query("companyId")
+		query := strings.ToLower(strings.TrimSpace(c.Query("q")))
+		if query == "" || companyID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "companyId and q are required"})
+			return
+		}
+
+		var productID int64
+		// Search product-level barcode/barid first
+		err := db.QueryRow(`
+			SELECT id FROM products
+			WHERE company_id = $1 AND (LOWER(barcode) = $2 OR LOWER(barid) = $2)
+			LIMIT 1
+		`, companyID, query).Scan(&productID)
+
+		if err == sql.ErrNoRows {
+			// Search product_variants barcode/sku/barid
+			err = db.QueryRow(`
+				SELECT pv.product_id FROM product_variants pv
+				JOIN products p ON p.id = pv.product_id
+				WHERE p.company_id = $1
+				  AND (LOWER(pv.barcode) = $2 OR LOWER(pv.sku) = $2 OR LOWER(pv.barid) = $2)
+				LIMIT 1
+			`, companyID, query).Scan(&productID)
+		}
+
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"found": false})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ FindProductByBarcode error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"found": true, "productId": productID})
 	}
 }

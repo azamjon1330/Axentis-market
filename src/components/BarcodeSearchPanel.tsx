@@ -153,20 +153,32 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
   };
 
   /**
-   * Поиск товара по штрих-коду/barid/названию
+   * Поиск товара по штрих-коду/barid/названию (включая варианты)
    */
-  const handleScan = () => {
+  const handleScan = async () => {
     if (!searchBarcode.trim()) return;
 
     const trimmedBarcode = searchBarcode.trim().toLowerCase();
-    
-    const foundProduct = products.find((p: Product) => {
+
+    // Local search first (fast)
+    let foundProduct = products.find((p: Product) => {
       const matchBarcode = p.barcode?.toLowerCase() === trimmedBarcode;
       const matchBarid = p.barid?.toLowerCase() === trimmedBarcode;
       const matchName = p.name.toLowerCase().includes(trimmedBarcode);
-      
       return matchBarcode || matchBarid || matchName;
     });
+
+    // If not found locally, search backend — catches variant barcodes/SKUs
+    if (!foundProduct) {
+      try {
+        const result = await api.products.findByBarcode(companyId, trimmedBarcode);
+        if (result?.found && result?.productId) {
+          foundProduct = products.find((p: Product) => p.id === result.productId);
+        }
+      } catch {
+        // not found in variants either — fall through to notFound state
+      }
+    }
 
     if (foundProduct) {
       setLastScannedProduct(foundProduct);
@@ -176,7 +188,7 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
     } else {
       setLastScannedProduct(null);
       setNotFound(true);
-      
+
       setTimeout(() => {
         setNotFound(false);
         setSearchBarcode('');
