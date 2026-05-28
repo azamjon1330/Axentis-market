@@ -320,99 +320,111 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 		
 		log.Printf("✅ CreateOrder: Parsed %d items", len(itemsArray))
 
-	// Calculate markup profit — if frontend prices are missing, look up from DB
+	// Calculate markup profit — ALWAYS look up actual variant price from DB
+	// Frontend may send product-level min price instead of the selected variant's price,
+	// so we use selling_price as a fingerprint to find the exact variant.
 	var markupProfit float64
 	for _, item := range itemsArray {
 		quantity := 0.0
-		basePrice := 0.0
-		priceWithMarkup := 0.0
+		frontendBase := 0.0
+		frontendSelling := 0.0
 
-		if q, ok := item["quantity"].(float64); ok {
-			quantity = q
-		}
-		if p, ok := item["price"].(float64); ok {
-			basePrice = p
-		}
+		if q, ok := item["quantity"].(float64); ok { quantity = q }
+		if p, ok := item["price"].(float64); ok { frontendBase = p }
 		if pwm, ok := item["price_with_markup"].(float64); ok {
-			priceWithMarkup = pwm
+			frontendSelling = pwm
 		} else if pwm, ok := item["priceWithMarkup"].(float64); ok {
-			priceWithMarkup = pwm
+			frontendSelling = pwm
 		}
 
-		// If prices are missing/zero/equal, look up real markup from DB
-		if (basePrice == 0 || priceWithMarkup == 0 || priceWithMarkup == basePrice) && quantity > 0 {
-			var productId int64
-			if pid, ok := item["productId"].(float64); ok {
-				productId = int64(pid)
-			} else if pid, ok := item["product_id"].(float64); ok {
-				productId = int64(pid)
-			}
-			if productId > 0 {
-				color, _ := item["color"].(string)
-				size, _ := item["size"].(string)
-				var dbBase, dbSelling float64
+		if quantity <= 0 {
+			continue
+		}
 
-				// Step 1: try matching variant (with or without color/size filter)
+		var productId int64
+		if pid, ok := item["productId"].(float64); ok {
+			productId = int64(pid)
+		} else if pid, ok := item["product_id"].(float64); ok {
+			productId = int64(pid)
+		}
+
+		basePrice := frontendBase
+		priceWithMarkup := frontendSelling
+
+		if productId > 0 {
+			color, _ := item["color"].(string)
+			size, _ := item["size"].(string)
+			var dbBase, dbSelling float64
+
+			// Step 1: Match variant by selling_price fingerprint (identifies exact variant)
+			// This handles the case where frontend sends product-level min price but customer
+			// actually bought a more expensive variant.
+			if frontendSelling > 0 {
 				db.QueryRow(`
-					SELECT price,
-						CASE
-							WHEN selling_price > price THEN selling_price
-							WHEN markup_percent > 0    THEN price * (1.0 + markup_percent / 100.0)
-							ELSE price
-						END
+					SELECT price, selling_price
 					FROM product_variants
 					WHERE product_id = $1
-					  AND ($2 = '' OR color = $2)
-					  AND ($3 = '' OR size  = $3)
+					  AND selling_price > price
+					  AND ABS(selling_price - $2) < 1.0
+					ORDER BY ABS(selling_price - $2) ASC
 					LIMIT 1
+				`, productId, frontendSelling).Scan(&dbBase, &dbSelling)
+			}
+
+			// Step 2: Match by color AND size (when size is provided)
+			if dbBase == 0 && size != "" && size != "Любой" && size != "Any" {
+				db.QueryRow(`
+					SELECT price, selling_price
+					FROM product_variants
+					WHERE product_id = $1
+					  AND selling_price > price
+					  AND ($2 = '' OR color = $2)
+					  AND size = $3
+					ORDER BY id ASC LIMIT 1
 				`, productId, color, size).Scan(&dbBase, &dbSelling)
+			}
 
-				if dbBase > 0 {
-					basePrice = dbBase
-					priceWithMarkup = dbSelling
-				}
+			// Step 3: Match by color only (if unique variant or best match)
+			if dbBase == 0 && color != "" && color != "Любой" && color != "Any" {
+				db.QueryRow(`
+					SELECT price, selling_price
+					FROM product_variants
+					WHERE product_id = $1
+					  AND selling_price > price
+					  AND color = $2
+					ORDER BY id ASC LIMIT 1
+				`, productId, color).Scan(&dbBase, &dbSelling)
+			}
 
-				// Step 2: no matching variant found — try ANY variant for this product
-				if basePrice == 0 || priceWithMarkup == basePrice {
-					db.QueryRow(`
-						SELECT price,
-							CASE
-								WHEN selling_price > price THEN selling_price
-								WHEN markup_percent > 0    THEN price * (1.0 + markup_percent / 100.0)
-								ELSE price
-							END
-						FROM product_variants
-						WHERE product_id = $1
-						  AND price > 0
-						ORDER BY price ASC
-						LIMIT 1
-					`, productId).Scan(&dbBase, &dbSelling)
-					if dbBase > 0 {
-						basePrice = dbBase
-						priceWithMarkup = dbSelling
-					}
-				}
+			// Step 4: Any variant with markup
+			if dbBase == 0 {
+				db.QueryRow(`
+					SELECT price, selling_price
+					FROM product_variants
+					WHERE product_id = $1 AND selling_price > price
+					ORDER BY price ASC LIMIT 1
+				`, productId).Scan(&dbBase, &dbSelling)
+			}
 
-				// Step 3: no variants at all — fall back to product-level
-				if basePrice == 0 || priceWithMarkup == basePrice {
-					db.QueryRow(`
-						SELECT price,
-							CASE
-								WHEN selling_price IS NOT NULL AND selling_price > price THEN selling_price
-								WHEN markup_percent IS NOT NULL AND markup_percent > 0   THEN price * (1.0 + markup_percent / 100.0)
-								ELSE price
-							END
-						FROM products WHERE id = $1
-					`, productId).Scan(&dbBase, &dbSelling)
-					if dbBase > 0 {
-						basePrice = dbBase
-						priceWithMarkup = dbSelling
-					}
-				}
+			// Step 5: Product-level fallback (no variants)
+			if dbBase == 0 {
+				db.QueryRow(`
+					SELECT price,
+						COALESCE(
+							NULLIF(selling_price, 0),
+							price * (1.0 + COALESCE(markup_percent, 0) / 100.0)
+						)
+					FROM products WHERE id = $1
+				`, productId).Scan(&dbBase, &dbSelling)
+			}
+
+			if dbBase > 0 && dbSelling > dbBase {
+				basePrice = dbBase
+				priceWithMarkup = dbSelling
 			}
 		}
 
-		if priceWithMarkup > basePrice && quantity > 0 {
+		if priceWithMarkup > basePrice {
 			markupProfit += (priceWithMarkup - basePrice) * quantity
 		}
 	}

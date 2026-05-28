@@ -109,41 +109,59 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 				continue
 			}
 
-			// Всегда берём актуальные цены из БД (base price и selling price)
-			// Это гарантирует корректный расчёт прибыли независимо от того, что прислал клиент
+			// Retrieve actual variant prices from DB using selling_price as fingerprint.
+			// Product-level prices reflect the MIN variant (wrong for orders of higher-priced variants).
 			var price float64
 			var priceWithMarkup float64
 
-			dbErr := db.QueryRow(`
-				SELECT price, selling_price FROM products WHERE id = $1 AND company_id = $2
-			`, productID, order.CompanyID).Scan(&price, &priceWithMarkup)
+			// Extract item-level prices as hints for variant matching
+			var itemSelling float64
+			var itemColor, itemSize string
+			if pwm, ok := item["price_with_markup"].(float64); ok { itemSelling = pwm }
+			if pwm, ok := item["priceWithMarkup"].(float64); ok && itemSelling == 0 { itemSelling = pwm }
+			if c, ok := item["color"].(string); ok { itemColor = c }
+			if s, ok := item["size"].(string); ok { itemSize = s }
 
-			if dbErr != nil || priceWithMarkup == 0 {
-				// Если не нашли в БД — берём из item как запасной вариант
-				if priceVal, ok := item["price"]; ok {
-					if pFloat, ok := priceVal.(float64); ok {
-						price = pFloat
-					}
-				}
-				if pwmVal, ok := item["price_with_markup"]; ok {
-					if pwmFloat, ok := pwmVal.(float64); ok {
-						priceWithMarkup = pwmFloat
-					}
-				}
-				if priceWithMarkup == 0 {
-					if pwmVal, ok := item["priceWithMarkup"]; ok {
-						if pwmFloat, ok := pwmVal.(float64); ok {
-							priceWithMarkup = pwmFloat
-						}
-					}
-				}
-				if priceWithMarkup == 0 {
-					priceWithMarkup = price
-				}
-				log.Printf("⚠️ Product %d not in DB, using item prices: base=%.2f, selling=%.2f", productID, price, priceWithMarkup)
-			} else {
-				log.Printf("📊 Product %d DB prices: base=%.2f, selling=%.2f", productID, price, priceWithMarkup)
+			// Step 1: Find variant by selling_price fingerprint (identifies exact variant)
+			if itemSelling > 0 {
+				db.QueryRow(`
+					SELECT price, selling_price FROM product_variants
+					WHERE product_id = $1 AND selling_price > price
+					  AND ABS(selling_price - $2) < 1.0
+					ORDER BY ABS(selling_price - $2) ASC LIMIT 1
+				`, productID, itemSelling).Scan(&price, &priceWithMarkup)
 			}
+
+			// Step 2: Find variant by color+size
+			if price == 0 && (itemColor != "" || itemSize != "") {
+				db.QueryRow(`
+					SELECT price, selling_price FROM product_variants
+					WHERE product_id = $1 AND selling_price > price
+					  AND ($2 = '' OR color = $2)
+					  AND ($3 = '' OR size  = $3)
+					ORDER BY id ASC LIMIT 1
+				`, productID, itemColor, itemSize).Scan(&price, &priceWithMarkup)
+			}
+
+			// Step 3: Any variant with markup
+			if price == 0 {
+				db.QueryRow(`
+					SELECT price, selling_price FROM product_variants
+					WHERE product_id = $1 AND selling_price > price
+					ORDER BY price ASC LIMIT 1
+				`, productID).Scan(&price, &priceWithMarkup)
+			}
+
+			// Step 4: Product-level fallback (no variants)
+			if price == 0 {
+				db.QueryRow(`
+					SELECT price, COALESCE(NULLIF(selling_price, 0), price * (1.0 + COALESCE(markup_percent,0)/100.0))
+					FROM products WHERE id = $1 AND company_id = $2
+				`, productID, order.CompanyID).Scan(&price, &priceWithMarkup)
+			}
+
+			if priceWithMarkup == 0 { priceWithMarkup = price }
+			log.Printf("📊 Product %d variant prices: base=%.2f, selling=%.2f (item hint selling=%.2f)", productID, price, priceWithMarkup, itemSelling)
 
 			markupAmount := priceWithMarkup - price
 			totalRevenue += priceWithMarkup * float64(quantity)
