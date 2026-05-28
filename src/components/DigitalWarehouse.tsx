@@ -559,7 +559,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         size: editVariantForm.size || undefined,
         price: parseFloat(editVariantForm.price) || 0,
         markupPercent: parseFloat(editVariantForm.markupPercent) || 0,
-        stockQuantity: parseInt(editVariantForm.stockQuantity) || 0,
         barcode: editVariantForm.barcode || undefined,
         sku: editVariantForm.sku || undefined,
         barid: editVariantForm.barid || undefined,
@@ -1995,7 +1994,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                                       <td className="px-2 py-1.5 text-green-600 text-xs font-medium">
                                                         {((parseFloat(editVariantForm.price)||0) * (1 + (parseFloat(editVariantForm.markupPercent)||0)/100)).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}
                                                       </td>
-                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.stockQuantity} onChange={e => setEditVariantForm({...editVariantForm, stockQuantity: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
+                                                      <td className="px-2 py-1.5 text-xs text-indigo-700 dark:text-indigo-300 font-bold">{editVariantForm.stockQuantity}</td>
                                                       <td className="px-2 py-1.5"><input value={editVariantForm.barcode} onChange={e => setEditVariantForm({...editVariantForm, barcode: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>
                                                       <td className="px-2 py-1.5"><input value={editVariantForm.barid} onChange={e => setEditVariantForm({...editVariantForm, barid: e.target.value.replace(/\D/g,'')})} maxLength={6} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>
                                                       <td className="px-2 py-1.5"><input value={editVariantForm.description} onChange={e => setEditVariantForm({...editVariantForm, description: e.target.value})} className="w-28 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>

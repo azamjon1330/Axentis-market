@@ -567,6 +567,8 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 						productId = int64(pid)
 					} else if pid, ok := item["product_id"].(float64); ok {
 						productId = int64(pid)
+					} else if pid, ok := item["id"].(float64); ok {
+						productId = int64(pid)
 					}
 					if q, ok := item["quantity"].(float64); ok {
 						quantity = int(q)
@@ -574,6 +576,9 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 					if productId > 0 {
 						// Try to decrement specific variant if color/size is known
 						color, _ := item["color"].(string)
+						if color == "Любой" || color == "любой" {
+							color = ""
+						}
 						size, _ := item["size"].(string)
 						variantDecremented := false
 						if color != "" || size != "" {

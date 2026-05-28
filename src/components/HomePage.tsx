@@ -30,6 +30,31 @@ import { getUzbekistanISOString, formatUzbekistanFullDateTime } from '../utils/u
 // 🌦️ Weather types
 export type WeatherType = 'sunny' | 'rain' | 'snow' | 'storm';
 
+const UZ_REGIONS = [
+  "Barcha viloyatlar",
+  "Toshkent shahri",
+  "Toshkent viloyati",
+  "Andijon viloyati",
+  "Namangan viloyati",
+  "Farg'ona viloyati",
+  "Sirdaryo viloyati",
+  "Jizzax viloyati",
+  "Samarqand viloyati",
+  "Qashqadaryo viloyati",
+  "Surxondaryo viloyati",
+  "Navoiy viloyati",
+  "Buxoro viloyati",
+  "Xorazm viloyati",
+  "Qoraqalpog'iston Res.",
+];
+
+const DEMO_BANNERS = [
+  { title: "Chegirmalar 40% gacha", subtitle: "Elektronika bo'limida", bg: "linear-gradient(135deg,#6c3fc7,#3a1b7a)", emoji: "📱" },
+  { title: "Yangi kolleksiya", subtitle: "Kiyim-kechak bo'limida", bg: "linear-gradient(135deg,#c0336c,#7a1b40)", emoji: "👗" },
+  { title: "Tez yetkazib berish", subtitle: "Bugun buyurtma — ertaga qo'lingizda", bg: "linear-gradient(135deg,#1a6fb5,#0d3566)", emoji: "🚀" },
+  { title: "Sport tovarlari", subtitle: "Sport va faol hayot uchun", bg: "linear-gradient(135deg,#1a9c6b,#0a5940)", emoji: "⚽" },
+];
+
 interface Product {
   id: number;
   name: string;
@@ -152,6 +177,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const saved = localStorage.getItem('colorAnimationEnabled');
     return saved === null ? true : saved === 'true';
   });
+
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    return localStorage.getItem('selectedRegion') || "Barcha viloyatlar";
+  });
+  const [showRegionPicker, setShowRegionPicker] = useState(false);
+  const [bannerIndex, setBannerIndex] = useState(0);
 
   const [cartTab, setCartTab] = useState<'cart' | 'orders'>('cart');
 
@@ -351,7 +382,14 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   }, [myOrders]);
 
   const { shouldRefresh: ordersRefreshTrigger } = useCustomerOrdersRealtime(userPhone);
-  
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setBannerIndex(prev => (prev + 1) % DEMO_BANNERS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const loadUserData = async () => {
       if (userPhone) {
@@ -756,7 +794,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const product = products.find(p => p.id === productId);
     if (!product) return;
     const currentInCart = cart[productId] || 0;
-    if (currentInCart >= product.quantity) return;
+    if (currentInCart >= product.quantity) {
+      alert(`"${product.name}" tovaridan omborda ${product.quantity} ta qolgan. Bundan ko'p buyurtma bera olmaysiz.`);
+      return;
+    }
     const newQty = currentInCart + 1;
     console.log(`🛒 [addToCart] productId=${productId}, currentQty=${currentInCart}, newQty=${newQty}`);
     // 1. Update UI instantly
@@ -1174,9 +1215,47 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         }`}
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <div className="px-4 py-3 flex items-center gap-3 bg-[rgba(255,255,255,0)]">
+          {/* Location selector row */}
+          <div className="px-4 pt-2 pb-0 relative">
+            <button
+              onClick={() => setShowRegionPicker(prev => !prev)}
+              className={`flex items-center gap-1 text-xs font-medium transition-colors ${
+                isNight ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span className="text-sm">📍</span>
+              <span className="max-w-[160px] truncate">{selectedRegion}</span>
+              <span className="text-[10px] opacity-60">▾</span>
+            </button>
+            {showRegionPicker && (
+              <div className={`absolute left-4 right-4 top-full mt-1 z-50 rounded-2xl shadow-xl border overflow-hidden ${
+                isNight ? 'bg-[#2d1222] border-[#4a2040]' : 'bg-white border-gray-100'
+              }`}>
+                {UZ_REGIONS.map(region => (
+                  <button
+                    key={region}
+                    onClick={() => {
+                      setSelectedRegion(region);
+                      localStorage.setItem('selectedRegion', region);
+                      setShowRegionPicker(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center gap-2 ${
+                      selectedRegion === region
+                        ? isNight ? 'bg-purple-900 text-purple-200 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold'
+                        : isNight ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {selectedRegion === region && <span className="text-indigo-500">✓</span>}
+                    {region}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-2 flex items-center gap-3 bg-[rgba(255,255,255,0)]">
             {/* Menu Button */}
-            <button 
+            <button
               onClick={() => showCatalog ? handleCloseCatalog() : handleOpenCatalog()}
               className={`p-2 rounded-lg transition-colors ${
                 isNight ? 'bg-[#C0BCBC] text-[#1a0b16] hover:bg-[#C0BCBC]/90' : 'bg-[#C0BCBC] text-black hover:bg-[#a0a0a0]'
@@ -1184,15 +1263,15 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             >
               <Menu className="w-6 h-6" />
             </button>
-            
+
             {/* Search Bar */}
             <div className={`flex-1 flex items-center px-4 py-2.5 rounded-xl transition-colors ${
               isNight ? 'bg-[#C0BCBC]' : 'bg-[#C0BCBC]'
             }`}>
               <Search className={`w-5 h-5 ${isNight ? 'text-[#1a0b16]' : 'text-black'}`} />
-              <input 
-                type="text" 
-                placeholder="Search products" 
+              <input
+                type="text"
+                placeholder="Search products"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full ml-3 bg-transparent outline-none ${
@@ -1262,7 +1341,48 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         </div>
       ) : (
         <>
-            {/* ── BANNER ── */}
+            {/* ── DEMO BANNER CAROUSEL ── */}
+            {!searchQuery && !activeCategory && (
+              <div className="mb-4 relative overflow-hidden rounded-2xl" style={{ height: 160 }}>
+                {DEMO_BANNERS.map((banner, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute inset-0 flex items-center px-6 transition-opacity duration-700"
+                    style={{
+                      background: banner.bg,
+                      opacity: idx === bannerIndex ? 1 : 0,
+                      pointerEvents: idx === bannerIndex ? 'auto' : 'none',
+                    }}
+                  >
+                    <div className="flex-1">
+                      <p className="text-white text-xl font-bold leading-tight mb-1">{banner.title}</p>
+                      <p className="text-white/70 text-sm mb-3">{banner.subtitle}</p>
+                      <button className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors">
+                        Ko'rish →
+                      </button>
+                    </div>
+                    <span className="text-7xl select-none ml-4">{banner.emoji}</span>
+                  </div>
+                ))}
+                {/* Dot indicators */}
+                <div className="absolute bottom-3 left-6 flex gap-1.5">
+                  {DEMO_BANNERS.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setBannerIndex(idx)}
+                      className="rounded-full transition-all"
+                      style={{
+                        width: idx === bannerIndex ? 18 : 6,
+                        height: 6,
+                        background: idx === bannerIndex ? 'white' : 'rgba(255,255,255,0.4)',
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── APPROVED ADS BANNER ── */}
             <div className="mb-4">
               <ApprovedAdsBanner
                 onCompanyClick={(companyId) => handleOpenCompany(Number(companyId))}
