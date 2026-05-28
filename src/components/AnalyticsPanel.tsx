@@ -67,10 +67,9 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   // 💰 НОВОЕ: Количество продаж из financial_stats
   const [salesCount, setSalesCount] = useState(0);
   
-  // 🆕 ОТДЕЛЬНЫЕ ФИЛЬТРЫ ПО ПЕРИОДУ ДЛЯ КАЖДОЙ ПАНЕЛИ/ДИАГРАММЫ
-  type PeriodType = 'day' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
-  
-  const [financialTimePeriod, setFinancialTimePeriod] = useState<PeriodType>('all'); // Главный фильтр для всей аналитики
+  type PeriodType = 'day' | 'week' | 'month' | 'year' | 'custom';
+
+  const [financialTimePeriod, setFinancialTimePeriod] = useState<PeriodType>('day');
   
   // 🆕 ZOOM для линейной диаграммы
   const [chartZoom, setChartZoom] = useState(100); // 100% = нормальный размер
@@ -253,169 +252,96 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   };
 
   // 🆕 ФИЛЬТРАЦИЯ ЗАКАЗОВ ПО ПЕРИОДУ (с параметром периода)
-  const getFilteredOrders = (period: PeriodType = 'all') => {
-    console.log('\n🔍 [getFilteredOrders] НАЧАЛО ФИЛЬТРАЦИИ:');
-    console.log('   📅 Период:', period);
-    console.log('   📦 Всего заказов:', ordersWithItems.length);
-    
-    // 🔍 ДИАГНОСТИКА: Показать структуру первого заказа
-    if (ordersWithItems.length > 0) {
-      console.log('   🔬 СТРУКТУРА ПЕРВОГО ЗАКАЗА:', ordersWithItems[0]);
-      console.log('   🔬 Все ключи заказа:', Object.keys(ordersWithItems[0]));
-    }
-    
-    if (period === 'all') {
-      console.log('   ✅ Возвращаем все заказы (период: all)');
-      return ordersWithItems;
-    }
-
+  // Вернуть диапазон дат для периода
+  const getPeriodRange = (period: PeriodType): { start: Date; end: Date } => {
     const now = new Date();
-    let startDate = new Date();
-    let endDate = new Date();
-
+    const start = new Date();
+    const end = new Date();
     if (period === 'day') {
-      // Сегодня с 00:00:00
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (period === 'yesterday') {
-      // Вчера с 00:00:00 до 23:59:59
-      startDate.setDate(now.getDate() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - 1);
-      endDate.setHours(23, 59, 59, 999);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
     } else if (period === 'week') {
-      startDate.setDate(now.getDate() - 7);
+      start.setDate(now.getDate() - 7);
+      start.setHours(0, 0, 0, 0);
     } else if (period === 'month') {
-      startDate.setMonth(now.getMonth() - 1);
+      start.setMonth(now.getMonth() - 1);
+      start.setHours(0, 0, 0, 0);
     } else if (period === 'year') {
-      startDate.setFullYear(now.getFullYear() - 1);
+      start.setFullYear(now.getFullYear() - 1);
+      start.setHours(0, 0, 0, 0);
+    } else if (period === 'custom') {
+      if (financialStartDate) { start.setTime(financialStartDate.getTime()); start.setHours(0,0,0,0); }
+      if (financialEndDate)   { end.setTime(financialEndDate.getTime());   end.setHours(23,59,59,999); }
     }
-
-    console.log('   📅 Диапазон дат:');
-    console.log('      От:', startDate.toLocaleString('ru-RU'));
-    console.log('      До:', endDate.toLocaleString('ru-RU'));
-
-    const filtered = ordersWithItems.filter(order => {
-      // 🔍 Используем ПРАВИЛЬНОЕ поле даты:
-      // - confirmed_date - для чековых заказов (когда компания подтвердила)
-      // - Для виртуальных заказов это тоже confirmed_date (когда система подтвердила оплату)
-      const dateStr = order.confirmed_date || order.order_date || order.created_at || order.createdAt;
-      
-      if (!dateStr) {
-        console.log('      ⚠️ Заказ #' + order.order_code + ' - НЕТ ДАТЫ!');
-        return false;
-      }
-      
-      console.log('      🔬 Заказ #' + order.order_code + ' dateStr:', dateStr);
-      
-      const orderDate = new Date(dateStr);
-      
-      // Проверка на Invalid Date
-      if (isNaN(orderDate.getTime())) {
-        console.log('      ⚠️ Заказ #' + order.order_code + ' - НЕКОРРЕКТНАЯ ДАТА:', dateStr);
-        return false;
-      }
-      
-      const isInRange = orderDate >= startDate && orderDate <= endDate;
-      
-      if (!isInRange) {
-        console.log('      ❌ Заказ #' + order.order_code + ' (' + orderDate.toLocaleString('ru-RU') + ') - вне периода');
-      } else {
-        console.log('      ✅ Заказ #' + order.order_code + ' (' + orderDate.toLocaleString('ru-RU') + ') - в периоде');
-      }
-      
-      return isInRange;
-    });
-    
-    console.log('   📊 Результат фильтрации:', filtered.length, 'заказов');
-    
-    return filtered;
+    return { start, end };
   };
 
-  // 🆕 НОВОЕ: Получить заказы за ПРЕДЫДУЩИЙ период для сравнения
-  const getPreviousPeriodOrders = (period: PeriodType = 'all') => {
-    console.log('\n🔍 [getPreviousPeriodOrders] ФИЛЬТРАЦИЯ ПРЕДЫДУЩЕГО ПЕРИОДА:');
-    console.log('   📅 Период:', period);
-    
-    if (period === 'all') {
-      console.log('   ⚠️ Для "Все время" нет предыдущего периода');
+  const getFilteredOrders = (period: PeriodType = 'day') => {
+    const { start, end } = getPeriodRange(period);
+    return ordersWithItems.filter(order => {
+      const dateStr = order.created_at || order.createdAt;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return false;
+      return d >= start && d <= end;
+    });
+  };
+
+  const getPreviousPeriodOrders = (period: PeriodType = 'day') => {
+    const now = new Date();
+    let start = new Date();
+    let end = new Date();
+    if (period === 'day') {
+      start.setDate(now.getDate() - 1); start.setHours(0,0,0,0);
+      end.setDate(now.getDate() - 1);   end.setHours(23,59,59,999);
+    } else if (period === 'week') {
+      start.setDate(now.getDate() - 14); start.setHours(0,0,0,0);
+      end.setDate(now.getDate() - 7);
+    } else if (period === 'month') {
+      start.setMonth(now.getMonth() - 2); start.setHours(0,0,0,0);
+      end.setMonth(now.getMonth() - 1);
+    } else if (period === 'year') {
+      start.setFullYear(now.getFullYear() - 2); start.setHours(0,0,0,0);
+      end.setFullYear(now.getFullYear() - 1);
+    } else {
       return [];
     }
-
-    const now = new Date();
-    let startDate = new Date();
-    let endDate = new Date();
-
-    if (period === 'day') {
-      // Предыдущий период = ВЧЕРА
-      startDate.setDate(now.getDate() - 1);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - 1);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (period === 'yesterday') {
-      // Предыдущий период = ПОЗАВЧЕРА
-      startDate.setDate(now.getDate() - 2);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setDate(now.getDate() - 2);
-      endDate.setHours(23, 59, 59, 999);
-    } else if (period === 'week') {
-      // Предыдущий период = 2 недели назад до недели назад
-      startDate.setDate(now.getDate() - 14);
-      endDate.setDate(now.getDate() - 7);
-    } else if (period === 'month') {
-      // Предыдущий период = 2 месяца назад до месяца назад
-      startDate.setMonth(now.getMonth() - 2);
-      endDate.setMonth(now.getMonth() - 1);
-    } else if (period === 'year') {
-      // Предыдущий период = 2 года назад до года назад
-      startDate.setFullYear(now.getFullYear() - 2);
-      endDate.setFullYear(now.getFullYear() - 1);
-    }
-
-    console.log('   📅 Предыдущий период:');
-    console.log('      От:', startDate.toLocaleString('ru-RU'));
-    console.log('      До:', endDate.toLocaleString('ru-RU'));
-
-    const filtered = ordersWithItems.filter(order => {
-      const dateStr = order.confirmed_date || order.order_date || order.created_at || order.createdAt;
-      
-      if (!dateStr) {
-        return false;
-      }
-      
-      const orderDate = new Date(dateStr);
-      
-      if (isNaN(orderDate.getTime())) {
-        return false;
-      }
-      
-      return orderDate >= startDate && orderDate <= endDate;
+    return ordersWithItems.filter(order => {
+      const dateStr = order.created_at || order.createdAt;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return false;
+      return d >= start && d <= end;
     });
-    
-    console.log('   📊 Заказов в предыдущем периоде:', filtered.length);
-    
-    return filtered;
   };
 
-  // 💰 Прибыль = наценка с проданных товаров за период (markup_profit)
-  const getPeriodProfit = (period: PeriodType = 'all') => {
+  // Прибыль = наценка (markup_profit) с проданных заказов за период
+  const getPeriodProfit = (period: PeriodType = 'day') => {
     return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
   };
 
-  // 💸 Затраты компании = себестоимость ПРОДАННЫХ товаров за период
-  // Формула: total_amount - markup_profit = закупочная цена × кол-во (затраты на проданные товары)
-  const getTotalCompanyExpenses = (period: PeriodType = 'all') => {
-    const filtered = getFilteredOrders(period);
-    return filtered.reduce((sum, o) => {
-      const totalAmt = parseFloat(o.total_amount) || 0;
-      const markup = parseFloat(o.markup_profit) || 0;
-      return sum + (totalAmt - markup);
-    }, 0);
+  // Затраты компании = ручные затраты (ExpensesManager), пропорционально периоду
+  const getTotalCompanyExpenses = (period: PeriodType = 'day') => {
+    const now = new Date();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const dayOfMonth = now.getDate();
+    // customExpenses - накопленная сумма за текущий месяц до сегодня
+    const monthlyRate = dayOfMonth > 0 ? customExpenses / dayOfMonth * daysInMonth : customExpenses;
+    const dailyRate = monthlyRate / daysInMonth;
+    if (period === 'day') return dailyRate;
+    if (period === 'week') return dailyRate * 7;
+    if (period === 'month') return monthlyRate;
+    if (period === 'year') return monthlyRate * 12;
+    if (period === 'custom' && financialStartDate && financialEndDate) {
+      const days = Math.ceil((financialEndDate.getTime() - financialStartDate.getTime()) / (1000*60*60*24)) + 1;
+      return dailyRate * days;
+    }
+    return customExpenses;
   };
 
-  // 💎 Итоговый баланс = прибыль + затраты (выручка = прибыль + себестоимость)
-  const getFinalBalance = (period: PeriodType = 'all') => {
-    return getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.total_amount) || 0), 0);
+  // 💎 Итоговый баланс = прибыль - затраты (если затраты > прибыли → минус)
+  const getFinalBalance = (period: PeriodType = 'day') => {
+    return getPeriodProfit(period) - getTotalCompanyExpenses(period);
   };
 
   // 💳 НОВОЕ: Разбивка виртуальных платежей по методам (demo/real)
@@ -568,17 +494,11 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     
     let dataPoints: any[] = [];
     
-    if (financialTimePeriod === 'day' || financialTimePeriod === 'yesterday') {
-      // ⏰ ДЕНЬ = 24 ЧАСА (РЕАЛЬНЫЕ ДАННЫЕ)
+    if (financialTimePeriod === 'day') {
       const currentData = groupOrdersByTime(currentOrders, 'hour', 24);
       const previousData = groupOrdersByTime(previousOrders, 'hour', 24);
-      
       for (let hour = 0; hour < 24; hour++) {
-        dataPoints.push({
-          period: `${hour}:00`,
-          current: currentData[hour],
-          previous: previousData[hour],
-        });
+        dataPoints.push({ period: `${hour}:00`, current: currentData[hour], previous: previousData[hour] });
       }
     } else if (financialTimePeriod === 'week') {
       // 📅 НЕДЕЛЯ = 14 ТОЧЕК (КАЖДЫЕ 12 ЧАСОВ)
@@ -620,20 +540,6 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           current: currentData[week - 1],
           previous: previousData[week - 1],
         });
-      }
-    } else if (financialTimePeriod === 'all') {
-      // 📊 ВСЁ ВРЕМЯ = ПО МЕСЯЦАМ
-      const grouped = new Array(12).fill(0);
-      ordersWithItems.forEach(order => {
-        const dateStr = order.confirmed_date || order.order_date || order.created_at || order.createdAt;
-        if (!dateStr) return;
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return;
-        grouped[d.getMonth()] += parseFloat(order.total_amount) || 0;
-      });
-      const months = t.monthsShort as string[];
-      for (let month = 0; month < 12; month++) {
-        dataPoints.push({ period: months[month], current: grouped[month], previous: 0 });
       }
     } else if (financialTimePeriod === 'custom') {
       // 🎯 СВОЙ ПЕРИОД (РЕАЛЬНЫЕ ДАННЫЕ)
@@ -735,7 +641,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       return arr;
     };
 
-    if (financialTimePeriod === 'day' || financialTimePeriod === 'yesterday') {
+    if (financialTimePeriod === 'day') {
       const cur = countByTime(currentOrders, 'hour', 24);
       const prev = countByTime(previousOrders, 'hour', 24);
       return Array.from({ length: 24 }, (_, i) => ({ period: `${i}:00`, current: cur[i], previous: prev[i] }));
@@ -757,15 +663,6 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       const cur = countByTime(currentOrders, 'weekOfYear', 52);
       const prev = countByTime(previousOrders, 'weekOfYear', 52);
       return Array.from({ length: 52 }, (_, i) => ({ period: `W${i + 1}`, current: cur[i], previous: prev[i] }));
-    } else if (financialTimePeriod === 'all') {
-      const grouped = new Array(12).fill(0);
-      ordersWithItems.forEach(o => {
-        const ds = o.confirmed_date || o.order_date || o.created_at || o.createdAt;
-        if (!ds) return;
-        const d = new Date(ds);
-        if (!isNaN(d.getTime())) grouped[d.getMonth()]++;
-      });
-      return (t.monthsShort as string[]).map((p, i) => ({ period: p, current: grouped[i], previous: 0 }));
     }
     return [];
   };
@@ -893,21 +790,21 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                     -{formatPrice(expenses)}
                   </div>
                   <div className="text-red-100 text-xs">
-                    {language === 'uz' ? 'Sotilgan mahsulotlar tannarxi' : 'Себестоимость проданных товаров'}
+                    {language === 'uz' ? 'Oylik xarajatlar (kunlik hisob)' : 'Ежемесячные затраты (пропорционально)'}
                   </div>
                 </div>
 
-                {/* 3️⃣ Итоговый баланс = выручка (прибыль + затраты) */}
-                <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg shadow-lg p-5 text-white">
+                {/* 3️⃣ Итоговый баланс = прибыль - затраты (минус если в убытке) */}
+                <div className={`bg-gradient-to-br ${balance >= 0 ? 'from-cyan-500 to-cyan-600' : 'from-rose-600 to-rose-700'} rounded-lg shadow-lg p-5 text-white`}>
                   <div className="flex items-center gap-2 mb-2">
                     <CreditCard className="w-6 h-6" />
-                    <div className="text-cyan-100 text-base">{t.finalBalance}</div>
+                    <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-base`}>{t.finalBalance}</div>
                   </div>
                   <div className="text-3xl font-bold mb-1">
-                    {formatPrice(balance)}
+                    {balance >= 0 ? '+' : ''}{formatPrice(balance)}
                   </div>
-                  <div className="text-cyan-100 text-xs">
-                    +{formatPrice(profit)} - {formatPrice(expenses)}
+                  <div className={`${balance >= 0 ? 'text-cyan-100' : 'text-rose-100'} text-xs`}>
+                    {formatPrice(profit)} - {formatPrice(expenses)}
                   </div>
                 </div>
               </div>

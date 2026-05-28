@@ -34,7 +34,7 @@ func GetCompanyAnalytics(db *sql.DB) gin.HandlerFunc {
 	db.QueryRow(`
 		SELECT COALESCE(SUM(total_amount), 0), COUNT(*), COALESCE(SUM(markup_profit), 0)
 		FROM orders
-		WHERE company_id = $1 AND status IN ('shipped', 'delivered', 'completed')
+		WHERE company_id = $1 AND status NOT IN ('pending', 'cancelled')
 	`, companyID).Scan(&ordersSales, &ordersCount, &ordersMarkup)
 	
 	// Прибыль и выручка из кассовых продаж
@@ -85,7 +85,7 @@ func GetCompanyAnalytics(db *sql.DB) gin.HandlerFunc {
 		       delivery_cost, delivery_type, recipient_name, delivery_address, delivery_coordinates,
 		       markup_profit, items, created_at
 		FROM orders
-		WHERE company_id = $1 AND status IN ('shipped', 'delivered', 'completed')
+		WHERE company_id = $1 AND status NOT IN ('pending', 'cancelled')
 		ORDER BY created_at DESC
 	`
 
