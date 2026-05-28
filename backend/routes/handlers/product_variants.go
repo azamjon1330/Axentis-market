@@ -315,20 +315,14 @@ func nullableString(s string) interface{} {
 	return s
 }
 
-// syncProductQuantity updates the parent product's quantity, price, selling_price, and markup_percent from variants.
-// selling_price is only synced from variants that actually have markup (selling_price > price).
-// markup_percent is taken from the cheapest variant that has a markup.
+// syncProductQuantity updates the parent product's quantity, price, and markup_percent from variants.
+// selling_price and markup_amount in products are GENERATED ALWAYS columns — they auto-update
+// when price or markup_percent changes, so they must NOT be set directly.
 func syncProductQuantity(db *sql.DB, productID int64) {
 	_, err := db.Exec(`
 		UPDATE products
 		SET quantity       = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
 		    price          = COALESCE((SELECT MIN(price) FROM product_variants WHERE product_id = $1 AND price > 0), price),
-		    selling_price  = COALESCE(
-		        (SELECT MIN(selling_price)
-		         FROM product_variants
-		         WHERE product_id = $1 AND selling_price > price),
-		        selling_price
-		    ),
 		    markup_percent = COALESCE(
 		        (SELECT markup_percent
 		         FROM product_variants
