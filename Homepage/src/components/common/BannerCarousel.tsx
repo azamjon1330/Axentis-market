@@ -1,161 +1,92 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Image, Dimensions, Animated,
+  Image, Dimensions,
 } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
 import { Ad } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const H_PADDING = 16;
-const SLIDE_WIDTH = SCREEN_WIDTH - H_PADDING * 2;
-const SLIDE_HEIGHT = 160;
-const AUTO_SCROLL_MS = 5000;
+const { width: SW } = Dimensions.get('window');
+const W = SW - 32;   // 16px margin each side
+const H = 164;
+const INTERVAL = 5000;
 
-// Placeholder banners shown when no approved ads exist
-const PLACEHOLDER_BANNERS = [
-  {
-    id: 'p1',
-    title: 'Скидки до 50%',
-    subtitle: 'На электронику и гаджеты',
-    gradient: ['#4251E8', '#5B67F5'],
-  },
-  {
-    id: 'p2',
-    title: 'Новые поступления',
-    subtitle: 'Каждый день свежие товары',
-    gradient: ['#0EBF7F', '#1A9E6C'],
-  },
-  {
-    id: 'p3',
-    title: 'Быстрая доставка',
-    subtitle: 'По всему Узбекистану',
-    gradient: ['#F5793A', '#E8502A'],
-  },
+const PLACEHOLDERS = [
+  { id: 'a', title: 'Скидки до 50%', sub: 'На электронику и гаджеты', bg: '#1F6FEB' },
+  { id: 'b', title: 'Новые поступления', sub: 'Свежие товары каждый день', bg: '#0EA371' },
+  { id: 'c', title: 'Быстрая доставка', sub: 'По всему Узбекистану', bg: '#D05A00' },
 ];
 
-interface Props {
-  ads: Ad[];
-}
+interface Props { ads: Ad[] }
 
 export default function BannerCarousel({ ads }: Props) {
-  const { colors, isDark } = useTheme();
-  const scrollRef = useRef<ScrollView>(null);
-  const [current, setCurrent] = useState(0);
-  const currentRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const dotAnim = useRef(new Animated.Value(0)).current;
+  const ref = useRef<ScrollView>(null);
+  const [idx, setIdx] = useState(0);
+  const idxRef = useRef(0);
 
-  const items = ads.length > 0 ? ads : null;
-  const placeholders = PLACEHOLDER_BANNERS;
-  const count = items ? items.length : placeholders.length;
-
-  const goTo = (idx: number, animated = true) => {
-    currentRef.current = idx;
-    setCurrent(idx);
-    scrollRef.current?.scrollTo({ x: idx * SLIDE_WIDTH, animated });
-  };
-
-  const startTimer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (count <= 1) return;
-    timerRef.current = setInterval(() => {
-      const next = (currentRef.current + 1) % count;
-      goTo(next);
-    }, AUTO_SCROLL_MS);
-  };
+  const slides = ads.length > 0 ? ads : null;
+  const total  = slides ? slides.length : PLACEHOLDERS.length;
 
   useEffect(() => {
-    startTimer();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [count]);
+    if (total <= 1) return;
+    const t = setInterval(() => {
+      const next = (idxRef.current + 1) % total;
+      idxRef.current = next;
+      setIdx(next);
+      ref.current?.scrollTo({ x: next * W, animated: true });
+    }, INTERVAL);
+    return () => clearInterval(t);
+  }, [total]);
 
-  const handleScrollEnd = (e: any) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / SLIDE_WIDTH);
-    currentRef.current = idx;
-    setCurrent(idx);
-    startTimer();
+  const onScroll = (e: any) => {
+    const i = Math.round(e.nativeEvent.contentOffset.x / W);
+    idxRef.current = i;
+    setIdx(i);
   };
-
-  const renderAdSlide = (ad: Ad, i: number) => {
-    const uri = getImageUrl(ad.imageUrl);
-    return (
-      <View key={String(ad.id)} style={styles.slide}>
-        {uri ? (
-          <>
-            <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-            <View style={styles.imageOverlay} />
-            <View style={styles.textLayer}>
-              <Text style={styles.adTitle} numberOfLines={1}>{ad.title}</Text>
-              {ad.content ? (
-                <Text style={styles.adSubtitle} numberOfLines={2}>{ad.content}</Text>
-              ) : null}
-            </View>
-          </>
-        ) : (
-          <View style={[styles.gradientFallback, { backgroundColor: colors.primary }]}>
-            <View style={styles.textLayer}>
-              <Text style={styles.adTitle} numberOfLines={1}>{ad.title}</Text>
-              {ad.content ? (
-                <Text style={styles.adSubtitle} numberOfLines={2}>{ad.content}</Text>
-              ) : null}
-            </View>
-          </View>
-        )}
-      </View>
-    );
-  };
-
-  const renderPlaceholder = (p: typeof placeholders[0]) => (
-    <View key={p.id} style={[styles.slide, { backgroundColor: p.gradient[0] }]}>
-      <View style={[styles.placeholderAccent, { backgroundColor: p.gradient[1] + '60' }]} />
-      <View style={styles.textLayer}>
-        <Text style={styles.adTitle}>{p.title}</Text>
-        <Text style={styles.adSubtitle}>{p.subtitle}</Text>
-      </View>
-    </View>
-  );
 
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrap}>
       <ScrollView
-        ref={scrollRef}
+        ref={ref}
         horizontal
-        pagingEnabled={false}
+        pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
         scrollEventThrottle={16}
-        decelerationRate="fast"
-        snapToInterval={SLIDE_WIDTH}
-        snapToAlignment="start"
-        onMomentumScrollEnd={handleScrollEnd}
-        contentContainerStyle={{ gap: 0 }}
-        style={{ width: SLIDE_WIDTH }}
       >
-        {items
-          ? items.map((ad, i) => renderAdSlide(ad, i))
-          : placeholders.map(renderPlaceholder)}
+        {slides
+          ? slides.map((ad) => {
+              const uri = getImageUrl(ad.imageUrl);
+              return (
+                <View key={String(ad.id)} style={[styles.slide, { backgroundColor: '#1F6FEB' }]}>
+                  {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
+                  <View style={styles.overlay} />
+                  <View style={styles.txt}>
+                    <Text style={styles.title}>{ad.title}</Text>
+                    {ad.content ? <Text style={styles.sub}>{ad.content}</Text> : null}
+                  </View>
+                </View>
+              );
+            })
+          : PLACEHOLDERS.map((p) => (
+              <View key={p.id} style={[styles.slide, { backgroundColor: p.bg }]}>
+                <View style={styles.circle} />
+                <View style={styles.txt}>
+                  <Text style={styles.title}>{p.title}</Text>
+                  <Text style={styles.sub}>{p.sub}</Text>
+                </View>
+              </View>
+            ))
+        }
       </ScrollView>
 
-      {count > 1 && (
+      {total > 1 && (
         <View style={styles.dots}>
-          {Array.from({ length: count }).map((_, i) => (
-            <TouchableOpacity
+          {Array.from({ length: total }).map((_, i) => (
+            <View
               key={i}
-              onPress={() => { goTo(i); startTimer(); }}
-              hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  i === current
-                    ? [styles.dotActive, { backgroundColor: '#FFFFFF' }]
-                    : { backgroundColor: 'rgba(255,255,255,0.35)' },
-                ]}
-              />
-            </TouchableOpacity>
+              style={[styles.dot, i === idx ? styles.dotOn : styles.dotOff]}
+            />
           ))}
         </View>
       )}
@@ -164,79 +95,56 @@ export default function BannerCarousel({ ads }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginHorizontal: H_PADDING,
-    marginBottom: 20,
-    borderRadius: 18,
+  wrap: {
+    width: W,
+    height: H,
+    alignSelf: 'center',
+    borderRadius: 16,
     overflow: 'hidden',
-    height: SLIDE_HEIGHT,
+    marginBottom: 20,
   },
   slide: {
-    width: SLIDE_WIDTH,
-    height: SLIDE_HEIGHT,
-    borderRadius: 18,
-    overflow: 'hidden',
-    backgroundColor: '#4251E8',
+    width: W,
+    height: H,
   },
-  image: {
+  overlay: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
   },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.38)',
-  },
-  gradientFallback: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.95,
-  },
-  placeholderAccent: {
+  circle: {
     position: 'absolute',
-    right: -30,
-    top: -30,
+    right: -40,
+    top: -40,
     width: 200,
     height: 200,
     borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
-  textLayer: {
+  txt: {
     position: 'absolute',
     bottom: 20,
     left: 20,
-    right: 20,
+    right: 80,
   },
-  adTitle: {
-    color: '#FFFFFF',
+  title: {
+    color: '#fff',
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.3,
-    textShadowColor: 'rgba(0,0,0,0.3)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
-  adSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
+  sub: {
+    color: 'rgba(255,255,255,0.82)',
     fontSize: 13,
-    fontWeight: '500',
     marginTop: 4,
-    textShadowColor: 'rgba(0,0,0,0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   dots: {
     position: 'absolute',
     bottom: 12,
-    right: 16,
+    right: 14,
     flexDirection: 'row',
     gap: 5,
-    alignItems: 'center',
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  dotActive: {
-    width: 18,
-    height: 6,
-    borderRadius: 3,
-  },
+  dot: { height: 6, borderRadius: 3 },
+  dotOn:  { width: 18, backgroundColor: '#fff' },
+  dotOff: { width: 6,  backgroundColor: 'rgba(255,255,255,0.4)' },
 });
