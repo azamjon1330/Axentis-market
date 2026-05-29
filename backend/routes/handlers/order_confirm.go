@@ -176,6 +176,74 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 			log.Printf("⚠️ ConfirmOrder: totalRevenue was 0, falling back to order.TotalAmount=%.2f", totalRevenue)
 		}
 
+		// Decrement stock only when moving from 'pending' (first confirmation via panel).
+		// If status was already 'confirmed', UpdateOrderStatus already decremented stock.
+		if order.Status == "pending" {
+			for _, item := range items {
+				var productID int64
+				for _, key := range []string{"productId", "product_id", "id"} {
+					if idVal, ok := item[key]; ok {
+						if idFloat, ok := idVal.(float64); ok && idFloat > 0 {
+							productID = int64(idFloat)
+							break
+						}
+					}
+				}
+				if productID == 0 {
+					continue
+				}
+				var qty int
+				if qtyVal, ok := item["quantity"]; ok {
+					if qtyFloat, ok := qtyVal.(float64); ok {
+						qty = int(qtyFloat)
+					}
+				}
+				if qty <= 0 {
+					continue
+				}
+				color, _ := item["color"].(string)
+				if color == "Любой" || color == "любой" {
+					color = ""
+				}
+				size, _ := item["size"].(string)
+
+				variantDecremented := false
+				if color != "" || size != "" {
+					res, err2 := tx.Exec(`
+						UPDATE product_variants
+						SET stock_quantity = GREATEST(0, stock_quantity - $1),
+						    updated_at     = NOW()
+						WHERE product_id = $2
+						  AND ($3 = '' OR color = $3)
+						  AND ($4 = '' OR size  = $4)
+					`, qty, productID, color, size)
+					if err2 == nil {
+						if affected, _ := res.RowsAffected(); affected > 0 {
+							variantDecremented = true
+						}
+					}
+				}
+				if variantDecremented {
+					tx.Exec(`
+						UPDATE products
+						SET quantity   = (SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants WHERE product_id = $1),
+						    sold_count = sold_count + $2,
+						    updated_at = NOW()
+						WHERE id = $1
+					`, productID, qty)
+				} else {
+					tx.Exec(`
+						UPDATE products
+						SET quantity   = GREATEST(0, quantity - $1),
+						    sold_count = sold_count + $1,
+						    updated_at = NOW()
+						WHERE id = $2
+					`, qty, productID)
+				}
+				log.Printf("📦 ConfirmOrder: stock decremented product=%d qty=%d", productID, qty)
+			}
+		}
+
 		// Обновляем markup_profit в orders и меняем статус на 'shipped' (В пути)
 		_, err = tx.Exec(`
 			UPDATE orders

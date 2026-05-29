@@ -301,6 +301,23 @@ export const getAds = async (): Promise<Ad[]> => {
   return Array.isArray(res.data) ? res.data : (res.data?.ads || []);
 };
 
+export const getApprovedAds = async (): Promise<Ad[]> => {
+  const res = await api.get(ENDPOINTS.ads, { params: { status: 'approved' } });
+  const raw: any[] = Array.isArray(res.data) ? res.data : (res.data?.ads || []);
+  return raw.map((ad) => ({
+    id: ad.id,
+    title: ad.title,
+    content: ad.content,
+    caption: ad.caption,
+    imageUrl: ad.image_url || ad.imageUrl,
+    linkUrl: ad.link_url || ad.linkUrl,
+    companyId: ad.company_id || ad.companyId,
+    productId: ad.product_id || ad.productId,
+    adType: ad.ad_type || ad.adType,
+    status: ad.status,
+  }));
+};
+
 // ─── Discounts ────────────────────────────────────────────────────────────────
 export const getApprovedDiscounts = async (): Promise<Discount[]> => {
   const res = await api.get(ENDPOINTS.approvedDiscounts);

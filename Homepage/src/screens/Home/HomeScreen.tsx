@@ -13,10 +13,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { getProducts, getCategories } from '../../api';
+import { getProducts, getCategories, getApprovedAds } from '../../api';
 import { getLocalSubs } from '../Company/CompanyStoreScreen';
-import { Product, Category, RootStackParamList } from '../../types';
+import { Product, Category, Ad, RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
+import BannerCarousel from '../../components/common/BannerCarousel';
 
 const LIMIT = 20;
 
@@ -40,6 +41,7 @@ const getIcon = (name: string) => CATEGORY_ICONS[name] || 'grid-outline';
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const DRAWER_WIDTH = Math.min(width * 0.82, 340);
+  const CARD_WIDTH = (width - 16 * 2 - 10) / 2;
 
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
@@ -50,6 +52,7 @@ export default function HomeScreen() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [ads, setAds] = useState<Ad[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,15 +90,17 @@ export default function HomeScreen() {
 
   const loadInitial = useCallback(async () => {
     try {
-      const [prodRes, catRes] = await Promise.allSettled([
+      const [prodRes, catRes, adsRes] = await Promise.allSettled([
         getProducts({ limit: LIMIT, offset: 0, ...getModeParams() }),
         getCategories(),
+        getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
         setHasMore(prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
+      if (adsRes.status === 'fulfilled') setAds(adsRes.value);
       const subs = await getLocalSubs();
       setSubscribedIds(subs);
     } finally {
@@ -110,15 +115,17 @@ export default function HomeScreen() {
     setOffset(0);
     setHasMore(true);
     try {
-      const [prodRes, catRes] = await Promise.allSettled([
+      const [prodRes, catRes, adsRes] = await Promise.allSettled([
         getProducts({ limit: LIMIT, offset: 0, ...getModeParams() }),
         getCategories(),
+        getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
         setHasMore(prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
+      if (adsRes.status === 'fulfilled') setAds(adsRes.value);
     } finally {
       setRefreshing(false);
     }
@@ -160,6 +167,63 @@ export default function HomeScreen() {
     return result;
   }, [products, search, subscribedIds]);
 
+  // Popular = top 6 by soldCount
+  const popularProducts = useMemo(() =>
+    [...products].sort((a, b) => (b.soldCount || 0) - (a.soldCount || 0)).slice(0, 6),
+  [products]);
+
+  const ListHeader = useMemo(() => (
+    <View>
+      {/* Banner carousel */}
+      {!search.trim() && <BannerCarousel ads={ads} />}
+
+      {/* Popular section */}
+      {!search.trim() && popularProducts.length > 0 && (
+        <View style={styles.sectionHeader}>
+          <View style={[styles.sectionDot, { backgroundColor: colors.primary }]} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {t('popular') || 'Популярное'}
+          </Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity activeOpacity={0.7}>
+            <Text style={[styles.seeAll, { color: colors.primary }]}>
+              {t('seeAll') || 'Все'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!search.trim() && popularProducts.length > 0 && (
+        <FlatList
+          horizontal
+          data={popularProducts}
+          keyExtractor={(item) => `pop-${item.id}`}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          style={{ marginBottom: 20 }}
+          renderItem={({ item }) => (
+            <View style={{ width: 150 }}>
+              <ProductCard
+                product={item}
+                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                onFavorite={() => toggleFav(item.id, item)}
+                isFavorite={isFavorite(item.id)}
+              />
+            </View>
+          )}
+        />
+      )}
+
+      {/* All products header */}
+      <View style={styles.sectionHeader}>
+        <View style={[styles.sectionDot, { backgroundColor: colors.textMuted }]} />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {search.trim() ? (t('searchResults') || 'Результаты поиска') : (t('allProducts') || 'Все товары')}
+        </Text>
+      </View>
+    </View>
+  ), [ads, popularProducts, search, colors, t]);
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
@@ -172,18 +236,18 @@ export default function HomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
-      {/* Top bar: hamburger + search */}
+      {/* Top bar */}
       <View style={[styles.topBar, { backgroundColor: colors.background }]}>
         <TouchableOpacity
-          style={[styles.menuBtn, { backgroundColor: colors.surface }]}
+          style={[styles.menuBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={openDrawer}
           activeOpacity={0.7}
         >
-          <Ionicons name="menu-outline" size={24} color={colors.text} />
+          <Ionicons name="menu-outline" size={22} color={colors.text} />
         </TouchableOpacity>
 
         <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+          <Ionicons name="search-outline" size={17} color={colors.textMuted} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
             placeholder={t('searchPlaceholder')}
@@ -198,6 +262,19 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        <TouchableOpacity
+          style={[styles.cartBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => navigation.navigate('Cart' as any)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="bag-outline" size={22} color={colors.text} />
+          {cartCount > 0 && (
+            <View style={[styles.cartBadge, { backgroundColor: colors.primary }]}>
+              <Text style={styles.cartBadgeText}>{cartCount > 9 ? '9+' : cartCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Products grid */}
@@ -205,19 +282,20 @@ export default function HomeScreen() {
         data={displayProducts}
         numColumns={2}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.grid}
-        columnWrapperStyle={styles.row}
+        contentContainerStyle={[styles.grid, { paddingHorizontal: 16 }]}
+        columnWrapperStyle={{ gap: 10 }}
         showsVerticalScrollIndicator={false}
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
+        ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {search.trim() ? t('notFound') : t('noProducts')}
+              {search.trim() ? (t('notFound') || 'Ничего не найдено') : (t('noProducts') || 'Нет товаров')}
             </Text>
           </View>
         }
@@ -229,7 +307,7 @@ export default function HomeScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <View style={{ width: (width - 24 - 12) / 2 }}>
+          <View style={{ width: CARD_WIDTH }}>
             <ProductCard
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
@@ -254,7 +332,6 @@ export default function HomeScreen() {
           { backgroundColor: colors.surface, width: DRAWER_WIDTH, transform: [{ translateX: drawerX }] },
         ]}
       >
-        {/* Drawer header */}
         <View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
           <Text style={[styles.drawerTitle, { color: colors.text }]}>{t('catalogTitle')}</Text>
           <TouchableOpacity onPress={closeDrawer} style={[styles.closeBtn, { backgroundColor: colors.inputBg }]}>
@@ -262,20 +339,18 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* All products row */}
         <TouchableOpacity
           style={[styles.drawerRow, { borderBottomColor: colors.divider }]}
           onPress={() => { closeDrawer(); setSearch(''); }}
           activeOpacity={0.7}
         >
-          <View style={[styles.drawerIcon, { backgroundColor: colors.primary + '20' }]}>
+          <View style={[styles.drawerIcon, { backgroundColor: colors.primary + '1A' }]}>
             <Ionicons name="apps-outline" size={20} color={colors.primary} />
           </View>
           <Text style={[styles.drawerRowText, { color: colors.text }]}>{t('allProducts')}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 
-        {/* Categories */}
         <FlatList
           data={categories}
           keyExtractor={(item) => String(item.id)}
@@ -289,7 +364,7 @@ export default function HomeScreen() {
               }}
               activeOpacity={0.7}
             >
-              <View style={[styles.drawerIcon, { backgroundColor: colors.primary + '15' }]}>
+              <View style={[styles.drawerIcon, { backgroundColor: colors.primary + '14' }]}>
                 <Ionicons name={getIcon(item.name) as any} size={20} color={colors.primary} />
               </View>
               <Text style={[styles.drawerRowText, { color: colors.text }]}>{item.name}</Text>
@@ -308,38 +383,72 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     paddingTop: 52,
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   menuBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
+  cartBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  cartBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
-    height: 46,
-    borderRadius: 14,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
   },
-  searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
-  grid: { paddingHorizontal: 12, paddingBottom: 24 },
-  row: { gap: 12, marginBottom: 0 },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 0 },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  sectionDot: {
+    width: 4,
+    height: 18,
+    borderRadius: 2,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', letterSpacing: -0.2 },
+  seeAll: { fontSize: 13, fontWeight: '600' },
+  grid: { paddingBottom: 24 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   emptyText: { fontSize: 15 },
   loadMore: { paddingVertical: 20, alignItems: 'center' },
   overlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     zIndex: 10,
   },
   drawer: {
@@ -347,9 +456,9 @@ const styles = StyleSheet.create({
     top: 0, left: 0, bottom: 0,
     zIndex: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    elevation: 24,
   },
   drawerHeader: {
     flexDirection: 'row',
@@ -360,10 +469,10 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  drawerTitle: { fontSize: 22, fontWeight: '800' },
+  drawerTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
   closeBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -372,16 +481,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     gap: 14,
   },
   drawerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  drawerRowText: { flex: 1, fontSize: 15, fontWeight: '500' },
+  drawerRowText: { flex: 1, fontSize: 14, fontWeight: '500' },
 });
