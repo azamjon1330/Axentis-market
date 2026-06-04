@@ -266,6 +266,41 @@ func ModerateAd(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// UpdateAdLink обновляет link_url рекламы (используется в админ-панели)
+func UpdateAdLink(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		adID := c.Param("id")
+
+		var req struct {
+			LinkURL string `json:"link_url"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		result, err := db.Exec(`
+			UPDATE advertisements
+			SET link_url = $1, updated_at = NOW()
+			WHERE id = $2
+		`, req.LinkURL, adID)
+		if err != nil {
+			log.Printf("❌ [UpdateAdLink] Error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update link"})
+			return
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Ad not found"})
+			return
+		}
+
+		log.Printf("✅ [UpdateAdLink] Updated link for ad %s: %s", adID, req.LinkURL)
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	}
+}
+
 // DeleteAd "удаляет" рекламу (устанавливает status = 'deleted')
 // Реклама физически не удаляется, а помечается как deleted для отслеживания в админ-панели
 func DeleteAd(db *sql.DB) gin.HandlerFunc {

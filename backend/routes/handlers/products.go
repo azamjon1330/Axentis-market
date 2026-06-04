@@ -1046,20 +1046,50 @@ func FindProductByBarcode(db *sql.DB) gin.HandlerFunc {
 		`, companyID, query).Scan(&productID)
 
 		if err == sql.ErrNoRows {
-			// Search product_variants barcode/sku/barid
+			// Search product_variants barcode/sku/barid — also return variant pricing
+			var variantID int64
+			var variantPrice float64
+			var variantSellingPrice sql.NullFloat64
+			var variantMarkupPercent sql.NullFloat64
 			err = db.QueryRow(`
-				SELECT pv.product_id FROM product_variants pv
+				SELECT pv.product_id, pv.id, pv.price,
+				       pv.selling_price,
+				       pv.markup_percent
+				FROM product_variants pv
 				JOIN products p ON p.id = pv.product_id
 				WHERE p.company_id = $1
 				  AND (LOWER(pv.barcode) = $2 OR LOWER(pv.sku) = $2 OR LOWER(pv.barid) = $2)
 				LIMIT 1
-			`, companyID, query).Scan(&productID)
-		}
+			`, companyID, query).Scan(&productID, &variantID, &variantPrice, &variantSellingPrice, &variantMarkupPercent)
 
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"found": false})
+			if err == sql.ErrNoRows {
+				c.JSON(http.StatusNotFound, gin.H{"found": false})
+				return
+			}
+			if err != nil {
+				log.Printf("❌ FindProductByBarcode variant error: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed"})
+				return
+			}
+
+			// Calculate selling price if not stored explicitly
+			sellingPrice := variantPrice
+			if variantSellingPrice.Valid && variantSellingPrice.Float64 > 0 {
+				sellingPrice = variantSellingPrice.Float64
+			} else if variantMarkupPercent.Valid && variantMarkupPercent.Float64 > 0 {
+				sellingPrice = variantPrice * (1 + variantMarkupPercent.Float64/100.0)
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"found":               true,
+				"productId":           productID,
+				"variantId":           variantID,
+				"variantPrice":        variantPrice,
+				"variantSellingPrice": sellingPrice,
+			})
 			return
 		}
+
 		if err != nil {
 			log.Printf("❌ FindProductByBarcode error: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Search failed"})

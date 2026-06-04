@@ -1090,6 +1090,14 @@ export const ads = {
     });
   },
 
+  // Update ad link_url (admin only)
+  updateLink: async (id: string, linkUrl: string) => {
+    return apiCall(`/ads/${id}/link`, {
+      method: 'PUT',
+      body: JSON.stringify({ link_url: linkUrl }),
+    });
+  },
+
   // Moderate ad (admin only)
   moderate: async (id: string, status: 'approved' | 'rejected', reason?: string, adminMessage?: string) => {
     return apiCall(`/ads/${id}/moderate`, {

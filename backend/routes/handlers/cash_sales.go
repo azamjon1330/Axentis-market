@@ -136,6 +136,12 @@ func CreateCashSale(db *sql.DB) gin.HandlerFunc {
 				priceWithMarkup = pwm
 			}
 
+			// Читаем variant_id если есть
+			var variantID int64
+			if vid, ok := item["variant_id"].(float64); ok {
+				variantID = int64(vid)
+			}
+
 			// Валидация
 			if productID == 0 {
 				log.Printf("⚠️ CreateCashSale: Item missing productID: %+v", item)
@@ -160,30 +166,68 @@ func CreateCashSale(db *sql.DB) gin.HandlerFunc {
 				priceWithMarkup = basePrice
 			}
 
-			log.Printf("📦 [CASH SALE] Product %d: qty=%d, base=%.2f, selling=%.2f", 
-				productID, quantity, basePrice, priceWithMarkup)
+			log.Printf("📦 [CASH SALE] Product %d (variant %d): qty=%d, base=%.2f, selling=%.2f",
+				productID, variantID, quantity, basePrice, priceWithMarkup)
 
-			// Проверяем наличие на складе И уменьшаем количество за один запрос
-			result, err := tx.Exec(`
-				UPDATE products 
-				SET quantity = quantity - $1, updated_at = NOW()
-				WHERE id = $2 AND company_id = $3 AND quantity >= $1
-			`, quantity, productID, companyID)
+			if variantID > 0 {
+				// Уменьшаем stock_quantity конкретного варианта
+				result, err := tx.Exec(`
+					UPDATE product_variants
+					SET stock_quantity = GREATEST(0, stock_quantity - $1), updated_at = NOW()
+					WHERE id = $2 AND product_id = $3 AND stock_quantity >= $1
+				`, quantity, variantID, productID)
 
-			if err != nil {
-				log.Printf("❌ CreateCashSale: Failed to update product %d: %v", productID, err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update product %d", productID)})
-				return
+				if err != nil {
+					log.Printf("❌ CreateCashSale: Failed to update variant %d: %v", variantID, err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update variant %d", variantID)})
+					return
+				}
+
+				rowsAffected, _ := result.RowsAffected()
+				if rowsAffected == 0 {
+					log.Printf("❌ CreateCashSale: Insufficient stock for variant %d", variantID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Insufficient stock for variant %d of product %d", variantID, productID)})
+					return
+				}
+
+				// Синхронизируем quantity родительского продукта
+				_, err = tx.Exec(`
+					UPDATE products
+					SET quantity = (
+						SELECT COALESCE(SUM(stock_quantity), 0)
+						FROM product_variants
+						WHERE product_id = $1
+					), updated_at = NOW()
+					WHERE id = $1
+				`, productID)
+				if err != nil {
+					log.Printf("⚠️ CreateCashSale: Failed to sync product quantity for %d: %v", productID, err)
+				}
+
+				log.Printf("✅ [CASH SALE] Variant %d of product %d: stock decreased by %d", variantID, productID, quantity)
+			} else {
+				// Fallback: уменьшаем напрямую у основного товара
+				result, err := tx.Exec(`
+					UPDATE products
+					SET quantity = quantity - $1, updated_at = NOW()
+					WHERE id = $2 AND company_id = $3 AND quantity >= $1
+				`, quantity, productID, companyID)
+
+				if err != nil {
+					log.Printf("❌ CreateCashSale: Failed to update product %d: %v", productID, err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update product %d", productID)})
+					return
+				}
+
+				rowsAffected, _ := result.RowsAffected()
+				if rowsAffected == 0 {
+					log.Printf("❌ CreateCashSale: Insufficient stock for product %d", productID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Insufficient stock for product %d", productID)})
+					return
+				}
+
+				log.Printf("✅ [CASH SALE] Product %d: stock decreased by %d", productID, quantity)
 			}
-
-			rowsAffected, _ := result.RowsAffected()
-			if rowsAffected == 0 {
-				log.Printf("❌ CreateCashSale: Insufficient stock for product %d", productID)
-				c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Insufficient stock for product %d", productID)})
-				return
-			}
-
-			log.Printf("✅ [CASH SALE] Product %d: stock decreased by %d", productID, quantity)
 
 			// Рассчитываем суммы
 			markupAmount := priceWithMarkup - basePrice

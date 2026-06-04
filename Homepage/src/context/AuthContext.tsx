@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../types';
 import { loginUser, registerUser, getUserProfile } from '../api';
+import { registerPushToken, resetPushRegistration } from '../utils/pushNotifications';
 
 interface AuthContextType {
   user: User | null;
@@ -22,6 +23,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // Register this device's push token whenever we have a logged-in user.
+  useEffect(() => {
+    if (user?.phone) registerPushToken(user.phone);
+  }, [user?.phone]);
 
   const restoreSession = async () => {
     try {
@@ -62,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setUser(null);
+    resetPushRegistration();
     await AsyncStorage.multiRemove(['currentUser', 'userToken']);
   };
 

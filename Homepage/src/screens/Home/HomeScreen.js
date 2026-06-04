@@ -10,7 +10,6 @@ import {
   Animated,
   TextInput,
   Pressable,
-  ScrollView,
   useWindowDimensions,
   StatusBar,
   Platform,
@@ -20,11 +19,11 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { getProducts, getCategories } from '../../api';
+import { getProducts, getCategories, getApprovedAds } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
+import BannerCarousel from '../../components/common/BannerCarousel';
 
 const LIMIT = 20;
 const DEBOUNCE_MS = 300;
@@ -34,13 +33,13 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
-  const { count: cartCount } = useCart();
   const { isFavorite, toggle: toggleFav } = useFavorites();
   const { t } = useLanguage();
   const navigation = useNavigation();
 
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [ads, setAds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,9 +72,10 @@ export default function HomeScreen() {
 
   const loadInitial = useCallback(async () => {
     try {
-      const [prodRes, catRes] = await Promise.allSettled([
+      const [prodRes, catRes, adsRes] = await Promise.allSettled([
         getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() }),
         getCategories(),
+        getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
@@ -83,6 +83,7 @@ export default function HomeScreen() {
         setHasMore(prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
+      if (adsRes.status === 'fulfilled') setAds(adsRes.value);
     } finally {
       setIsLoading(false);
     }
@@ -96,9 +97,10 @@ export default function HomeScreen() {
     setHasMore(true);
     setActiveCategory(null);
     try {
-      const [prodRes, catRes] = await Promise.allSettled([
+      const [prodRes, catRes, adsRes] = await Promise.allSettled([
         getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() }),
         getCategories(),
+        getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
@@ -106,6 +108,7 @@ export default function HomeScreen() {
         setHasMore(prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
+      if (adsRes.status === 'fulfilled') setAds(adsRes.value);
     } finally {
       setRefreshing(false);
     }
@@ -173,49 +176,16 @@ export default function HomeScreen() {
   };
   const getIcon = name => CATEGORY_ICONS[name] || 'grid-outline';
 
+  // Ad banner carousel — shown at the top of the feed (hidden while searching or
+  // filtering by category, and when there are no approved ads).
   const ListHeader = useMemo(() => {
-    if (categories.length === 0) return null;
+    if (debouncedSearch.trim() || activeCategory || ads.length === 0) return null;
     return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillsContainer}
-        style={styles.pillsRow}
-      >
-        <TouchableOpacity
-          onPress={() => setActiveCategory(null)}
-          style={[
-            styles.pill,
-            activeCategory === null
-              ? { backgroundColor: colors.primary }
-              : { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' },
-          ]}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.pillText, { color: activeCategory === null ? '#fff' : colors.textSecondary }]}>
-            Все
-          </Text>
-        </TouchableOpacity>
-        {categories.map(cat => (
-          <TouchableOpacity
-            key={String(cat.id)}
-            onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
-            style={[
-              styles.pill,
-              activeCategory === cat.name
-                ? { backgroundColor: colors.primary }
-                : { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)' },
-            ]}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.pillText, { color: activeCategory === cat.name ? '#fff' : colors.textSecondary }]}>
-              {cat.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.bannerWrap}>
+        <BannerCarousel ads={ads} />
+      </View>
     );
-  }, [categories, activeCategory, colors, isDark]);
+  }, [ads, debouncedSearch, activeCategory]);
 
   if (isLoading) {
     return (
@@ -263,20 +233,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Cart button */}
-        <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
-          onPress={() => navigation.navigate('Cart')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="cart-outline" size={22} color={colors.text} />
-          {cartCount > 0 && (
-            <View style={[styles.cartBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.cartBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
       </View>
 
       {/* ── Products FlatList ── */}
@@ -426,39 +382,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingVertical: 0,
   },
-  cartBadge: {
-    position: 'absolute',
-    top: -3,
-    right: -3,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-  },
-  cartBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-
-  pillsRow: {
-    marginBottom: 12,
-  },
-  pillsContainer: {
-    paddingHorizontal: 12,
-    gap: 8,
-    flexDirection: 'row',
-  },
-  pill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  pillText: {
-    fontSize: 12,
-    fontWeight: '600',
+  bannerWrap: {
+    paddingTop: 4,
+    paddingBottom: 4,
   },
 
   grid: {

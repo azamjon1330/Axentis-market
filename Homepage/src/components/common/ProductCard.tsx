@@ -48,7 +48,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
         onPress={onPress}
         activeOpacity={0.82}
       >
-        <View style={[styles.hImageBox, { backgroundColor: colors.cardAlt || colors.surface }]}>
+        <View style={[styles.hImageBox, { backgroundColor: colors.card }]}>
           {imageUri && !hImgError ? (
             <Image source={{ uri: imageUri }} style={styles.hImage} resizeMode="contain" onError={() => setHImgError(true)} />
           ) : (
@@ -99,7 +99,7 @@ const ProductCard: React.FC<Props> = ({ product, onPress, onFavorite, isFavorite
       onPress={onPress}
       activeOpacity={0.82}
     >
-      <View style={[styles.imageBox, { backgroundColor: isDark ? colors.surface : '#F8F9FB' }]}>
+      <View style={[styles.imageBox, { backgroundColor: colors.card }]}>
         {imageUri && !imgError ? (
           <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" onError={() => setImgError(true)} />
         ) : (

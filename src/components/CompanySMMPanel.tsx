@@ -255,7 +255,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     }
   };
 
-  const handleMediaUpload = async (imageUrl: string, title: string, description: string, adType: 'company' | 'product', productId?: number, file?: File) => {
+  const handleMediaUpload = async (imageUrl: string, title: string, description: string, adType: 'company' | 'product', productId?: number, file?: File, linkUrl?: string) => {
     try {
       console.log('📸 [UPLOAD] Creating advertisement...', { title, adType, productId, companyId });
       
@@ -277,10 +277,10 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         title: title,
         content: description || title,
         imageUrl: finalImageUrl,
-        linkUrl: '',
-        adType: adType, // 🆕 Тип рекламы
+        linkUrl: linkUrl || '',
+        adType: adType,
         companyId: companyId,
-        productId: productId // 🆕 ID товара (если тип product)
+        productId: productId
       });
       
       console.log('✅ [UPLOAD] Advertisement created:', result);
@@ -812,7 +812,7 @@ function UploadModal({
   companyId
 }: {
   onClose: () => void;
-  onUpload: (imageUrl: string, title: string, description: string, adType: 'company' | 'product', productId?: number, file?: File) => void;
+  onUpload: (imageUrl: string, title: string, description: string, adType: 'company' | 'product', productId?: number, file?: File, linkUrl?: string) => void;
   companyId: number;
 }) {
   const t = useTranslation(getCurrentLanguage());
@@ -820,11 +820,12 @@ function UploadModal({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploadMode, setUploadMode] = useState<'url' | 'file'>('file');
   const [isDragging, setIsDragging] = useState(false);
-  const [adType, setAdType] = useState<'company' | 'product'>('company'); // 🆕 Тип рекламы
+  const [adType, setAdType] = useState<'company' | 'product'>('company');
   const [selectedProductId, setSelectedProductId] = useState<number>();
   const [products, setProducts] = useState<any[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -903,8 +904,7 @@ function UploadModal({
       toast.error(t.selectProductForAd);
       return;
     }
-    // Передаем файл если режим загрузки файла
-    onUpload(uploadMode === 'url' ? imageUrl : '', title, description, adType, selectedProductId, uploadMode === 'file' ? file || undefined : undefined);
+    onUpload(uploadMode === 'url' ? imageUrl : '', title, description, adType, selectedProductId, uploadMode === 'file' ? file || undefined : undefined, linkUrl || undefined);
   };
 
   return (
@@ -1004,6 +1004,18 @@ function UploadModal({
               className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
               rows={3}
               placeholder={t.addDescriptionPlaceholder}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">🔗 URL-ссылка (необязательно)</label>
+            <p className="text-xs text-gray-400 mb-2">При нажатии на рекламу откроется этот адрес (YouTube, Telegram, Uzum и т.д.)</p>
+            <input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+              placeholder="https://t.me/yourcompany или https://youtube.com/..."
             />
           </div>
 

@@ -337,7 +337,9 @@ export const getCompanies = async (params: { approved?: boolean; search?: string
 
 export const getCompanyDetail = async (id: number): Promise<Company> => {
   const res = await api.get(ENDPOINTS.companyDetail(id));
-  return res.data;
+  const data = res.data || {};
+  // Backend may return either camelCase (logoUrl) or snake_case (logo_url) — normalize.
+  return { ...data, logoUrl: data.logoUrl ?? data.logo_url } as Company;
 };
 
 export const getCompanyStats = async (id: number): Promise<{

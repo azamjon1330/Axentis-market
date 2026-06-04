@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Image, Dimensions,
+  Image, Dimensions, Linking, Alert,
 } from 'react-native';
 import { Ad } from '../../types';
 import { getImageUrl } from '../../utils/imageUrl';
@@ -57,15 +57,33 @@ export default function BannerCarousel({ ads }: Props) {
         {slides
           ? slides.map((ad) => {
               const uri = getImageUrl(ad.imageUrl);
+              const handlePress = async () => {
+                if (!ad.linkUrl) return;
+                try {
+                  const canOpen = await Linking.canOpenURL(ad.linkUrl);
+                  if (canOpen) {
+                    await Linking.openURL(ad.linkUrl);
+                  } else {
+                    Alert.alert('Ошибка', 'Не удалось открыть ссылку');
+                  }
+                } catch {
+                  Alert.alert('Ошибка', 'Не удалось открыть ссылку');
+                }
+              };
               return (
-                <View key={String(ad.id)} style={[styles.slide, { backgroundColor: '#1F6FEB' }]}>
+                <TouchableOpacity
+                  key={String(ad.id)}
+                  activeOpacity={ad.linkUrl ? 0.85 : 1}
+                  onPress={ad.linkUrl ? handlePress : undefined}
+                  style={[styles.slide, { backgroundColor: '#1F6FEB' }]}
+                >
                   {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
                   <View style={styles.overlay} />
                   <View style={styles.txt}>
                     <Text style={styles.title}>{ad.title}</Text>
                     {ad.content ? <Text style={styles.sub}>{ad.content}</Text> : null}
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           : PLACEHOLDERS.map((p) => (

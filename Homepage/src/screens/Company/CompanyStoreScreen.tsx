@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Image, ActivityIndicator, Alert, ScrollView,
+  Image, ActivityIndicator, Alert, ScrollView, useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,13 +34,20 @@ async function saveLocalSubs(ids: number[]): Promise<void> {
 
 export { getLocalSubs, saveLocalSubs };
 
+const H_PADDING = 16;
+const CARD_GAP = 12;
+
 export default function CompanyStoreScreen() {
   const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
   const { user } = useAuth();
   const { isFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { companyId } = route.params;
+
+  // Fixed half-width so a lone last card never stretches to full width.
+  const cardWidth = (width - H_PADDING * 2 - CARD_GAP) / 2;
 
   const [company, setCompany] = useState<Company | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -48,6 +55,7 @@ export default function CompanyStoreScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [companyStats, setCompanyStats] = useState<{ subscribers: number; total_products: number; total_sales: number } | null>(null);
+  const [logoError, setLogoError] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -138,8 +146,13 @@ export default function CompanyStoreScreen() {
             {/* Company card */}
             <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.companyTop}>
-                {logoUri ? (
-                  <Image source={{ uri: logoUri }} style={styles.logo} />
+                {logoUri && !logoError ? (
+                  <Image
+                    source={{ uri: logoUri }}
+                    style={styles.logo}
+                    resizeMode="cover"
+                    onError={() => setLogoError(true)}
+                  />
                 ) : (
                   <View style={[styles.logoFallback, { backgroundColor: colors.primary + '20' }]}>
                     <Text style={[styles.logoInitial, { color: colors.primary }]}>
@@ -219,7 +232,7 @@ export default function CompanyStoreScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.cardWrap}>
+          <View style={{ width: cardWidth }}>
             <ProductCard
               product={item}
               onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
@@ -289,8 +302,7 @@ const styles = StyleSheet.create({
   subscribeBtnText: { fontSize: 15, fontWeight: '600' },
   productsLabel: { fontSize: 18, fontWeight: '700', paddingHorizontal: 16, marginBottom: 12 },
   listContent: { paddingBottom: 24 },
-  row: { paddingHorizontal: 16, gap: 12 },
-  cardWrap: { flex: 1 },
+  row: { paddingHorizontal: 16, gap: 12, justifyContent: 'flex-start' },
   empty: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyText: { fontSize: 15 },
 });

@@ -80,9 +80,13 @@ func SendExpoPushNotification(tokens []string, title, body string) (int, error) 
 // SaveExpoPushToken - сохранить Expo Push Token пользователя
 func SaveExpoPushToken(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Accept both naming conventions: { phone, pushToken } and the mobile
+		// app's { user_phone, expo_push_token }.
 		var input struct {
-			Phone     string `json:"phone" binding:"required"`
-			PushToken string `json:"pushToken" binding:"required"`
+			Phone         string `json:"phone"`
+			UserPhone     string `json:"user_phone"`
+			PushToken     string `json:"pushToken"`
+			ExpoPushToken string `json:"expo_push_token"`
 		}
 
 		if err := c.ShouldBindJSON(&input); err != nil {
@@ -90,14 +94,27 @@ func SaveExpoPushToken(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		phone := input.Phone
+		if phone == "" {
+			phone = input.UserPhone
+		}
+		pushToken := input.PushToken
+		if pushToken == "" {
+			pushToken = input.ExpoPushToken
+		}
+		if phone == "" || pushToken == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "phone and pushToken are required"})
+			return
+		}
+
 		// Обновляем или создаём пользователя с push token
 		_, err := db.Exec(`
 			INSERT INTO users (phone, expo_push_token, cart, likes, receipts)
 			VALUES ($1, $2, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb)
-			ON CONFLICT (phone) DO UPDATE SET 
+			ON CONFLICT (phone) DO UPDATE SET
 				expo_push_token = $2,
 				updated_at = NOW()
-		`, input.Phone, input.PushToken)
+		`, phone, pushToken)
 
 		if err != nil {
 			log.Printf("❌ Error saving push token: %v", err)
@@ -105,7 +122,7 @@ func SaveExpoPushToken(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("✅ Push token saved for user %s: %s", input.Phone, input.PushToken[:min(30, len(input.PushToken))]+"...")
+		log.Printf("✅ Push token saved for user %s: %s", phone, pushToken[:min(30, len(pushToken))]+"...")
 		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
 }
@@ -117,10 +134,19 @@ func min(a, b int) int {
 	return b
 }
 
+// notifPhoneParam reads the user phone from the query string, accepting both the
+// `phone` and `userPhone` parameter names (the mobile app sends `userPhone`).
+func notifPhoneParam(c *gin.Context) string {
+	if p := c.Query("phone"); p != "" {
+		return p
+	}
+	return c.Query("userPhone")
+}
+
 // GetUserNotifications - получить уведомления пользователя
 func GetUserNotifications(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userPhone := c.Query("phone")
+		userPhone := notifPhoneParam(c)
 		if userPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
 			return
@@ -206,7 +232,7 @@ func GetUserNotifications(db *sql.DB) gin.HandlerFunc {
 // GetUnreadNotificationsCount - получить количество непрочитанных уведомлений
 func GetUnreadNotificationsCount(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userPhone := c.Query("phone")
+		userPhone := notifPhoneParam(c)
 		if userPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
 			return
@@ -244,7 +270,20 @@ func MarkNotificationAsRead(db *sql.DB) gin.HandlerFunc {
 // MarkAllNotificationsAsRead - отметить все уведомления как прочитанные
 func MarkAllNotificationsAsRead(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userPhone := c.Query("phone")
+		userPhone := notifPhoneParam(c)
+		if userPhone == "" {
+			// Fall back to the JSON body (mobile sends { user_phone } / { phone })
+			var body struct {
+				UserPhone string `json:"user_phone"`
+				Phone     string `json:"phone"`
+			}
+			_ = c.ShouldBindJSON(&body)
+			if body.UserPhone != "" {
+				userPhone = body.UserPhone
+			} else {
+				userPhone = body.Phone
+			}
+		}
 		if userPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
 			return
@@ -327,17 +366,17 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 			// Отправить всем пользователям из всех источников
 			rows, err := db.Query(`
 				WITH all_users AS (
-					SELECT phone, '' as push_token
-					FROM users 
+					SELECT phone, COALESCE(expo_push_token, '') as push_token
+					FROM users
 					WHERE phone IS NOT NULL AND phone != ''
-					
+
 					UNION
-					
+
 					SELECT DISTINCT customer_phone as phone, '' as push_token
 					FROM orders
 					WHERE customer_phone IS NOT NULL AND customer_phone != ''
 				)
-				SELECT DISTINCT phone, MAX(push_token) as push_token
+				SELECT phone, MAX(push_token) as push_token
 				FROM all_users
 				GROUP BY phone
 			`)
@@ -365,6 +404,9 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 				} else {
 					sentCount++
 					userPhones = append(userPhones, userPhone)
+					if pushToken != "" {
+						pushTokens = append(pushTokens, pushToken)
+					}
 					log.Printf("📧 Notification saved for user: %s", userPhone)
 				}
 			}
@@ -378,8 +420,11 @@ func SendAdminNotification(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Push token временно не используется (пока нет колонки expo_push_token)
-			pushToken := ""
+			// Достаём push-токен пользователя (если зарегистрирован)
+			var pushToken string
+			_ = db.QueryRow(`
+				SELECT COALESCE(expo_push_token, '') FROM users WHERE phone = $1
+			`, input.Phone).Scan(&pushToken)
 
 			_, err := db.Exec(`
 				INSERT INTO notifications (user_phone, type, title, message)

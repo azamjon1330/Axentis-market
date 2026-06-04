@@ -21,6 +21,9 @@ interface Product {
 interface CartItem {
   product: Product;
   quantity: number;
+  variantId?: number;
+  variantPrice?: number;        // warehouse cost for the specific variant
+  variantSellingPrice?: number; // selling price with markup for the specific variant
 }
 
 interface BarcodeSearchPanelProps {
@@ -169,11 +172,19 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
     });
 
     // If not found locally, search backend — catches variant barcodes/SKUs
+    let pendingVariantId: number | undefined;
+    let pendingVariantPrice: number | undefined;
+    let pendingVariantSellingPrice: number | undefined;
     if (!foundProduct) {
       try {
         const result = await api.products.findByBarcode(companyId, trimmedBarcode);
         if (result?.found && result?.productId) {
           foundProduct = products.find((p: Product) => p.id === result.productId);
+          if (result.variantId) {
+            pendingVariantId = result.variantId;
+            pendingVariantPrice = result.variantPrice;
+            pendingVariantSellingPrice = result.variantSellingPrice;
+          }
         }
       } catch {
         // not found in variants either — fall through to notFound state
@@ -183,7 +194,7 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
     if (foundProduct) {
       setLastScannedProduct(foundProduct);
       setNotFound(false);
-      addToCart(foundProduct);
+      addToCart(foundProduct, pendingVariantId, pendingVariantPrice, pendingVariantSellingPrice);
       setSearchBarcode('');
     } else {
       setLastScannedProduct(null);
@@ -197,44 +208,55 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
   };
 
   /**
-   * Добавление товара в корзину
+   * Добавление товара в корзину (с поддержкой SKU-вариантов)
    */
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, variantId?: number, variantPrice?: number, variantSellingPrice?: number) => {
     setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.product.id === product.id);
-      
+      const existingItem = prevCart.find(item =>
+        variantId
+          ? item.product.id === product.id && item.variantId === variantId
+          : item.product.id === product.id && !item.variantId
+      );
+
       if (existingItem) {
-        return prevCart.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
+        return prevCart.map(item => {
+          const matches = variantId
+            ? item.product.id === product.id && item.variantId === variantId
+            : item.product.id === product.id && !item.variantId;
+          return matches ? { ...item, quantity: item.quantity + 1 } : item;
+        });
       }
-      
-      return [...prevCart, { product, quantity: 1 }];
+
+      return [...prevCart, { product, quantity: 1, variantId, variantPrice, variantSellingPrice }];
     });
   };
 
   /**
-   * Обновление количества товара
+   * Обновление количества товара (поддерживает variantId)
    */
-  const updateQuantity = (productId: number, newQuantity: number) => {
+  const updateQuantity = (productId: number, newQuantity: number, variantId?: number) => {
     if (newQuantity < 0) return;
-    
+
     setCart(prevCart =>
-      prevCart.map(item =>
-        item.product.id === productId
-          ? { ...item, quantity: newQuantity }
-          : item
-      )
+      prevCart.map(item => {
+        const matches = variantId
+          ? item.product.id === productId && item.variantId === variantId
+          : item.product.id === productId;
+        return matches ? { ...item, quantity: newQuantity } : item;
+      })
     );
   };
 
   /**
-   * Удаление товара из корзины
+   * Удаление товара из корзины (поддерживает variantId)
    */
-  const removeFromCart = (productId: number) => {
-    setCart(prevCart => prevCart.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: number, variantId?: number) => {
+    setCart(prevCart =>
+      prevCart.filter(item => {
+        if (variantId) return !(item.product.id === productId && item.variantId === variantId);
+        return item.product.id !== productId;
+      })
+    );
   };
 
   /**
@@ -257,12 +279,13 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
   };
 
   /**
-   * Расчёт итогов
+   * Расчёт итогов (использует цены варианта если доступны)
    */
   const getTotalAmount = (): number => {
     return cart.reduce((sum, item) => {
-      const priceWithMarkup = getPriceWithMarkup(item.product.price, item.product.markupPercent || 0, item.product.id);
-      return sum + (priceWithMarkup * item.quantity);
+      const sellingPrice = item.variantSellingPrice
+        ?? getPriceWithMarkup(item.product.price, item.product.markupPercent || 0, item.product.id);
+      return sum + (sellingPrice * item.quantity);
     }, 0);
   };
 
@@ -272,10 +295,12 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
 
   const getTotalProfit = (): number => {
     return cart.reduce((sum, item) => {
+      if (item.variantPrice !== undefined && item.variantSellingPrice !== undefined) {
+        return sum + ((item.variantSellingPrice - item.variantPrice) * item.quantity);
+      }
       const basePrice = item.product.price;
       const priceWithMarkup = getPriceWithMarkup(basePrice, item.product.markupPercent || 0, item.product.id);
-      const markup = priceWithMarkup - basePrice;
-      return sum + (markup * item.quantity);
+      return sum + ((priceWithMarkup - basePrice) * item.quantity);
     }, 0);
   };
 
@@ -329,24 +354,25 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
     try {
       console.log('💵 [CASH SALE] Starting checkout...');
       
-      // Подготовка данных для API
+      // Подготовка данных для API (с поддержкой SKU-вариантов)
       const items = cart.map(item => {
-        const basePrice = item.product.price;
-        const markupPercent = item.product.markupPercent || 0;
-        const priceWithMarkup = getPriceWithMarkup(basePrice, markupPercent, item.product.id);
-        const imageUrl = item.product.images && item.product.images.length > 0 
+        const basePrice = item.variantPrice ?? item.product.price;
+        const sellingPrice = item.variantSellingPrice
+          ?? getPriceWithMarkup(item.product.price, item.product.markupPercent || 0, item.product.id);
+        const imageUrl = item.product.images && item.product.images.length > 0
           ? (getImageUrl(item.product.images[0]) || item.product.images[0])
           : undefined;
-        
+
         return {
           id: item.product.id,
           product_id: item.product.id,
+          variant_id: item.variantId,
           name: item.product.name,
           productName: item.product.name,
           quantity: item.quantity,
           price: basePrice,
-          price_with_markup: priceWithMarkup,
-          priceWithMarkup: priceWithMarkup,
+          price_with_markup: sellingPrice,
+          priceWithMarkup: sellingPrice,
           image_url: imageUrl,
         };
       });
@@ -524,8 +550,9 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
 
           <div className="space-y-3 mb-6">
             {cart.map((item) => {
-              const basePrice = item.product.price;
-              const priceWithMarkup = getPriceWithMarkup(basePrice, item.product.markupPercent || 0, item.product.id);
+              const basePrice = item.variantPrice ?? item.product.price;
+              const priceWithMarkup = item.variantSellingPrice
+                ?? getPriceWithMarkup(item.product.price, item.product.markupPercent || 0, item.product.id);
               const totalPrice = priceWithMarkup * item.quantity;
               
               // 🆕 Проверка на скидку
@@ -592,45 +619,44 @@ export default function BarcodeSearchPanel({ companyId }: BarcodeSearchPanelProp
                     {/* Управление */}
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.product.id, item.quantity - 1, item.variantId)}
                         className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
                       >
                         <Minus className="w-5 h-5" />
                       </button>
-                      
+
                       <input
                         type="text"
                         value={item.quantity === 0 ? '' : item.quantity}
                         onChange={(e) => {
                           const text = e.target.value.trim();
                           if (text === '') {
-                            updateQuantity(item.product.id, 0);
+                            updateQuantity(item.product.id, 0, item.variantId);
                           } else {
                             const val = parseInt(text);
                             if (!isNaN(val) && val >= 0) {
-                              updateQuantity(item.product.id, val);
+                              updateQuantity(item.product.id, val, item.variantId);
                             }
                           }
                         }}
                         onBlur={(e) => {
-                          // Если поле пустое после потери фокуса, устанавливаем 1
                           if (e.target.value.trim() === '' || item.quantity === 0) {
-                            updateQuantity(item.product.id, 1);
+                            updateQuantity(item.product.id, 1, item.variantId);
                           }
                         }}
                         className="w-20 text-center border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg py-2 font-semibold text-lg focus:border-blue-500 focus:outline-none"
                         placeholder="0"
                       />
-                      
+
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.product.id, item.quantity + 1, item.variantId)}
                         className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
                       >
                         <Plus className="w-5 h-5" />
                       </button>
-                      
+
                       <button
-                        onClick={() => removeFromCart(item.product.id)}
+                        onClick={() => removeFromCart(item.product.id, item.variantId)}
                         className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors ml-2"
                         title="Удалить товар"
                       >

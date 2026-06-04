@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Megaphone, Check, X, Clock, Eye, Building2, Calendar, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Megaphone, Check, X, Clock, Building2, Calendar, AlertCircle, Plus, Link, Upload } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import api, { getImageUrl } from '../utils/api';
 
@@ -27,7 +27,22 @@ export default function AdminAdsPanel() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [selectedAd, setSelectedAd] = useState<Advertisement | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  const [adminMessage, setAdminMessage] = useState(''); // 🆕 Подробное сообщение
+  const [adminMessage, setAdminMessage] = useState('');
+
+  // Create ad modal state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState('');
+  const [createContent, setCreateContent] = useState('');
+  const [createLinkUrl, setCreateLinkUrl] = useState('');
+  const [createImageUrl, setCreateImageUrl] = useState('');
+  const [createFile, setCreateFile] = useState<File | null>(null);
+  const [createPreview, setCreatePreview] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Inline link editing
+  const [editingLinkAdId, setEditingLinkAdId] = useState<string | null>(null);
+  const [editingLinkValue, setEditingLinkValue] = useState('');
 
   useEffect(() => {
     loadAds();
@@ -118,6 +133,63 @@ export default function AdminAdsPanel() {
     setRejectModalOpen(true);
   };
 
+  const handleCreateAd = async () => {
+    if (!createTitle.trim()) { toast.error('Введите заголовок'); return; }
+    if (!createImageUrl.trim() && !createFile) { toast.error('Загрузите изображение или введите URL'); return; }
+
+    setCreating(true);
+    try {
+      let finalImageUrl = createImageUrl;
+      if (createFile) {
+        const uploadResult = await api.ads.uploadImage(createFile);
+        finalImageUrl = uploadResult.image_url;
+      }
+      const result = await api.ads.create({
+        title: createTitle,
+        content: createContent || createTitle,
+        imageUrl: finalImageUrl,
+        linkUrl: createLinkUrl || '',
+        adType: 'company',
+      });
+      if (result?.id) {
+        // Auto-approve admin-created ads
+        await api.ads.moderate(String(result.id), 'approved');
+        toast.success('Реклама создана и опубликована');
+        setCreateModalOpen(false);
+        setCreateTitle(''); setCreateContent(''); setCreateLinkUrl('');
+        setCreateImageUrl(''); setCreateFile(null); setCreatePreview(null);
+        loadAds();
+      }
+    } catch (error) {
+      toast.error('Ошибка создания рекламы');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleCreateFileSelect = (file: File) => {
+    setCreateFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => setCreatePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const startEditLink = (ad: Advertisement) => {
+    setEditingLinkAdId(ad.id);
+    setEditingLinkValue(ad.link_url || '');
+  };
+
+  const saveLink = async (adId: string) => {
+    try {
+      await api.ads.updateLink(adId, editingLinkValue);
+      toast.success('Ссылка сохранена');
+      setEditingLinkAdId(null);
+      loadAds();
+    } catch {
+      toast.error('Ошибка сохранения ссылки');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -161,10 +233,21 @@ export default function AdminAdsPanel() {
   return (
     <div className="space-y-6">
       {/* Заголовок */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg p-6 text-white">
-        <div className="flex items-center gap-3 mb-2">
-          <Megaphone className="w-8 h-8" />
-          <h2>Модерация рекламы</h2>
+      <div className="bg-gradient-to-r from-purple-600 to-fuchsia-600 rounded-2xl p-6 text-white shadow-lg shadow-purple-500/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="bg-white/15 rounded-xl p-2">
+              <Megaphone className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-bold">Модерация рекламы</h2>
+          </div>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="flex items-center gap-2 bg-white text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors font-medium shadow"
+          >
+            <Plus className="w-4 h-4" />
+            Добавить рекламу
+          </button>
         </div>
         <p className="text-purple-100">
           Проверяйте и утверждайте рекламные материалы от компаний
@@ -172,60 +255,35 @@ export default function AdminAdsPanel() {
       </div>
 
       {/* Фильтры */}
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <div className="flex gap-2 items-center justify-between">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveFilter('pending')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeFilter === 'pending'
-                  ? 'bg-yellow-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Ожидающие ({pendingCount})
-            </button>
-            <button
-              onClick={() => setActiveFilter('approved')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeFilter === 'approved'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Подтверждено ({approvedCount})
-            </button>
-            <button
-              onClick={() => setActiveFilter('rejected')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeFilter === 'rejected'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Отклонённые ({rejectedCount})
-            </button>
-            <button
-              onClick={() => setActiveFilter('deleted')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                activeFilter === 'deleted'
-                  ? 'bg-gray-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Удалённые ({deletedCount})
-            </button>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+        <div className="flex gap-2 items-center justify-between flex-wrap">
+          <div className="flex gap-1.5 bg-gray-50 p-1 rounded-xl flex-wrap">
+            {([
+              { key: 'pending', label: 'Ожидающие', count: pendingCount, active: 'bg-amber-500 text-white shadow-sm' },
+              { key: 'approved', label: 'Подтверждено', count: approvedCount, active: 'bg-emerald-600 text-white shadow-sm' },
+              { key: 'rejected', label: 'Отклонённые', count: rejectedCount, active: 'bg-rose-600 text-white shadow-sm' },
+              { key: 'deleted', label: 'Удалённые', count: deletedCount, active: 'bg-gray-600 text-white shadow-sm' },
+            ] as const).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setActiveFilter(f.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  activeFilter === f.key ? f.active : 'text-gray-600 hover:bg-white'
+                }`}
+              >
+                {f.label}
+                <span className={`ml-1.5 text-xs ${activeFilter === f.key ? 'opacity-90' : 'opacity-60'}`}>
+                  {f.count}
+                </span>
+              </button>
+            ))}
           </div>
 
-          {/* Кнопка обновления для отладки */}
           <button
-            onClick={() => {
-              console.log('🔄 [Admin Ads] Manual refresh clicked');
-              loadAds();
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={loadAds}
+            className="px-4 py-2 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors text-sm font-medium"
           >
-            🔄 Обновить
+            Обновить
           </button>
         </div>
       </div>
@@ -233,7 +291,7 @@ export default function AdminAdsPanel() {
       {/* Список реклам */}
       <div className="space-y-4">
         {ads.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
             <Megaphone className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">
               {activeFilter === 'pending' ? 'Нет ожидающих реклам' : 
@@ -244,26 +302,22 @@ export default function AdminAdsPanel() {
           </div>
         ) : (
           ads.map((ad) => {
-            console.log('🔍 [Admin Ads Card] Rendering ad:', ad);
             return (
-            <div key={ad.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <div key={ad.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
               <div className="md:flex">
                 {/* Изображение */}
-                <div className="md:w-1/3 lg:w-1/4 bg-gray-100">
+                <div className="md:w-72 lg:w-80 flex-shrink-0 bg-gray-50">
                   {ad.image_url ? (
                     <img
                       src={getImageUrl(ad.image_url) || ''}
                       alt={ad.caption || 'Реклама'}
-                      className="w-full h-full object-cover min-h-[200px]"
+                      className="w-full h-48 md:h-full object-cover aspect-[16/9] md:aspect-auto"
                       onError={(e) => {
-                        const fullUrl = getImageUrl(ad.image_url) || ad.image_url;
-                        console.error('❌ Failed to load image:', ad.image_url);
-                        console.error('❌ Full URL:', fullUrl);
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center min-h-[200px] text-gray-400">
+                    <div className="w-full h-48 md:h-full md:min-h-[180px] flex flex-col items-center justify-center text-gray-300">
                       <AlertCircle className="w-12 h-12" />
                       <p className="text-xs mt-2">Нет изображения</p>
                     </div>
@@ -293,15 +347,12 @@ export default function AdminAdsPanel() {
                     {getStatusBadge(ad.status)}
                   </div>
 
+                  {ad.title && (
+                    <h3 className="text-gray-900 font-semibold text-base mb-1">{ad.title}</h3>
+                  )}
                   <div className="mb-4">
-                    <p className="text-gray-700">{ad.caption || '(Описание отсутствует)'}</p>
+                    <p className="text-gray-600 text-sm">{ad.content || ad.caption || '(Описание отсутствует)'}</p>
                   </div>
-                  
-                  {/* 🔍 Отладочная информация */}
-                  <details className="mb-4 text-xs text-gray-500 border border-gray-200 rounded p-2">
-                    <summary className="cursor-pointer hover:text-gray-700">🔍 Отладка: показать данные</summary>
-                    <pre className="mt-2 overflow-auto">{JSON.stringify(ad, null, 2)}</pre>
-                  </details>
 
                   {ad.status === 'rejected' && ad.rejection_reason && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -324,6 +375,45 @@ export default function AdminAdsPanel() {
                       })}
                     </div>
                   )}
+
+                  {/* URL-ссылка рекламы */}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Link className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-700">URL-ссылка при нажатии:</span>
+                    </div>
+                    {editingLinkAdId === ad.id ? (
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={editingLinkValue}
+                          onChange={(e) => setEditingLinkValue(e.target.value)}
+                          className="flex-1 px-3 py-1.5 text-sm border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="https://t.me/... или https://youtube.com/..."
+                          autoFocus
+                        />
+                        <button onClick={() => saveLink(ad.id)} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">
+                          Сохранить
+                        </button>
+                        <button onClick={() => setEditingLinkAdId(null)} className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300">
+                          Отмена
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        {ad.link_url ? (
+                          <a href={ad.link_url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline truncate max-w-xs">
+                            {ad.link_url}
+                          </a>
+                        ) : (
+                          <span className="text-sm text-gray-400 italic">Не указан</span>
+                        )}
+                        <button onClick={() => startEditLink(ad)} className="text-xs text-blue-500 hover:text-blue-700 underline flex-shrink-0">
+                          {ad.link_url ? 'Изменить' : 'Добавить'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Действия */}
                   <div className="flex gap-2">
@@ -372,6 +462,110 @@ export default function AdminAdsPanel() {
           })
         )}
       </div>
+
+      {/* Модальное окно создания рекламы */}
+      {createModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setCreateModalOpen(false)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-gray-900 font-semibold text-lg">Добавить рекламу</h3>
+              <button onClick={() => setCreateModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Заголовок *</label>
+                <input
+                  type="text"
+                  value={createTitle}
+                  onChange={(e) => setCreateTitle(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  placeholder="Название рекламы"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <textarea
+                  value={createContent}
+                  onChange={(e) => setCreateContent(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  rows={3}
+                  placeholder="Текст рекламного объявления"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">🔗 URL-ссылка (необязательно)</label>
+                <input
+                  type="url"
+                  value={createLinkUrl}
+                  onChange={(e) => setCreateLinkUrl(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                  placeholder="https://t.me/yourcompany или https://youtube.com/..."
+                />
+                <p className="text-xs text-gray-400 mt-1">При нажатии на баннер откроется этот адрес</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Изображение *</label>
+                {createPreview ? (
+                  <div className="space-y-2">
+                    <img src={createPreview} alt="Preview" className="max-h-48 mx-auto rounded-lg shadow" />
+                    <button
+                      type="button"
+                      onClick={() => { setCreateFile(null); setCreatePreview(null); setCreateImageUrl(''); }}
+                      className="text-sm text-red-500 hover:text-red-700"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-purple-400 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-600">Нажмите для загрузки файла</p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCreateFileSelect(f); }}
+                    />
+                    <div className="text-center text-sm text-gray-400">или</div>
+                    <input
+                      type="url"
+                      value={createImageUrl}
+                      onChange={(e) => setCreateImageUrl(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent text-sm"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-gray-200">
+              <button onClick={() => setCreateModalOpen(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                Отмена
+              </button>
+              <button
+                onClick={handleCreateAd}
+                disabled={creating}
+                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              >
+                {creating ? 'Создание...' : 'Создать и опубликовать'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Модальное окно отклонения */}
       {rejectModalOpen && selectedAd && (

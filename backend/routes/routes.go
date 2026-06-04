@@ -267,6 +267,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			ads.POST("", handlers.CreateAd(db))
 			ads.POST("/upload-image", handlers.UploadAdImage(db)) // 🆕 Загрузка изображения
 			ads.PUT("/:id/moderate", handlers.ModerateAd(db))
+			ads.PUT("/:id/link", handlers.UpdateAdLink(db))
 			ads.DELETE("/:id", handlers.DeleteAd(db))
 			ads.DELETE("/company/:companyId/all", handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
 		}
