@@ -207,6 +207,17 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 				}
 				size, _ := item["size"].(string)
 
+				// Lock stock rows and reject if there is not enough to fulfil
+				// this line — prevents overselling under concurrent confirmations.
+				if available, name := checkStockAvailable(tx, productID, color, size, qty); !available {
+					log.Printf("🚫 ConfirmOrder: insufficient stock for product %d (%s), need %d", productID, name, qty)
+					c.JSON(http.StatusConflict, gin.H{
+						"error":   "Недостаточно товара на складе: " + name,
+						"product": name,
+					})
+					return
+				}
+
 				variantDecremented := false
 				if color != "" || size != "" {
 					res, err2 := tx.Exec(`

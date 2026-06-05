@@ -13,6 +13,63 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// checkStockAvailable locks the relevant stock rows inside the transaction and
+// verifies enough quantity is available to fulfil `qty` of a product line.
+//
+// The FOR UPDATE locks serialize concurrent order confirmations: the second
+// transaction blocks until the first commits, then sees the reduced stock — so
+// the same unit can no longer be sold twice (the overselling race).
+//
+// It is intentionally conservative: it only reports a shortage when it can
+// positively measure one (matching variant rows, or a product-level quantity).
+// If it cannot determine the stock for a line, it returns ok=true so legitimate
+// orders are never falsely blocked.
+func checkStockAvailable(tx *sql.Tx, productID int64, color, size string, qty int) (ok bool, productName string) {
+	if color == "Любой" || color == "любой" {
+		color = ""
+	}
+
+	// Prefer variant-level stock when matching variants exist. Lock the rows
+	// first (FOR UPDATE is not allowed alongside SUM), then total them in Go.
+	rows, err := tx.Query(`
+		SELECT stock_quantity FROM product_variants
+		WHERE product_id = $1
+		  AND ($2 = '' OR color = $2)
+		  AND ($3 = '' OR size  = $3)
+		FOR UPDATE
+	`, productID, color, size)
+	if err == nil {
+		variantCount := 0
+		variantStock := 0
+		for rows.Next() {
+			var s sql.NullInt64
+			if err := rows.Scan(&s); err == nil {
+				variantCount++
+				variantStock += int(s.Int64)
+			}
+		}
+		rows.Close()
+		if variantCount > 0 {
+			if variantStock < qty {
+				var name string
+				tx.QueryRow(`SELECT name FROM products WHERE id = $1`, productID).Scan(&name)
+				return false, name
+			}
+			return true, ""
+		}
+	}
+
+	// Fall back to product-level quantity (products without variants).
+	var productQty sql.NullInt64
+	var name string
+	if err := tx.QueryRow(`SELECT quantity, name FROM products WHERE id = $1 FOR UPDATE`, productID).Scan(&productQty, &name); err == nil {
+		if productQty.Valid && int(productQty.Int64) < qty {
+			return false, name
+		}
+	}
+	return true, ""
+}
+
 // Get Orders
 func GetOrders(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -580,6 +637,19 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 							color = ""
 						}
 						size, _ := item["size"].(string)
+
+						// Lock stock rows and reject if there is not enough to
+						// fulfil this line — prevents overselling under concurrent
+						// confirmations.
+						if available, name := checkStockAvailable(tx, productId, color, size, quantity); !available {
+							log.Printf("🚫 UpdateOrderStatus: insufficient stock for product %d (%s), need %d", productId, name, quantity)
+							c.JSON(http.StatusConflict, gin.H{
+								"error":   "Недостаточно товара на складе: " + name,
+								"product": name,
+							})
+							return
+						}
+
 						variantDecremented := false
 						if color != "" || size != "" {
 							res, err := tx.Exec(`
