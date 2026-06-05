@@ -326,5 +326,43 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			referrals.PUT("/companies/:id/toggle", handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
 			referrals.GET("/companies/all", handlers.GetCompaniesWithReferralInfo(db))     // Компании с реф. инфо (админ)
 		}
+
+		// Promo codes / coupons (🎟️ промокоды) — platform-wide or per-company
+		promoCodes := api.Group("/promo-codes")
+		{
+			promoCodes.POST("", handlers.CreatePromoCode(db))                       // Создать промокод
+			promoCodes.GET("/company/:companyId", handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
+			promoCodes.POST("/validate", handlers.ValidatePromoCode(db))            // Проверить промокод (без списания)
+			promoCodes.POST("/redeem", handlers.RedeemPromoCode(db))                // Зафиксировать использование
+			promoCodes.PUT("/:id/toggle", handlers.TogglePromoCode(db))             // Вкл/выкл промокод
+			promoCodes.DELETE("/:id", handlers.DeletePromoCode(db))                 // Удалить промокод
+		}
+
+		// Order returns / refunds (↩️ возвраты и споры)
+		returns := api.Group("/returns")
+		{
+			returns.POST("", handlers.CreateReturn(db))             // Покупатель создаёт заявку на возврат
+			returns.GET("", handlers.GetReturns(db))                // Список (?companyId= или ?customerPhone=)
+			returns.GET("/:id", handlers.GetReturn(db))             // Одна заявка
+			returns.PUT("/:id/status", handlers.UpdateReturnStatus(db)) // Компания/админ меняет статус
+		}
+
+		// Product questions & answers (❓ вопросы к товару)
+		questions := api.Group("/questions")
+		{
+			questions.POST("/:id/answer", handlers.AnswerQuestion(db)) // Ответ продавца
+			questions.DELETE("/:id", handlers.DeleteQuestion(db))      // Удалить вопрос
+		}
+		// Per-product question routes live under /products for discoverability.
+		products.POST("/:id/questions", handlers.AskQuestion(db)) // Задать вопрос о товаре
+		products.GET("/:id/questions", handlers.GetProductQuestions(db)) // Вопросы по товару
+
+		// Loyalty / cashback points (⭐ баллы и кэшбэк)
+		loyalty := api.Group("/loyalty")
+		{
+			loyalty.GET("/:phone", handlers.GetLoyaltyAccount(db)) // Баланс + история
+			loyalty.POST("/earn", handlers.EarnLoyaltyPoints(db))  // Начислить баллы
+			loyalty.POST("/redeem", handlers.RedeemLoyaltyPoints(db)) // Списать баллы
+		}
 	}
 }
