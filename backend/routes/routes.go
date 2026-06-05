@@ -2,6 +2,7 @@ package routes
 
 import (
 	"azaton-backend/config"
+	"azaton-backend/middleware"
 	"azaton-backend/routes/handlers"
 	"database/sql"
 	"strings"
@@ -54,9 +55,16 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 
 	// API routes
 	api := router.Group("/api")
+	// Attach the authenticated principal (companyId/phone/role) to the request
+	// context whenever a valid Bearer token is supplied. Non-blocking: requests
+	// without a token still work, so no existing flow breaks.
+	api.Use(middleware.OptionalAuth(cfg))
 	{
 		// Auth routes
 		auth := api.Group("/auth")
+		// Throttle auth endpoints to slow down brute-force / credential stuffing.
+		// Limits are deliberately generous so real users are never affected.
+		auth.Use(middleware.RateLimit(30, 10))
 		{
 			auth.POST("/register/user", handlers.RegisterUser(db))
 			auth.POST("/login/user", handlers.LoginUser(db))

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"azaton-backend/config"
+	"azaton-backend/middleware"
 	"database/sql"
 	"log"
 	"math/rand"
@@ -9,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -317,13 +317,7 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"companyId": companyID,
-			"phone":     req.Phone,
-			"exp":       time.Now().Add(168 * time.Hour).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte(cfg.JWTSecret))
+		tokenString, err := middleware.GenerateToken(cfg, companyID, req.Phone, "company")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -371,18 +365,23 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			SELECT id, name, password_hash, mode, status, is_enabled, referral_agent_id
 			FROM companies WHERE phone = $1
 		`, req.Phone).Scan(&company.ID, &company.Name, &company.PasswordHash, &company.Mode, &company.Status, &company.IsEnabled, &company.ReferralAgentID)
-		// Проверяем пароль - сначала plain text (для простых паролей), потом bcrypt hash
+		// Проверяем пароль - сначала plain text (для legacy паролей), потом bcrypt hash.
+		// SECURITY: never log the password or the stored hash.
 		passwordValid := false
-		log.Printf("🔐 Login attempt - Phone: %s, Input: %s, DB Hash: %s", 
-			req.Phone, req.Password, company.PasswordHash)
-		
-		// Сначала проверяем plain text (если пароль не хешированный)
+		log.Printf("🔐 Login attempt - Phone: %s", req.Phone)
+
+		// Legacy plain-text password support: if it matches, transparently
+		// upgrade the stored value to a bcrypt hash so the plaintext is gone
+		// after the first successful login (no action required from the user).
 		if company.PasswordHash == req.Password {
 			passwordValid = true
-			log.Println("✅ Plain text password match")
+			if hashed, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost); hErr == nil {
+				if _, uErr := db.Exec(`UPDATE companies SET password_hash = $1 WHERE id = $2`, string(hashed), company.ID); uErr == nil {
+					log.Printf("🔒 Upgraded legacy plaintext password to bcrypt for company %d", company.ID)
+				}
+			}
 		} else if err := bcrypt.CompareHashAndPassword([]byte(company.PasswordHash), []byte(req.Password)); err == nil {
 			passwordValid = true
-			log.Println("✅ Hashed password match")
 		}
 
 		if !passwordValid {
@@ -434,13 +433,7 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"companyId": company.ID,
-			"phone":     req.Phone,
-			"exp":       time.Now().Add(168 * time.Hour).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte(cfg.JWTSecret))
+		tokenString, err := middleware.GenerateToken(cfg, company.ID, req.Phone, "company")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return

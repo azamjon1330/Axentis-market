@@ -4,3 +4,15 @@ backend/firebase-admin-sdk.json
 *.gz
 .expo
 dist
+
+# Local environment overrides with real secrets — keep these out of git.
+# The committed .env files in this repo hold placeholders only; put real
+# production secrets in *.local files or in the server's environment.
+.env.local
+.env.*.local
+backend/.env.local
+
+# Logs and compiled backend binaries
+*.log
+backend/azaton-backend
+backend/main

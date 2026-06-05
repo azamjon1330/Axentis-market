@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 type Config struct {
 	Port          string
@@ -37,4 +40,27 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// Validate logs loud warnings for insecure default configuration. It never
+// aborts startup (so existing deployments keep running), but it makes a
+// misconfigured production server impossible to miss in the logs.
+func (c *Config) Validate() {
+	switch c.JWTSecret {
+	case "", "your_jwt_secret", "your_very_strong_jwt_secret_key_here_change_in_production":
+		log.Println("🚨 SECURITY: JWT_SECRET is using an insecure default value. " +
+			"Set a long random JWT_SECRET environment variable in production — " +
+			"anyone who knows this value can forge authentication tokens.")
+	}
+
+	switch c.DBPassword {
+	case "", "your_secure_password_here":
+		log.Println("🚨 SECURITY: DB_PASSWORD is using a placeholder/empty value. " +
+			"Set a real DB_PASSWORD environment variable in production.")
+	}
+
+	if c.GinMode != "release" {
+		log.Println("⚠️  GIN_MODE is not 'release'. Set GIN_MODE=release in production " +
+			"to avoid leaking stack traces and debug details to clients.")
+	}
 }

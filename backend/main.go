@@ -20,6 +20,7 @@ func main() {
 
 	// Initialize configuration
 	cfg := config.Load()
+	cfg.Validate() // logs loud warnings for insecure defaults (never aborts)
 
 	// Initialize database connection
 	db, err := database.Connect(cfg)
