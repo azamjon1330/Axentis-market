@@ -16,6 +16,10 @@ interface Product {
   images?: ProductImage[];
   company_name?: string;
   company_id?: number;
+  sold_count?: number;
+  soldCount?: number;
+  created_at?: string;
+  createdAt?: string;
 }
 
 interface ProductCardProps {
@@ -223,6 +227,21 @@ export default function ProductCard({
 
   const isNight = displayMode === 'night';
 
+  // 🏷️ Auto badges derived from existing product data (max 2 to avoid clutter).
+  const productBadges: Array<{ label: string; cls: string }> = [];
+  const soldCount = product.sold_count ?? product.soldCount ?? 0;
+  const createdAt = product.created_at ?? product.createdAt;
+  if (soldCount >= 50) {
+    productBadges.push({ label: '🔥 Хит', cls: 'bg-red-500 text-white' });
+  }
+  if (createdAt && Date.now() - new Date(createdAt).getTime() < 14 * 24 * 60 * 60 * 1000) {
+    productBadges.push({ label: 'Новинка', cls: 'bg-green-500 text-white' });
+  }
+  if (productBadges.length < 2 && product.quantity > 0 && product.quantity <= 5) {
+    productBadges.push({ label: `Осталось ${product.quantity}`, cls: 'bg-orange-500 text-white' });
+  }
+  const visibleBadges = productBadges.slice(0, 2);
+
   return (
     <div
       key={product.id}
@@ -342,10 +361,19 @@ export default function ProductCard({
           <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-400' : 'text-gray-400'}`} />
         </button>
 
-        {/* Cart badge */}
-        {cartQuantity && (
-          <div className="absolute top-2 left-2 bg-[#5B3CF5] text-white rounded-lg px-2 py-0.5 text-xs font-semibold z-20 shadow-sm">
-            {cartQuantity}
+        {/* Top-left badge stack: status badges (🔥 Хит / Новинка / Осталось N) + cart quantity */}
+        {(visibleBadges.length > 0 || cartQuantity) && (
+          <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start">
+            {visibleBadges.map((b) => (
+              <span key={b.label} className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold shadow-sm ${b.cls}`}>
+                {b.label}
+              </span>
+            ))}
+            {cartQuantity ? (
+              <span className="bg-[#5B3CF5] text-white rounded-lg px-2 py-0.5 text-xs font-semibold shadow-sm">
+                {cartQuantity}
+              </span>
+            ) : null}
           </div>
         )}
 

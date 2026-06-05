@@ -223,6 +223,11 @@ export const products = {
     return apiCall(`/products?${query}`, { requiresAuth: false });
   },
 
+  // 🔍 Typo-tolerant relevance search (pg_trgm)
+  search: async (q: string, limit = 30) => {
+    return apiCall(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}`, { requiresAuth: false });
+  },
+
   // Get product by ID
   get: async (id: string) => {
     return apiCall(`/products/${id}`, { requiresAuth: false });
@@ -552,6 +557,11 @@ export const orders = {
   // Get order by ID
   get: async (id: string) => {
     return apiCall(`/orders/${id}`);
+  },
+
+  // List orders for a specific customer (buyer's own orders)
+  listByCustomer: async (phone: string) => {
+    return apiCall(`/orders?customer_phone=${encodeURIComponent(phone)}`, { requiresAuth: false });
   },
 
   // Update order status (company only)
@@ -1209,6 +1219,11 @@ export const analytics = {
     return apiCall(`/analytics/company/${companyId}?${query}`);
   },
 
+  // 📊 Unified seller dashboard snapshot
+  dashboard: async (companyId: string | number) => {
+    return apiCall(`/analytics/company/${companyId}/dashboard`);
+  },
+
   // Get top products
   topProducts: async (params?: { companyId?: string; limit?: number }) => {
     const query = new URLSearchParams(params as any).toString();
@@ -1475,6 +1490,8 @@ export const productQuestions = {
     apiCall(`/products/${productId}/questions`, { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
   listByProduct: (productId: number | string) =>
     apiCall(`/products/${productId}/questions`, { requiresAuth: false }),
+  listByCompany: (companyId: number | string, unansweredOnly = false) =>
+    apiCall(`/questions/company/${companyId}${unansweredOnly ? '?unanswered=true' : ''}`),
   answer: (questionId: number | string, data: { answer: string; answeredBy?: string }) =>
     apiCall(`/questions/${questionId}/answer`, { method: 'POST', body: JSON.stringify(data) }),
   delete: (questionId: number | string) =>
