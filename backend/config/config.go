@@ -17,6 +17,7 @@ type Config struct {
 	JWTSecret     string
 	JWTExpiration string
 	AllowedOrigins string
+	CardEncryptionKey string
 }
 
 func Load() *Config {
@@ -32,6 +33,7 @@ func Load() *Config {
 		JWTSecret:     getEnv("JWT_SECRET", "your_jwt_secret"),
 		JWTExpiration: getEnv("JWT_EXPIRATION", "168h"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
+		CardEncryptionKey: getEnv("CARD_ENCRYPTION_KEY", ""),
 	}
 }
 

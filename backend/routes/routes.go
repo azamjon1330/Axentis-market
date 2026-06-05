@@ -198,7 +198,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		paymentCards := api.Group("/payment-cards")
 		{
 			paymentCards.GET("/:phone", handlers.GetUserPaymentCards(db))
-			paymentCards.POST("", handlers.AddPaymentCard(db))
+			paymentCards.POST("", handlers.AddPaymentCard(db, cfg))
 			paymentCards.DELETE("/:id", handlers.DeletePaymentCard(db))
 			paymentCards.PUT("/:id/default", handlers.SetDefaultCard(db))
 		}
