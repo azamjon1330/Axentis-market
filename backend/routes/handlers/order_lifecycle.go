@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"log"
 )
 
 // itemProductID extracts a product id from an order item map, tolerating the
@@ -141,4 +142,29 @@ func notifyOrderStatus(tx *sql.Tx, phone string, companyID sql.NullInt64, orderC
 		INSERT INTO notifications (user_phone, type, title, message, company_id)
 		VALUES ($1, 'order_status', $2, $3, $4)
 	`, phone, title, message, cid)
+}
+
+// sendOrderStatusPush delivers a real push notification to the customer's phone
+// (Expo) for an order status change. It is fire-and-forget: the token lookup and
+// network call run in a goroutine so the API response is never blocked, and any
+// failure is only logged. Call this AFTER the transaction commits.
+func sendOrderStatusPush(db *sql.DB, phone, orderCode, status string) {
+	if phone == "" {
+		return
+	}
+	title, message := orderStatusMessage(status, orderCode)
+	if title == "" {
+		return
+	}
+	go func() {
+		var token sql.NullString
+		if err := db.QueryRow(`SELECT expo_push_token FROM users WHERE phone = $1`, phone).Scan(&token); err != nil {
+			return
+		}
+		if token.Valid && token.String != "" {
+			if _, err := SendExpoPushNotification([]string{token.String}, title, message); err != nil {
+				log.Printf("⚠️ order status push failed for %s: %v", phone, err)
+			}
+		}
+	}()
 }

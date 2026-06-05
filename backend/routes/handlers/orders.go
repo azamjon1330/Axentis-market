@@ -730,6 +730,12 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// 📲 Real push to the customer's phone (Expo), after the commit so the
+		// network call never blocks the transaction or the API response.
+		if req.Status != currentStatus {
+			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
 }
