@@ -76,6 +76,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		products := api.Group("/products")
 		{
 			products.GET("", handlers.GetProducts(db)) // Все товары или с query param companyId
+			products.GET("/search", handlers.SearchProducts(db)) // 🔍 Умный поиск (с опечатками, ранжирование)
 			products.GET("/find-by-barcode", handlers.FindProductByBarcode(db)) // Поиск по штрих-коду (включая варианты)
 			products.POST("", handlers.CreateProduct(db))
 			products.PUT("/:id", handlers.UpdateProduct(db))
@@ -258,6 +259,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		analytics := api.Group("/analytics")
 		{
 			analytics.GET("/company/:companyId", handlers.GetCompanyAnalytics(db))
+			analytics.GET("/company/:companyId/dashboard", handlers.GetCompanyDashboard(db)) // 📊 Единый дашборд продавца
 			analytics.GET("/revenue", handlers.GetRevenueAnalytics(db))
 		}
 
@@ -356,6 +358,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Per-product question routes live under /products for discoverability.
 		products.POST("/:id/questions", handlers.AskQuestion(db)) // Задать вопрос о товаре
 		products.GET("/:id/questions", handlers.GetProductQuestions(db)) // Вопросы по товару
+		questions.GET("/company/:companyId", handlers.GetCompanyQuestions(db)) // Все вопросы компании (для ответов продавца)
 
 		// Loyalty / cashback points (⭐ баллы и кэшбэк)
 		loyalty := api.Group("/loyalty")

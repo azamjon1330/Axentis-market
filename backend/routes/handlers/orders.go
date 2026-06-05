@@ -595,10 +595,17 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Read current status and items before updating
+		// Read current status and order data before updating
 		var currentStatus string
 		var itemsJSON []byte
-		if err := tx.QueryRow(`SELECT status, items FROM orders WHERE id = $1`, id).Scan(&currentStatus, &itemsJSON); err != nil {
+		var customerPhone string
+		var companyID sql.NullInt64
+		var totalAmount float64
+		var orderCode sql.NullString
+		if err := tx.QueryRow(`
+			SELECT status, items, customer_phone, company_id, total_amount, order_code
+			FROM orders WHERE id = $1
+		`, id).Scan(&currentStatus, &itemsJSON, &customerPhone, &companyID, &totalAmount, &orderCode); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 			return
 		}
@@ -609,14 +616,18 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Parse items once — used by both the decrement and the cancel-restore paths.
+		var parsedItems []map[string]interface{}
+		_ = json.Unmarshal(itemsJSON, &parsedItems)
+
 		// Decrement stock once: only when transitioning from pending → any confirmed state
 		confirmedStatuses := map[string]bool{
 			"confirmed": true, "processing": true,
 			"shipped": true, "delivered": true, "completed": true,
 		}
 		if currentStatus == "pending" && confirmedStatuses[req.Status] {
-			var items []map[string]interface{}
-			if err := json.Unmarshal(itemsJSON, &items); err == nil {
+			{
+				items := parsedItems
 				for _, item := range items {
 					var productId int64
 					quantity := 1
@@ -693,6 +704,25 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 				}
 				log.Printf("📦 UpdateOrderStatus: stock decremented for order %s → status=%s", id, req.Status)
 			}
+		}
+
+		// 🔄 Cancelling a previously-confirmed order: put the stock back.
+		if req.Status == "cancelled" && confirmedStatuses[currentStatus] {
+			restoreStockForItems(tx, parsedItems)
+			log.Printf("↩️ UpdateOrderStatus: stock restored for cancelled order %s", id)
+		}
+
+		// ⭐ Cashback on delivery/completion (once per order).
+		if (req.Status == "delivered" || req.Status == "completed") &&
+			currentStatus != "delivered" && currentStatus != "completed" {
+			if oid, perr := strconv.ParseInt(id, 10, 64); perr == nil {
+				awardCashback(tx, customerPhone, oid, totalAmount)
+			}
+		}
+
+		// 🔔 Notify the customer about the status change.
+		if req.Status != currentStatus {
+			notifyOrderStatus(tx, customerPhone, companyID, orderCode.String, req.Status)
 		}
 
 		if err := tx.Commit(); err != nil {
