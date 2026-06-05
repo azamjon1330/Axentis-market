@@ -1430,6 +1430,70 @@ export const referrals = {
   },
 };
 
+// ============================================================================
+// 🎟️ Promo codes API (промокоды)
+// ============================================================================
+
+export const promoCodes = {
+  create: (data: any) =>
+    apiCall('/promo-codes', { method: 'POST', body: JSON.stringify(data) }),
+  listByCompany: (companyId: number | string) =>
+    apiCall(`/promo-codes/company/${companyId}`),
+  validate: (data: { code: string; userPhone?: string; companyId?: number | null; orderAmount: number }) =>
+    apiCall('/promo-codes/validate', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  redeem: (data: { promoId: number; userPhone?: string; orderId?: number | null; discount: number }) =>
+    apiCall('/promo-codes/redeem', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  toggle: (id: number | string, isActive: boolean) =>
+    apiCall(`/promo-codes/${id}/toggle`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
+  delete: (id: number | string) =>
+    apiCall(`/promo-codes/${id}`, { method: 'DELETE' }),
+};
+
+// ============================================================================
+// ↩️ Returns / refunds API (возвраты)
+// ============================================================================
+
+export const returns = {
+  create: (data: any) =>
+    apiCall('/returns', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  listByCompany: (companyId: number | string) =>
+    apiCall(`/returns?companyId=${companyId}`),
+  listByCustomer: (phone: string) =>
+    apiCall(`/returns?customerPhone=${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  get: (id: number | string) =>
+    apiCall(`/returns/${id}`),
+  updateStatus: (id: number | string, status: string, comment?: string) =>
+    apiCall(`/returns/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, comment }) }),
+};
+
+// ============================================================================
+// ❓ Product questions API (вопросы к товару)
+// ============================================================================
+
+export const productQuestions = {
+  ask: (productId: number | string, data: { userPhone: string; userName?: string; question: string }) =>
+    apiCall(`/products/${productId}/questions`, { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  listByProduct: (productId: number | string) =>
+    apiCall(`/products/${productId}/questions`, { requiresAuth: false }),
+  answer: (questionId: number | string, data: { answer: string; answeredBy?: string }) =>
+    apiCall(`/questions/${questionId}/answer`, { method: 'POST', body: JSON.stringify(data) }),
+  delete: (questionId: number | string) =>
+    apiCall(`/questions/${questionId}`, { method: 'DELETE' }),
+};
+
+// ============================================================================
+// ⭐ Loyalty / cashback API (баллы и кэшбэк)
+// ============================================================================
+
+export const loyalty = {
+  get: (phone: string) =>
+    apiCall(`/loyalty/${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  earn: (data: { userPhone: string; points: number; orderId?: number | null; description?: string }) =>
+    apiCall('/loyalty/earn', { method: 'POST', body: JSON.stringify(data) }),
+  redeem: (data: { userPhone: string; points: number; orderId?: number | null; description?: string }) =>
+    apiCall('/loyalty/redeem', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+};
+
 export default {
   baseURL: API_BASE.replace('/api', ''), // 🔗 Base URL для прямых fetch запросов
   auth,
@@ -1448,6 +1512,10 @@ export default {
   reviews,
   discounts,
   referrals, // 👥 Реферальная система
+  promoCodes, // 🎟️ Промокоды
+  returns, // ↩️ Возвраты
+  productQuestions, // ❓ Вопросы к товару
+  loyalty, // ⭐ Баллы и кэшбэк
   checkServerHealth,
   getAuthToken,
   setAuthToken,

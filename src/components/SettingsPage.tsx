@@ -1,5 +1,6 @@
 import { User, LogOut, ArrowLeft, Heart, List, MessageCircle, X, Camera, Star, Search, UserPlus, UserCheck } from 'lucide-react';
 import BottomNavigation from './BottomNavigation';
+import LoyaltyCard from './LoyaltyCard'; // ⭐ Баланс баллов/кэшбэка
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import api, { getImageUrl } from '../utils/api';
@@ -306,6 +307,11 @@ export default function SettingsPage({
               </button>
             </div>
           </div>
+        </div>
+
+        {/* ⭐ Loyalty / cashback balance */}
+        <div className="mb-3">
+          <LoyaltyCard userPhone={userPhone} />
         </div>
 
         {/* Info Cards */}
