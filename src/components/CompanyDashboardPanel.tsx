@@ -4,6 +4,7 @@ import {
   MessageCircleQuestion, Package, BarChart3,
 } from 'lucide-react';
 import api from '../utils/api';
+import { useUiLang } from '../hooks/useUiLang';
 
 interface DashboardData {
   todayOrders: number;
@@ -53,8 +54,27 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     };
   }, [companyId]);
 
-  if (loading) return <p className="text-gray-400 p-4">Загрузка...</p>;
-  if (!data) return <p className="text-gray-400 p-4">Не удалось загрузить дашборд</p>;
+  const lang = useUiLang();
+  const L = lang === 'uz' ? {
+    loading: 'Yuklanmoqda...', failed: 'Boshqaruv panelini yuklab boʻlmadi',
+    todayOrders: 'Bugungi buyurtmalar', todayRevenue: 'Bugungi tushum',
+    totalRevenue: 'Jami tushum', soldUnits: 'Sotilgan dona',
+    attention: 'Eʼtibor talab qiladi', newOrders: 'Yangi buyurtmalar',
+    returns: 'Qaytarish arizalari', lowStock: 'Tugayotgan mahsulotlar',
+    questions: 'Javobsiz savollar', allGood: 'Hammasi nazoratda — eʼtibor talab qiladigan vazifa yoʻq 🎉',
+    recent: 'Soʻnggi buyurtmalar', noOrders: 'Hozircha buyurtmalar yoʻq', buyer: 'Xaridor',
+  } : {
+    loading: 'Загрузка...', failed: 'Не удалось загрузить дашборд',
+    todayOrders: 'Заказы сегодня', todayRevenue: 'Выручка сегодня',
+    totalRevenue: 'Выручка всего', soldUnits: 'Продано единиц',
+    attention: 'Требует внимания', newOrders: 'Новые заказы',
+    returns: 'Заявки на возврат', lowStock: 'Товары заканчиваются',
+    questions: 'Вопросы без ответа', allGood: 'Всё под контролем — нет задач, требующих внимания 🎉',
+    recent: 'Последние заказы', noOrders: 'Заказов пока нет', buyer: 'Покупатель',
+  };
+
+  if (loading) return <p className="text-gray-400 p-4">{L.loading}</p>;
+  if (!data) return <p className="text-gray-400 p-4">{L.failed}</p>;
 
   const stat = (icon: React.ReactNode, label: string, value: string, color: string) => (
     <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -80,7 +100,10 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     );
   };
 
-  const statusLabel: Record<string, string> = {
+  const statusLabel: Record<string, string> = lang === 'uz' ? {
+    pending: 'Yangi', confirmed: 'Qabul qilindi', processing: 'Jarayonda',
+    shipped: 'Yoʻlda', delivered: 'Yetkazildi', completed: 'Yakunlandi', cancelled: 'Bekor qilindi',
+  } : {
     pending: 'Новый', confirmed: 'Принят', processing: 'В обработке',
     shipped: 'В пути', delivered: 'Доставлен', completed: 'Завершён', cancelled: 'Отменён',
   };
@@ -89,40 +112,40 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     <div className="max-w-3xl mx-auto space-y-5">
       {/* Top stats */}
       <div className="grid grid-cols-2 gap-3">
-        {stat(<ShoppingCart className="w-5 h-5 text-blue-600" />, 'Заказы сегодня', fmt(data.todayOrders), 'bg-blue-50')}
-        {stat(<TrendingUp className="w-5 h-5 text-green-600" />, 'Выручка сегодня', fmt(data.todayRevenue), 'bg-green-50')}
-        {stat(<BarChart3 className="w-5 h-5 text-purple-600" />, 'Выручка всего', fmt(data.totalRevenue), 'bg-purple-50')}
-        {stat(<Package className="w-5 h-5 text-orange-600" />, 'Продано единиц', fmt(data.soldUnits), 'bg-orange-50')}
+        {stat(<ShoppingCart className="w-5 h-5 text-blue-600" />, L.todayOrders, fmt(data.todayOrders), 'bg-blue-50')}
+        {stat(<TrendingUp className="w-5 h-5 text-green-600" />, L.todayRevenue, fmt(data.todayRevenue), 'bg-green-50')}
+        {stat(<BarChart3 className="w-5 h-5 text-purple-600" />, L.totalRevenue, fmt(data.totalRevenue), 'bg-purple-50')}
+        {stat(<Package className="w-5 h-5 text-orange-600" />, L.soldUnits, fmt(data.soldUnits), 'bg-orange-50')}
       </div>
 
       {/* Needs attention */}
       {(data.pendingOrders || data.pendingReturns || data.lowStock || data.unansweredQuestions) ? (
         <div>
-          <h3 className="font-semibold mb-2 text-gray-700">Требует внимания</h3>
+          <h3 className="font-semibold mb-2 text-gray-700">{L.attention}</h3>
           <div className="space-y-2">
-            {attentionCard(<Clock className="w-5 h-5 text-yellow-600" />, 'Новые заказы', data.pendingOrders, 'bg-yellow-50 text-yellow-800', 'orders')}
-            {attentionCard(<RotateCcw className="w-5 h-5 text-orange-600" />, 'Заявки на возврат', data.pendingReturns, 'bg-orange-50 text-orange-800', 'returns')}
-            {attentionCard(<AlertTriangle className="w-5 h-5 text-red-600" />, 'Товары заканчиваются', data.lowStock, 'bg-red-50 text-red-800', 'warehouse')}
-            {attentionCard(<MessageCircleQuestion className="w-5 h-5 text-blue-600" />, 'Вопросы без ответа', data.unansweredQuestions, 'bg-blue-50 text-blue-800', 'questions')}
+            {attentionCard(<Clock className="w-5 h-5 text-yellow-600" />, L.newOrders, data.pendingOrders, 'bg-yellow-50 text-yellow-800', 'orders')}
+            {attentionCard(<RotateCcw className="w-5 h-5 text-orange-600" />, L.returns, data.pendingReturns, 'bg-orange-50 text-orange-800', 'returns')}
+            {attentionCard(<AlertTriangle className="w-5 h-5 text-red-600" />, L.lowStock, data.lowStock, 'bg-red-50 text-red-800', 'warehouse')}
+            {attentionCard(<MessageCircleQuestion className="w-5 h-5 text-blue-600" />, L.questions, data.unansweredQuestions, 'bg-blue-50 text-blue-800', 'questions')}
           </div>
         </div>
       ) : (
         <div className="bg-green-50 text-green-700 rounded-xl p-3 text-sm text-center">
-          Всё под контролем — нет задач, требующих внимания 🎉
+          {L.allGood}
         </div>
       )}
 
       {/* Recent orders */}
       <div>
-        <h3 className="font-semibold mb-2 text-gray-700">Последние заказы</h3>
+        <h3 className="font-semibold mb-2 text-gray-700">{L.recent}</h3>
         {data.recentOrders.length === 0 ? (
-          <p className="text-gray-400 text-sm">Заказов пока нет</p>
+          <p className="text-gray-400 text-sm">{L.noOrders}</p>
         ) : (
           <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-100">
             {data.recentOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between p-3">
                 <div>
-                  <div className="font-medium text-sm">{o.customerName || 'Покупатель'}</div>
+                  <div className="font-medium text-sm">{o.customerName || L.buyer}</div>
                   <div className="text-xs text-gray-400">№{o.orderCode}</div>
                 </div>
                 <div className="text-right">

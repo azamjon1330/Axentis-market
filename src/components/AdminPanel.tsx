@@ -446,7 +446,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               }`}
             >
               <Tag className="w-5 h-5" />
-              <span className="font-medium">Промокоды</span>
+              <span className="font-medium">{language === 'uz' ? 'Promokodlar' : 'Промокоды'}</span>
             </button>
 
             <button
@@ -498,7 +498,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'notifications' && 'Уведомления'}
               {activeTab === 'companyMessages' && 'Сообщения компаниям'}
               {activeTab === 'discounts' && 'Модерация скидок'}
-              {activeTab === 'promo' && 'Промокоды'}
+              {activeTab === 'promo' && (language === 'uz' ? 'Promokodlar' : 'Промокоды')}
               {activeTab === 'referrals' && 'Реферальные агенты'}
             </h1>
           </div>

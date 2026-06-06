@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RotateCcw, Check, X, CreditCard } from 'lucide-react';
 import api from '../utils/api';
+import { useUiLang } from '../hooks/useUiLang';
 
 interface ReturnRequest {
   id: number;
@@ -17,11 +18,11 @@ interface CompanyReturnsPanelProps {
   companyId: number;
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  requested: 'Запрошен',
-  approved: 'Одобрен',
-  rejected: 'Отклонён',
-  refunded: 'Возвращены деньги',
+const STATUS_LABEL_RU: Record<string, string> = {
+  requested: 'Запрошен', approved: 'Одобрен', rejected: 'Отклонён', refunded: 'Возвращены деньги',
+};
+const STATUS_LABEL_UZ: Record<string, string> = {
+  requested: 'Soʻralgan', approved: 'Tasdiqlangan', rejected: 'Rad etilgan', refunded: 'Pul qaytarilgan',
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -38,6 +39,17 @@ const STATUS_STYLE: Record<string, string> = {
 export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelProps) {
   const [items, setItems] = useState<ReturnRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const lang = useUiLang();
+  const STATUS_LABEL = lang === 'uz' ? STATUS_LABEL_UZ : STATUS_LABEL_RU;
+  const L = lang === 'uz' ? {
+    title: 'Qaytarishlar', loading: 'Yuklanmoqda...', empty: 'Hozircha qaytarish arizalari yoʻq',
+    req: 'Ariza', order: 'Buyurtma', reason: 'Sababi', toRefund: 'Qaytariladi', sum: 'soʻm',
+    approve: 'Tasdiqlash', reject: 'Rad etish', refunded: 'Pul qaytarildi',
+  } : {
+    title: 'Возвраты', loading: 'Загрузка...', empty: 'Заявок на возврат пока нет',
+    req: 'Заявка', order: 'Заказ', reason: 'Причина', toRefund: 'К возврату', sum: 'сум',
+    approve: 'Одобрить', reject: 'Отклонить', refunded: 'Деньги возвращены',
+  };
 
   const load = async () => {
     setLoading(true);
@@ -70,27 +82,27 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center gap-2 mb-4">
         <RotateCcw className="w-6 h-6 text-orange-600" />
-        <h2 className="text-lg font-bold">Возвраты</h2>
+        <h2 className="text-lg font-bold">{L.title}</h2>
       </div>
 
       {loading ? (
-        <p className="text-gray-400">Загрузка...</p>
+        <p className="text-gray-400">{L.loading}</p>
       ) : items.length === 0 ? (
-        <p className="text-gray-400">Заявок на возврат пока нет</p>
+        <p className="text-gray-400">{L.empty}</p>
       ) : (
         <div className="space-y-3">
           {items.map((r) => (
             <div key={r.id} className="bg-white rounded-xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold">Заявка #{r.id}</span>
+                <span className="font-semibold">{L.req} #{r.id}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || ''}`}>
                   {STATUS_LABEL[r.status] || r.status}
                 </span>
               </div>
               <p className="text-sm text-gray-600">📞 {r.customerPhone}</p>
-              {r.orderId && <p className="text-sm text-gray-600">Заказ #{r.orderId}</p>}
-              {r.reason && <p className="text-sm text-gray-700 mt-1">Причина: {r.reason}</p>}
-              <p className="text-sm font-medium mt-1">К возврату: {r.refundAmount} сум</p>
+              {r.orderId && <p className="text-sm text-gray-600">{L.order} #{r.orderId}</p>}
+              {r.reason && <p className="text-sm text-gray-700 mt-1">{L.reason}: {r.reason}</p>}
+              <p className="text-sm font-medium mt-1">{L.toRefund}: {r.refundAmount} {L.sum}</p>
               <p className="text-xs text-gray-400 mt-1">
                 {r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}
               </p>
@@ -101,13 +113,13 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
                     onClick={() => setStatus(r.id, 'approved')}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm active:scale-95"
                   >
-                    <Check className="w-4 h-4" /> Одобрить
+                    <Check className="w-4 h-4" /> {L.approve}
                   </button>
                   <button
                     onClick={() => setStatus(r.id, 'rejected')}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm active:scale-95"
                   >
-                    <X className="w-4 h-4" /> Отклонить
+                    <X className="w-4 h-4" /> {L.reject}
                   </button>
                 </div>
               )}
@@ -116,7 +128,7 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
                   onClick={() => setStatus(r.id, 'refunded')}
                   className="flex items-center gap-1 px-3 py-1.5 mt-3 rounded-lg bg-green-600 text-white text-sm active:scale-95"
                 >
-                  <CreditCard className="w-4 h-4" /> Деньги возвращены
+                  <CreditCard className="w-4 h-4" /> {L.refunded}
                 </button>
               )}
             </div>

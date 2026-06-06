@@ -124,7 +124,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
   console.log('[CompanyPanel] Rendered with:', { companyId, companyName, type: typeof companyId });
 
   const navItems = [
-    { key: 'dashboard' as const,  icon: LayoutDashboard, label: 'Дашборд' },
+    { key: 'dashboard' as const,  icon: LayoutDashboard, label: language === 'uz' ? 'Boshqaruv' : 'Дашборд' },
     { key: 'warehouse' as const,  icon: Package,      label: t.inventory },
     { key: 'sales' as const,      icon: ShoppingCart, label: t.salesPanel },
     { key: 'orders' as const,     icon: Receipt,      label: t.orders },
@@ -132,8 +132,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'barcode' as const,    icon: Barcode,      label: t.searchByBarcode },
     { key: 'smm' as const,        icon: Megaphone,    label: t.smm },
     { key: 'discounts' as const,  icon: Tag,          label: t.discountsManagement },
-    { key: 'returns' as const,    icon: RotateCcw,    label: 'Возвраты' },
-    { key: 'questions' as const,  icon: MessageCircleQuestion, label: 'Вопросы' },
+    { key: 'returns' as const,    icon: RotateCcw,    label: language === 'uz' ? 'Qaytarishlar' : 'Возвраты' },
+    { key: 'questions' as const,  icon: MessageCircleQuestion, label: language === 'uz' ? 'Savollar' : 'Вопросы' },
   ];
 
   return (
@@ -371,9 +371,9 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'barcode' && t.searchByBarcode}
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
-                {activeTab === 'dashboard' && 'Дашборд'}
-                {activeTab === 'returns' && 'Возвраты'}
-                {activeTab === 'questions' && 'Вопросы'}
+                {activeTab === 'dashboard' && (language === 'uz' ? 'Boshqaruv' : 'Дашборд')}
+                {activeTab === 'returns' && (language === 'uz' ? 'Qaytarishlar' : 'Возвраты')}
+                {activeTab === 'questions' && (language === 'uz' ? 'Savollar' : 'Вопросы')}
               </h1>
             </div>
 
