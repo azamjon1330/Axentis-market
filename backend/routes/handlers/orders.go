@@ -231,6 +231,99 @@ func GetOrders(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// GetOrderByID returns a single order. The mobile app's order-detail screen
+// calls GET /orders/:id; without this route it 404'd and showed "Заказ не
+// найден". Returns the same shape as the list items.
+func GetOrderByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		var o struct {
+			ID                  int64
+			CustomerName        string
+			CustomerPhone       string
+			Address             sql.NullString
+			Items               []byte
+			TotalAmount         float64
+			DeliveryCost        float64
+			DeliveryType        sql.NullString
+			RecipientName       sql.NullString
+			DeliveryAddress     sql.NullString
+			DeliveryCoordinates sql.NullString
+			MarkupProfit        float64
+			Status              string
+			Comment             sql.NullString
+			OrderCode           sql.NullString
+			CreatedAt           string
+		}
+
+		err := db.QueryRow(`
+			SELECT id, customer_name, customer_phone, address, items,
+			       total_amount, delivery_cost, delivery_type, recipient_name,
+			       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
+			FROM orders WHERE id = $1
+		`, id).Scan(&o.ID, &o.CustomerName, &o.CustomerPhone, &o.Address, &o.Items,
+			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType, &o.RecipientName,
+			&o.DeliveryAddress, &o.DeliveryCoordinates, &o.MarkupProfit, &o.Status, &o.Comment, &o.OrderCode, &o.CreatedAt)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ GetOrderByID: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch order"})
+			return
+		}
+
+		// Parse items (handles direct array and double-encoded string).
+		var itemsArray []map[string]interface{}
+		if len(o.Items) > 0 {
+			if err := json.Unmarshal(o.Items, &itemsArray); err != nil {
+				var itemsString string
+				if err2 := json.Unmarshal(o.Items, &itemsString); err2 == nil {
+					json.Unmarshal([]byte(itemsString), &itemsArray)
+				}
+			}
+		}
+		if itemsArray == nil {
+			itemsArray = []map[string]interface{}{}
+		}
+
+		order := map[string]interface{}{
+			"id":            o.ID,
+			"customerName":  o.CustomerName,
+			"customerPhone": o.CustomerPhone,
+			"items":         itemsArray,
+			"delivery_cost": o.DeliveryCost,
+			"deliveryCost":  o.DeliveryCost,
+			"total_amount":  o.TotalAmount,
+			"totalAmount":   o.TotalAmount,
+			"markup_profit": o.MarkupProfit,
+			"markupProfit":  o.MarkupProfit,
+			"status":        o.Status,
+			"created_at":    o.CreatedAt,
+			"createdAt":     o.CreatedAt,
+			"deliveryType":  ternStr(o.DeliveryType, "pickup"),
+			"recipientName": o.RecipientName.String,
+			"deliveryAddress": o.DeliveryAddress.String,
+			"deliveryCoordinates": o.DeliveryCoordinates.String,
+			"address":       o.Address.String,
+			"comment":       o.Comment.String,
+			"orderCode":     o.OrderCode.String,
+			"order_code":    o.OrderCode.String,
+		}
+		c.JSON(http.StatusOK, order)
+	}
+}
+
+// ternStr returns the NullString value or a fallback when null/empty.
+func ternStr(s sql.NullString, fallback string) string {
+	if s.Valid && s.String != "" {
+		return s.String
+	}
+	return fallback
+}
+
 // Create Order
 func CreateOrder(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

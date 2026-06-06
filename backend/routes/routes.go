@@ -147,6 +147,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		orders := api.Group("/orders")
 		{
 			orders.GET("", handlers.GetOrders(db))
+			orders.GET("/:id", handlers.GetOrderByID(db)) // 🔍 Один заказ (детали) — фикс «заказ не найден»
 			orders.POST("", handlers.CreateOrder(db))
 			orders.POST("/:id/confirm", handlers.ConfirmOrder(db))
 			orders.PATCH("/:id", handlers.UpdateOrderStatus(db)) // For cancel/status updates
