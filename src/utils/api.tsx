@@ -612,6 +612,11 @@ export const companies = {
     return apiCall(`/companies?${query}`, { requiresAuth: false });
   },
 
+  // ⭐ Top / "hit" shops for the recommended-shops row
+  top: async () => {
+    return apiCall('/companies/top', { requiresAuth: false });
+  },
+
   // Get company by ID
   get: async (id: string) => {
     return apiCall(`/companies/${id}`, { requiresAuth: false });

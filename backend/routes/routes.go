@@ -112,6 +112,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			companies.GET("", handlers.GetCompanies(db))
 			companies.GET("/nearest", handlers.GetNearestCompany(db)) // 📍 Поиск ближайшей компании
+			companies.GET("/top", handlers.GetTopCompanies(db)) // ⭐ Хитовые магазины (рекомендации)
 			companies.GET("/:id", handlers.GetCompany(db))
 			companies.POST("/:id/verify-access", handlers.VerifyAccessKey(db))
 			companies.PUT("/:id", handlers.UpdateCompany(db))

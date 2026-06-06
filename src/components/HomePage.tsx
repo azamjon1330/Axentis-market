@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import CartItemImage from './CartItemImage';
+import HitCompanies from './HitCompanies';
 import BottomNavigation from './BottomNavigation';
 import LoadingAnimation from './LoadingAnimation'; // 🎨 Анимация загрузки
 import CompanyProfile from './CompanyProfile'; // 🏢 НОВОЕ: Профиль компании
@@ -1550,6 +1551,11 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                 </div>
               );
             })()}
+
+            {/* ── ХИТОВЫЕ МАГАЗИНЫ — горизонтальный скролл ── */}
+            {!loading && !searchQuery && !activeCategory && (
+              <HitCompanies isNight={isNight} onOpenCompany={(companyId) => handleOpenCompany(companyId)} />
+            )}
 
             {/* ── ПОПУЛЯРНОЕ — горизонтальный скролл ── */}
             {!loading && !searchQuery && !activeCategory && products.length > 0 && (() => {
