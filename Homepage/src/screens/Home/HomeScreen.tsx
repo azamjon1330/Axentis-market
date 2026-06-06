@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Animated,
+  ActivityIndicator, RefreshControl, Animated, Image,
   TextInput, Pressable, useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -13,11 +13,12 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { getProducts, getCategories, getApprovedAds } from '../../api';
+import { getProducts, getCategories, getApprovedAds, getTopCompanies, TopCompany } from '../../api';
 import { getLocalSubs } from '../Company/CompanyStoreScreen';
 import { Product, Category, Ad, RootStackParamList } from '../../types';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
+import { UPLOADS_URL } from '../../constants/Api';
 
 const LIMIT = 20;
 
@@ -60,6 +61,7 @@ export default function HomeScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState('');
   const [subscribedIds, setSubscribedIds] = useState<number[]>([]);
+  const [topCompanies, setTopCompanies] = useState<TopCompany[]>([]);
 
   // Drawer animation
   const drawerX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
@@ -90,10 +92,11 @@ export default function HomeScreen() {
 
   const loadInitial = useCallback(async () => {
     try {
-      const [prodRes, catRes, adsRes] = await Promise.allSettled([
+      const [prodRes, catRes, adsRes, topRes] = await Promise.allSettled([
         getProducts({ limit: LIMIT, offset: 0, ...getModeParams() }),
         getCategories(),
         getApprovedAds(),
+        getTopCompanies(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
@@ -101,6 +104,7 @@ export default function HomeScreen() {
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
       if (adsRes.status === 'fulfilled') setAds(adsRes.value);
+      if (topRes.status === 'fulfilled') setTopCompanies(topRes.value);
       const subs = await getLocalSubs();
       setSubscribedIds(subs);
     } finally {
@@ -177,6 +181,51 @@ export default function HomeScreen() {
       {/* Banner carousel */}
       {!search.trim() && <BannerCarousel ads={ads} />}
 
+      {/* Hit shops (recommended companies) */}
+      {!search.trim() && topCompanies.length > 1 && (
+        <View>
+          <View style={styles.sectionHeader}>
+            <View style={[styles.sectionDot, { backgroundColor: '#F5A623' }]} />
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              ⭐ {t('hitShops') || 'Хитовые магазины'}
+            </Text>
+          </View>
+          <FlatList
+            horizontal
+            data={topCompanies}
+            keyExtractor={(item) => `shop-${item.id}`}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+            style={{ marginBottom: 18 }}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={{ width: 92, alignItems: 'center' }}
+                onPress={() => navigation.navigate('CompanyStore', { companyId: item.id })}
+              >
+                <View style={{ width: 68, height: 68, borderRadius: 34, padding: 2, backgroundColor: '#F5A623', marginBottom: 6 }}>
+                  <View style={{ flex: 1, borderRadius: 32, overflow: 'hidden', backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                    {item.logoUrl ? (
+                      <Image source={{ uri: item.logoUrl.startsWith('http') ? item.logoUrl : `${UPLOADS_URL}/${item.logoUrl}` }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                      <Text style={{ fontSize: 18, fontWeight: '700', color: colors.primary }}>
+                        {item.name.slice(0, 2).toUpperCase()}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+                <Text numberOfLines={1} style={{ fontSize: 12, fontWeight: '600', color: colors.text, maxWidth: 88, textAlign: 'center' }}>
+                  {item.name}
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textMuted }}>
+                  ★ {item.rating > 0 ? item.rating.toFixed(1) : '—'} · {t('soldLabel') || 'Продано'} {item.soldUnits}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
       {/* Popular section */}
       {!search.trim() && popularProducts.length > 0 && (
         <View style={styles.sectionHeader}>
@@ -222,7 +271,7 @@ export default function HomeScreen() {
         </Text>
       </View>
     </View>
-  ), [ads, popularProducts, search, colors, t]);
+  ), [ads, popularProducts, topCompanies, search, colors, t, navigation]);
 
   if (isLoading) {
     return (

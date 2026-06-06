@@ -80,6 +80,7 @@ export const getProductReviewStats = async (id: number): Promise<ReviewStats> =>
   return {
     averageRating: res.data.average_rating ?? res.data.averageRating ?? 0,
     totalReviews: res.data.count ?? res.data.totalReviews ?? 0,
+    ratingDistribution: res.data.ratingDistribution ?? res.data.rating_distribution ?? {},
   };
 };
 
@@ -333,6 +334,22 @@ export const getAggressiveDiscounts = async (): Promise<Discount[]> => {
 export const getCompanies = async (params: { approved?: boolean; search?: string; limit?: number } = {}): Promise<Company[]> => {
   const res = await api.get(ENDPOINTS.companies, { params: { approved: true, ...params } });
   return Array.isArray(res.data) ? res.data : (res.data?.companies || []);
+};
+
+export interface TopCompany {
+  id: number;
+  name: string;
+  logoUrl: string;
+  address: string;
+  soldUnits: number;
+  rating: number;
+  ratingCount: number;
+  productCount: number;
+}
+
+export const getTopCompanies = async (): Promise<TopCompany[]> => {
+  const res = await api.get(ENDPOINTS.topCompanies);
+  return Array.isArray(res.data) ? res.data : [];
 };
 
 export const getCompanyDetail = async (id: number): Promise<Company> => {

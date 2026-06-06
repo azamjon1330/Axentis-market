@@ -12,6 +12,7 @@ export const ENDPOINTS = {
   companies: '/companies',
   companyDetail: (id: number) => `/companies/${id}`,
   nearestCompanies: '/companies/nearest',
+  topCompanies: '/companies/top',
   cart: (phone: string) => `/cart/${phone}`,
   cartCount: (phone: string) => `/cart/${phone}/count`,
   cartAdd: '/cart',

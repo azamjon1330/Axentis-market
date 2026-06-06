@@ -73,6 +73,11 @@ const translations = {
     catalogTitle: 'Каталог',
     allProducts: 'Все товары',
     searchPlaceholder: 'Поиск товаров',
+    popular: 'Популярное',
+    seeAll: 'Смотреть все',
+    searchResults: 'Результаты поиска',
+    hitShops: 'Хитовые магазины',
+    soldLabel: 'Продано',
     notFound: 'Товары не найдены',
     noProducts: 'Нет товаров',
 
@@ -174,6 +179,11 @@ const translations = {
     catalogTitle: 'Katalog',
     allProducts: 'Barcha mahsulotlar',
     searchPlaceholder: 'Mahsulot qidirish',
+    popular: 'Mashhur',
+    seeAll: 'Barchasini koʻrish',
+    searchResults: 'Qidiruv natijalari',
+    hitShops: 'Mashhur doʻkonlar',
+    soldLabel: 'Sotildi',
     notFound: 'Mahsulotlar topilmadi',
     noProducts: 'Mahsulotlar yo\'q',
 

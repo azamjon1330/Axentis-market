@@ -36,7 +36,7 @@ export default function SearchScreen() {
     setHasSearched(true);
     try {
       const res = await getProducts({ search: q, limit: 30, availableOnly: true });
-      setResults(res.products || []);
+      setResults(Array.isArray(res) ? res : []);
     } catch {
       setResults([]);
     } finally {

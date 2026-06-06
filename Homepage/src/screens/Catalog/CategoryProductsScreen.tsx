@@ -75,10 +75,10 @@ export default function CategoryProductsScreen() {
   };
 
   const sorted = [...products].sort((a, b) => {
-    if (sortBy === 'price_asc') return (a.selling_price || a.price) - (b.selling_price || b.price);
-    if (sortBy === 'price_desc') return (b.selling_price || b.price) - (a.selling_price || a.price);
-    if (sortBy === 'new') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    return b.sold_count - a.sold_count;
+    if (sortBy === 'price_asc') return (a.sellingPrice || a.price) - (b.sellingPrice || b.price);
+    if (sortBy === 'price_desc') return (b.sellingPrice || b.price) - (a.sellingPrice || a.price);
+    if (sortBy === 'new') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    return (b.soldCount || 0) - (a.soldCount || 0);
   });
 
   const SORTS: { key: typeof sortBy; label: string }[] = [
