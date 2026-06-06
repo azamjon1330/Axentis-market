@@ -149,6 +149,61 @@ func GetCompanyPromoCodes(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// GetAllPromoCodes lists every promo code (admin view).
+func GetAllPromoCodes(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rows, err := db.Query(`
+			SELECT id, company_id, code, COALESCE(description, ''), discount_type, discount_value,
+			       min_order_amount, max_discount, usage_limit, used_count, per_user_limit,
+			       starts_at, expires_at, is_active, created_at
+			FROM promo_codes
+			ORDER BY created_at DESC
+		`)
+		if err != nil {
+			log.Printf("❌ GetAllPromoCodes: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch promo codes"})
+			return
+		}
+		defer rows.Close()
+
+		list := make([]gin.H, 0)
+		for rows.Next() {
+			var (
+				id                  int64
+				compID              sql.NullInt64
+				code, descr, dType  string
+				dValue, minOrder    float64
+				maxDisc             sql.NullFloat64
+				usageLimit          sql.NullInt64
+				usedCount, perUser  int
+				startsAt, expiresAt sql.NullTime
+				isActive            bool
+				createdAt           time.Time
+			)
+			if err := rows.Scan(&id, &compID, &code, &descr, &dType, &dValue, &minOrder,
+				&maxDisc, &usageLimit, &usedCount, &perUser, &startsAt, &expiresAt, &isActive, &createdAt); err != nil {
+				continue
+			}
+			item := gin.H{
+				"id": id, "code": code, "description": descr, "discountType": dType,
+				"discountValue": dValue, "minOrderAmount": minOrder, "usedCount": usedCount,
+				"perUserLimit": perUser, "isActive": isActive, "createdAt": createdAt,
+			}
+			if compID.Valid {
+				item["companyId"] = compID.Int64
+			}
+			if maxDisc.Valid {
+				item["maxDiscount"] = maxDisc.Float64
+			}
+			if usageLimit.Valid {
+				item["usageLimit"] = usageLimit.Int64
+			}
+			list = append(list, item)
+		}
+		c.JSON(http.StatusOK, list)
+	}
+}
+
 // ValidatePromoCode checks a code against an order amount/user/company and
 // returns the discount it would grant. It does NOT record a use — call
 // RedeemPromoCode when the order is actually placed.

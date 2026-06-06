@@ -1454,6 +1454,7 @@ export const promoCodes = {
     apiCall('/promo-codes', { method: 'POST', body: JSON.stringify(data) }),
   listByCompany: (companyId: number | string) =>
     apiCall(`/promo-codes/company/${companyId}`),
+  listAll: () => apiCall('/promo-codes/all'),
   validate: (data: { code: string; userPhone?: string; companyId?: number | null; orderAmount: number }) =>
     apiCall('/promo-codes/validate', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
   redeem: (data: { promoId: number; userPhone?: string; orderId?: number | null; discount: number }) =>

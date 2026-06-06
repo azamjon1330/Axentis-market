@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, Ticket, RotateCcw, LayoutDashboard, MessageCircleQuestion } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, RotateCcw, LayoutDashboard, MessageCircleQuestion } from 'lucide-react';
 import CompanyDashboardPanel from './CompanyDashboardPanel';
 import CompanyQuestionsPanel from './CompanyQuestionsPanel';
 import { DigitalWarehouse } from './DigitalWarehouse';
@@ -9,7 +9,6 @@ import AnalyticsPanel from './AnalyticsPanel';
 import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
 import CompanyDiscountsManager from './CompanyDiscountsManager';
-import CompanyPromoCodesPanel from './CompanyPromoCodesPanel';
 import CompanyReturnsPanel from './CompanyReturnsPanel';
 import CompanyInboxPanel from './CompanyInboxPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
@@ -31,7 +30,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'promo' | 'returns' | 'questions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -92,7 +91,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'promo', 'returns', 'questions'];
+    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions'];
     const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'dashboard';
 
     const currentState = window.history.state || {};
@@ -133,7 +132,6 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'barcode' as const,    icon: Barcode,      label: t.searchByBarcode },
     { key: 'smm' as const,        icon: Megaphone,    label: t.smm },
     { key: 'discounts' as const,  icon: Tag,          label: t.discountsManagement },
-    { key: 'promo' as const,      icon: Ticket,       label: 'Промокоды' },
     { key: 'returns' as const,    icon: RotateCcw,    label: 'Возвраты' },
     { key: 'questions' as const,  icon: MessageCircleQuestion, label: 'Вопросы' },
   ];
@@ -374,7 +372,6 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
                 {activeTab === 'dashboard' && 'Дашборд'}
-                {activeTab === 'promo' && 'Промокоды'}
                 {activeTab === 'returns' && 'Возвраты'}
                 {activeTab === 'questions' && 'Вопросы'}
               </h1>
@@ -422,7 +419,6 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'smm' && <CompanySMMPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'discounts' && <CompanyDiscountsManager companyId={companyId} products={[]} />}
           {activeTab === 'dashboard' && <CompanyDashboardPanel companyId={companyId} onNavigate={(tab) => handleNavigate(tab as typeof activeTab)} />}
-          {activeTab === 'promo' && <CompanyPromoCodesPanel companyId={companyId} />}
           {activeTab === 'returns' && <CompanyReturnsPanel companyId={companyId} />}
           {activeTab === 'questions' && <CompanyQuestionsPanel companyId={companyId} companyName={companyName} />}
         </div>

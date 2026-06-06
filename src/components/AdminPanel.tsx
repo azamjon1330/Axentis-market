@@ -11,6 +11,7 @@ import AdminNotificationsPanel from './AdminNotificationsPanel';
 import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
 import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
+import AdminPromoCodesPanel from './AdminPromoCodesPanel';
 import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
 import { broadcastReload } from '../utils/reloadBroadcast';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
@@ -20,7 +21,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -437,6 +438,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => handleNavigate('promo')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'promo'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Tag className="w-5 h-5" />
+              <span className="font-medium">Промокоды</span>
+            </button>
+
+            <button
               onClick={() => handleNavigate('referrals')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'referrals'
@@ -485,6 +498,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'notifications' && 'Уведомления'}
               {activeTab === 'companyMessages' && 'Сообщения компаниям'}
               {activeTab === 'discounts' && 'Модерация скидок'}
+              {activeTab === 'promo' && 'Промокоды'}
               {activeTab === 'referrals' && 'Реферальные агенты'}
             </h1>
           </div>
@@ -764,6 +778,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <AdminDiscountsPanel />
           ) : activeTab === 'referrals' ? (
             <AdminReferralPanel />
+          ) : activeTab === 'promo' ? (
+            <AdminPromoCodesPanel />
           ) : (
             <AdminAdsPanel />
           )}

@@ -333,6 +333,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		promoCodes := api.Group("/promo-codes")
 		{
 			promoCodes.POST("", handlers.CreatePromoCode(db))                       // Создать промокод
+			promoCodes.GET("/all", handlers.GetAllPromoCodes(db))                   // Все промокоды (админ)
 			promoCodes.GET("/company/:companyId", handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
 			promoCodes.POST("/validate", handlers.ValidatePromoCode(db))            // Проверить промокод (без списания)
 			promoCodes.POST("/redeem", handlers.RedeemPromoCode(db))                // Зафиксировать использование
