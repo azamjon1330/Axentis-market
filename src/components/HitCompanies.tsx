@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Star, BadgeCheck } from 'lucide-react';
 import api, { getImageUrl } from '../utils/api';
+import { getCurrentLanguage } from '../utils/translations';
 
 interface TopCompany {
   id: number;
@@ -24,6 +25,13 @@ interface HitCompaniesProps {
  */
 export default function HitCompanies({ isNight, onOpenCompany }: HitCompaniesProps) {
   const [companies, setCompanies] = useState<TopCompany[]>([]);
+  const [lang, setLang] = useState(getCurrentLanguage());
+
+  useEffect(() => {
+    const onLang = (e: any) => setLang(e.detail);
+    window.addEventListener('languageChange', onLang as EventListener);
+    return () => window.removeEventListener('languageChange', onLang as EventListener);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -45,7 +53,7 @@ export default function HitCompanies({ isNight, onOpenCompany }: HitCompaniesPro
     <div className="mb-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
-          ⭐ Хитовые магазины
+          ⭐ {lang === 'uz' ? 'Mashhur do‘konlar' : 'Хитовые магазины'}
         </h2>
       </div>
       <div
@@ -84,7 +92,7 @@ export default function HitCompanies({ isNight, onOpenCompany }: HitCompaniesPro
                   </span>
                 </div>
                 <div className={`text-[10px] mt-0.5 ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
-                  Продано {co.soldUnits}
+                  {lang === 'uz' ? 'Sotildi' : 'Продано'} {co.soldUnits}
                 </div>
               </button>
             );
