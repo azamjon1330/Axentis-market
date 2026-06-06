@@ -246,18 +246,17 @@ export default function ProductCard({
     <div
       key={product.id}
       id={`product-${product.id}`}
-      className={`flex flex-col relative cursor-pointer rounded-xl overflow-hidden transition-transform duration-150 active:scale-[0.97]
-        ${isNight
-          ? 'bg-[#1C1C26] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
-          : 'bg-white shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
-        ${highlightedProductId === product.id ? 'ring-2 ring-purple-500' : ''}
+      className={`flex flex-col relative cursor-pointer transition-transform duration-150 active:scale-[0.97]
+        ${highlightedProductId === product.id ? 'rounded-2xl ring-2 ring-purple-500' : ''}
       `}
       onClick={onClick || onDoubleClick}
     >
-      {/* Image area */}
+      {/* Image area — this rounded box IS the card; the photo fills it 100% */}
       <div
-        className={`relative w-full aspect-[3/4] overflow-hidden group
-          ${isNight ? 'bg-[#2A2A3A]' : 'bg-[#F4F4F6]'}
+        className={`relative w-full aspect-[3/4] overflow-hidden group rounded-2xl
+          ${isNight
+            ? 'bg-[#2A2A3A] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
+            : 'bg-[#F4F4F6] shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
         `}
       >
         {images.length > 0 ? (
@@ -388,14 +387,19 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* Product info */}
-      <div className="px-3 py-2.5">
-        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1.5 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
+      {/* Product info — OUTSIDE the card, on the transparent page background */}
+      <div className="pt-2 px-0.5">
+        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
           {product.name}
         </h3>
-        <div className={`text-[13px] font-bold tracking-tight ${isNight ? 'text-white' : 'text-gray-900'}`}>
+        <div className="text-[13px] font-bold tracking-tight text-[#FF5722]">
           {formatPrice(getPriceWithMarkup(product))}
         </div>
+        {soldCount > 0 && (
+          <div className={`text-[10px] mt-0.5 ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+            Продано {soldCount}
+          </div>
+        )}
       </div>
     </div>
   );

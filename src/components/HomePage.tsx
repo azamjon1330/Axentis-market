@@ -2,6 +2,7 @@ import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUr
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import CartItemImage from './CartItemImage';
 import BottomNavigation from './BottomNavigation';
 import LoadingAnimation from './LoadingAnimation'; // 🎨 Анимация загрузки
 import CompanyProfile from './CompanyProfile'; // 🏢 НОВОЕ: Профиль компании
@@ -1554,7 +1555,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             {!loading && !searchQuery && !activeCategory && products.length > 0 && (() => {
               const popular = [...products]
                 .filter(p => p.availableForCustomers !== false)
-                .sort((a: any, b: any) => (b.soldCount || 0) - (a.soldCount || 0))
+                .sort((a: any, b: any) => (b.soldCount || b.sold_count || 0) - (a.soldCount || a.sold_count || 0))
                 .slice(0, 12);
               if (popular.length < 2) return null;
               return (
@@ -2039,13 +2040,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             <div key={productId} className={`p-3 rounded-xl flex gap-3 ${
                               isNight ? 'bg-slate-700' : 'bg-gray-50'
                             }`}>
-                              {/* Image Thumbnail */}
+                              {/* Image Thumbnail (auto-rotates through photos every 3s) */}
                               <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                                {product.images && product.images.length > 0 ? (
-                                  <img src={getImageUrl(product.images[0]) || ''} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Нет фото</div>
-                                )}
+                                <CartItemImage images={product.images} name={product.name} />
                               </div>
                               
                               <div className="flex-1">
