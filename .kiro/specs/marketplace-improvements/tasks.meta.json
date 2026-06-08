@@ -1,0 +1,1421 @@
+{
+  "pbtResults": {
+    "3.2 Write property test for photo-limit enforcement": {
+      "status": "passed",
+      "lastRunTimestamp": 1780937532667
+    },
+    "8.2 Write property test for breakdown completeness": {
+      "status": "passed",
+      "lastRunTimestamp": 1780937965438
+    },
+    "5.2 Write property test for ranking monotonicity": {
+      "status": "passed",
+      "lastRunTimestamp": 1780937990042
+    },
+    "10.2 Write property test for promo discount bounds": {
+      "status": "passed",
+      "lastRunTimestamp": 1780938013291
+    },
+    "4.2 Write property test for default-variant persistence": {
+      "status": "passed",
+      "lastRunTimestamp": 1780938138608
+    },
+    "6.2 Write property test for subscription derivation": {
+      "status": "passed",
+      "lastRunTimestamp": 1780938586365
+    },
+    "7.2 Write property test for saved-address CRUD round-trip": {
+      "status": "passed",
+      "lastRunTimestamp": 1780938664853
+    },
+    "9.2 Write property test for bucket tiling and granularity": {
+      "status": "passed",
+      "lastRunTimestamp": 1780939136389
+    },
+    "9.3 Write property test for two-line aligned comparison series": {
+      "status": "passed",
+      "lastRunTimestamp": 1780939207580
+    },
+    "12.2 Write property test for translation resolution": {
+      "status": "passed",
+      "lastRunTimestamp": 1780939665593
+    },
+    "25.2 Write property test for quantity clamping and transitions": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942256257
+    },
+    "25.3 Write property test for minus-at-one edge case": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942284099
+    },
+    "19.4 Write property test for round-robin fairness and losslessness": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942308206
+    },
+    "19.3 Write property test for subscribed-first ordering": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942357649
+    },
+    "18.2 Write property test for icon resolution": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942424174
+    },
+    "25.4 Write property test for empty-field-to-one edge case": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942541376
+    },
+    "21.2 Write property test for gallery photo cap": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942558939
+    },
+    "26.3 Write property test for per-variant line uniqueness and increment": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942573995
+    },
+    "28.2 Write property test for selected-address application": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942615268
+    },
+    "26.2 Write property test for variant-required add behavior": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942630091
+    },
+    "22.2 Write property test for active photo set selection": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942657209
+    },
+    "24.2 Write property test for size preservation round-trip": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942804472
+    },
+    "23.2 Write property test for selection survival across refresh": {
+      "status": "passed",
+      "lastRunTimestamp": 1780942886313
+    },
+    "20.2 Write property test for Uzbek label coverage": {
+      "status": "passed",
+      "lastRunTimestamp": 1780943046162
+    }
+  },
+  "executionHistory": {
+    "1.1 Add migration 211 — per-variant photos": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579475
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936589665
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936674579
+      }
+    ],
+    "1.2 Add migration 212 — product default variant": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579479
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936590624
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936675482
+      }
+    ],
+    "1.3 Add migration 213 — company subscription (paid ranking)": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579482
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936592640
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936676522
+      }
+    ],
+    "1.4 Add migration 214 — saved delivery addresses": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579486
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936592740
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936679091
+      }
+    ],
+    "2. Checkpoint - migrations apply cleanly": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579490
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329669
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888801
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938937039
+      }
+    ],
+    "3.1 Implement `validatePhotoLimits` and variant photo handlers": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579493
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936724326
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329672
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937343529
+      }
+    ],
+    "4.1 Implement default-variant endpoint": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579496
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329676
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937373775
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937651054
+      }
+    ],
+    "5.1 Rework `GetTopCompanies` to be user-aware": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579500
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936725340
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329680
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937344503
+      }
+    ],
+    "6.1 Expose and toggle company subscription": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579506
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329683
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937662395
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938173015
+      }
+    ],
+    "7.1 Implement saved-addresses handlers and routes": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579512
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329686
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938189817
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938416361
+      }
+    ],
+    "8.1 Add complete product-type breakdown to analytics": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579518
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936726506
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329690
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937345523
+      }
+    ],
+    "9.1 Implement granularity-aware timeseries endpoint": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579523
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329694
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938417365
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938880465
+      }
+    ],
+    "10.1 Verify and align promo-code routes": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579537
+      },
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936726730
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329697
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937346220
+      }
+    ],
+    "11. Checkpoint - backend endpoints complete": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579541
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329701
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888805
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938937734
+      }
+    ],
+    "12.1 Make analytics consume language context reactively": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579544
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329704
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888808
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938938115
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939269041
+      }
+    ],
+    "13.1 Implement `usePolling` hook and wire into analytics fetches": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579548
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329708
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888812
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939273496
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939814651
+      }
+    ],
+    "14.1 Rebuild chart to plot two aligned lines from timeseries endpoint": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579552
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329715
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888816
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939817602
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940298826
+      }
+    ],
+    "15.1 Scope dark rules and add light-theme tokens": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579555
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329718
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888819
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939273992
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939815578
+      }
+    ],
+    "16.1 Add default-variant selector and per-variant photo uploaders": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579559
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329722
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888828
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939818599
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940299842
+      }
+    ],
+    "17. Checkpoint - web panels complete": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579562
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329726
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888831
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940303809
+      }
+    ],
+    "18.1 Render category icons with placeholder fallback": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579565
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329729
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888835
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940304825
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940925352
+      }
+    ],
+    "19.1 Render Top Companies section": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579569
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329733
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888839
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940305814
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940926467
+      }
+    ],
+    "19.2 Implement `orderListing` subscription round-robin": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579572
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329736
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888842
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941264307
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941554847
+      }
+    ],
+    "20.1 Add missing Uzbek keys": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579576
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329740
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888846
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940306805
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941262788
+      }
+    ],
+    "21.1 Build gallery component in `ProductDetailScreen.js`": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579579
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329743
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888849
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940307814
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940927572
+      }
+    ],
+    "22.1 Swap gallery photo set on variant selection": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579583
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329747
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888853
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941263052
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941553005
+      }
+    ],
+    "23.1 Preserve color/size across product refresh": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579587
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329750
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888856
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941555822
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941784396
+      }
+    ],
+    "24.1 Persist and render selected size in orders": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579590
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329754
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888860
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941556859
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941785221
+      }
+    ],
+    "25.1 Make `CartContext.js` variant-aware and implement quantity controls": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579594
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329757
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888863
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941263357
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941553919
+      }
+    ],
+    "26.1 Enforce variant rules and default-variant on add": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579598
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329761
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888867
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941785869
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942145741
+      }
+    ],
+    "27.1 Render and apply promo codes": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579602
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329767
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888871
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941786559
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942147193
+      }
+    ],
+    "28.1 Implement saved-addresses UI and map picker integration": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579606
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329770
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888874
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940308890
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940929401
+      }
+    ],
+    "29. Checkpoint - app runtime complete": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579609
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329774
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888878
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942928719
+      }
+    ],
+    "30.1 Commit and push all changes via feature branch + PR": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936579613
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937329777
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938888887
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780943093164
+      }
+    ],
+    "1. Database migrations (goose, additive, backward compatible)": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936679094
+      }
+    ],
+    "1.5 Write migration apply/rollback integration test": [
+      {
+        "executionId": "f221250b-d184-4ae9-aa0f-670e6a9a169f",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780936743725
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937342507
+      }
+    ],
+    "3. Backend — per-variant photo CRUD + limits (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937343533
+      }
+    ],
+    "5. Backend — user-aware Top Companies ranking (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937344507
+      }
+    ],
+    "8. Backend — analytics product-type breakdown fix (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937345531
+      }
+    ],
+    "10. Backend — confirm promo-code endpoints (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937346224
+      }
+    ],
+    "3.2 Write property test for photo-limit enforcement": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937382121
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937651149
+      }
+    ],
+    "4. Backend — default variant set/get (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937651059
+      }
+    ],
+    "5.2 Write property test for ranking monotonicity": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937664330
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938174062
+      }
+    ],
+    "8.2 Write property test for breakdown completeness": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937665064
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938177147
+      }
+    ],
+    "10.2 Write property test for promo discount bounds": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937666023
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938177582
+      }
+    ],
+    "4.2 Write property test for default-variant persistence": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780937707162
+      },
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938177894
+      }
+    ],
+    "6. Backend — subscription status exposure + toggle (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938173023
+      }
+    ],
+    "7. Backend — saved addresses CRUD (Go)": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938416365
+      }
+    ],
+    "6.2 Write property test for subscription derivation": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938418365
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938933704
+      }
+    ],
+    "7.2 Write property test for saved-address CRUD round-trip": [
+      {
+        "executionId": "96267bc5-ab10-41ff-8b38-a4a4b1f2aa80",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938419315
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938934910
+      }
+    ],
+    "9. Backend — analytics time-series with granularity + previous period (Go)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938880473
+      }
+    ],
+    "9.2 Write property test for bucket tiling and granularity": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938938948
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939270226
+      }
+    ],
+    "9.3 Write property test for two-line aligned comparison series": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780938939422
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939272972
+      }
+    ],
+    "12. Web — real-time language into analytics (TS)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939269045
+      }
+    ],
+    "12.2 Write property test for translation resolution": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939274260
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939816592
+      }
+    ],
+    "13. Web — analytics polling hook (TS)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939814657
+      }
+    ],
+    "15. Web — light-theme CSS fixes for admin & company panels (TS/CSS)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939815583
+      }
+    ],
+    "13.2 Write property test for polling data retention": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939819747
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940301792
+      }
+    ],
+    "13.3 Write unit test for polling interval bound and success update": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780939820955
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940302803
+      }
+    ],
+    "14. Web — two-line Orders & Revenue chart with dynamic granularity (TS)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940298830
+      }
+    ],
+    "16. Web — Company Panel default-variant selector + per-variant photo upload (TS)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940299846
+      }
+    ],
+    "18. App (.js runtime) — catalog category icons": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940925356
+      }
+    ],
+    "21. App (.js runtime) — product image gallery with auto-scroll": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940927576
+      }
+    ],
+    "28. App (.js runtime) — saved addresses + map picker": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780940929405
+      }
+    ],
+    "20. App (.js runtime) — Uzbek translations": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941262792
+      }
+    ],
+    "22. App (.js runtime) — per-variant photo switching": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941553009
+      }
+    ],
+    "25. App (.js runtime) — cart quantity controls (plus/minus + editable + stock cap)": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941553924
+      }
+    ],
+    "19. App (.js runtime) — Top Companies section + subscription round-robin ordering": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941554851
+      }
+    ],
+    "23. App (.js runtime) — stable variant selection": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941784400
+      }
+    ],
+    "24. App (.js runtime) — sizes shown in orders": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780941785225
+      }
+    ],
+    "26. App (.js runtime) — variant-required add-to-cart + dedup + default-variant auto-apply": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942145745
+      }
+    ],
+    "27. App (.js runtime) — promo codes rendering": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942147198
+      }
+    ],
+    "18.2 Write property test for icon resolution": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942148256
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942463602
+      }
+    ],
+    "19.3 Write property test for subscribed-first ordering": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942150356
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942464609
+      }
+    ],
+    "19.4 Write property test for round-robin fairness and losslessness": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942152229
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942465618
+      }
+    ],
+    "25.2 Write property test for quantity clamping and transitions": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942153705
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942466606
+      }
+    ],
+    "25.3 Write property test for minus-at-one edge case": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942154922
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942469610
+      }
+    ],
+    "25.4 Write property test for empty-field-to-one edge case": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942470226
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942688926
+      }
+    ],
+    "26.2 Write property test for variant-required add behavior": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942470600
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942688930
+      }
+    ],
+    "26.3 Write property test for per-variant line uniqueness and increment": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942471615
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942689074
+      }
+    ],
+    "28.2 Write property test for selected-address application": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942472843
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942690664
+      }
+    ],
+    "21.2 Write property test for gallery photo cap": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942473526
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942691307
+      }
+    ],
+    "22.2 Write property test for active photo set selection": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942693053
+      }
+    ],
+    "21.3 Write unit test for auto-scroll timing with fake timers": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942695747
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942925588
+      }
+    ],
+    "23.2 Write property test for selection survival across refresh": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942696581
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942926634
+      }
+    ],
+    "24.2 Write property test for size preservation round-trip": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942697099
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942927570
+      }
+    ],
+    "20.2 Write property test for Uzbek label coverage": [
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780942959738
+      },
+      {
+        "executionId": "e1090270-5b94-4729-8861-a9930f37703b",
+        "chatSessionId": "9ca471dc-0804-4be0-b0ef-a118d1252cbe",
+        "timestamp": 1780943091904
+      }
+    ]
+  }
+}

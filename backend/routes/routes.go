@@ -92,6 +92,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.POST("/:id/variants", handlers.CreateProductVariant(db))
 			products.PUT("/:id/variants/:variantId", handlers.UpdateProductVariant(db))
 			products.DELETE("/:id/variants/:variantId", handlers.DeleteProductVariant(db))
+			// Per-variant photos (Requirement 12)
+			products.POST("/:id/variants/:variantId/photos", handlers.UploadVariantPhotos(db))
+			products.DELETE("/:id/variants/:variantId/photos", handlers.DeleteVariantPhoto(db))
+			// Default variant designation (Requirement 18)
+			products.PUT("/:id/default-variant", handlers.SetDefaultVariant(db))
 		}
 
 		// AI routes
@@ -125,6 +130,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.POST("/:id/upload-logo", handlers.UploadCompanyLogo(db))
 			companies.PUT("/:id/privacy", handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
 			companies.PUT("/:id/delivery", handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
+			companies.PUT("/:id/subscription", handlers.UpdateCompanySubscription(db)) // 💳 Подписка (платное ранжирование)
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
 		}
@@ -170,6 +176,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.GET("/:phone/subscription-status/:targetPhone", handlers.CheckSubscriptionStatus(db))
 			users.POST("/:phone/increment-views", handlers.IncrementProfileViews(db))
 			users.GET("/:phone/default-delivery-address", handlers.GetUserDefaultDeliveryAddress(db)) // 📍 Адрес доставки по умолчанию
+			// Saved delivery addresses CRUD (Requirement 13)
+			users.GET("/:phone/addresses", handlers.GetSavedAddresses(db))
+			users.POST("/:phone/addresses", handlers.CreateSavedAddress(db))
+			users.PUT("/:phone/addresses/:addressId", handlers.UpdateSavedAddress(db))
+			users.DELETE("/:phone/addresses/:addressId", handlers.DeleteSavedAddress(db))
 		}
 
 		// Cart routes (🛒 Новый API для корзины с БД)
@@ -261,7 +272,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		analytics := api.Group("/analytics")
 		{
 			analytics.GET("/company/:companyId", handlers.GetCompanyAnalytics(db))
-			analytics.GET("/company/:companyId/dashboard", handlers.GetCompanyDashboard(db)) // 📊 Единый дашборд продавца
+			analytics.GET("/company/:companyId/dashboard", handlers.GetCompanyDashboard(db))   // 📊 Единый дашборд продавца
+			analytics.GET("/company/:companyId/timeseries", handlers.GetCompanyTimeseries(db)) // 📈 Granularity-aware time-series + previous period (Requirement 4)
 			analytics.GET("/revenue", handlers.GetRevenueAnalytics(db))
 		}
 

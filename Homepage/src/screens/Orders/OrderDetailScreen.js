@@ -153,6 +153,15 @@ export default function OrderDetailScreen() {
               )}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.itemName, { color: colors.text }]}>{item.productName}</Text>
+                {(() => {
+                  const variantText = [
+                    item.size ? `Размер: ${item.size}` : null,
+                    item.color ? `Цвет: ${item.color}` : null,
+                  ].filter(Boolean).join(' · ');
+                  return variantText
+                    ? <Text style={[styles.itemVariant, { color: colors.textSecondary }]}>{variantText}</Text>
+                    : null;
+                })()}
                 <Text style={[styles.itemQty, { color: colors.textMuted }]}>{item.quantity} шт.</Text>
               </View>
               <Text style={[styles.itemPrice, { color: colors.text }]}>
@@ -220,6 +229,7 @@ const styles = StyleSheet.create({
   orderItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10 },
   itemImg: { width: 60, height: 60, borderRadius: 10 },
   itemName: { fontSize: 14, fontWeight: '500', lineHeight: 19 },
+  itemVariant: { fontSize: 12, marginTop: 2 },
   itemQty: { fontSize: 12, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: '700' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 10 },

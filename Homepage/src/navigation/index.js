@@ -25,6 +25,7 @@ import NotificationsScreen from '../screens/Notifications/NotificationsScreen';
 import SearchScreen from '../screens/Search/SearchScreen';
 import CompanyStoreScreen from '../screens/Company/CompanyStoreScreen';
 import PaymentCardsScreen from '../screens/Profile/PaymentCardsScreen';
+import SavedAddressesScreen from '../screens/Profile/SavedAddressesScreen';
 import LanguageSelectionScreen from '../screens/Language/LanguageSelectionScreen';
 import MapLocationPickerScreen from '../screens/Checkout/MapLocationPickerScreen';
 
@@ -162,6 +163,7 @@ export default function Navigation() {
             <Stack.Screen name="Search" component={SearchScreen} />
             <Stack.Screen name="CompanyStore" component={CompanyStoreScreen} />
             <Stack.Screen name="PaymentCards" component={PaymentCardsScreen} />
+            <Stack.Screen name="SavedAddresses" component={SavedAddressesScreen} />
             <Stack.Screen name="MapLocationPicker" component={MapLocationPickerScreen} />
           </>
         )}

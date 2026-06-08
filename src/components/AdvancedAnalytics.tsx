@@ -1,11 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Package, DollarSign, ShoppingCart, Calendar, Download, Award } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getCurrentLanguage, type Language } from '../utils/translations';
+import { usePolling } from '../hooks/usePolling';
 
 interface AdvancedAnalyticsProps {
   companyId?: number;
 }
+
+// One plotted bucket as returned by the granularity-aware time-series endpoint
+// (GET /api/analytics/company/:companyId/timeseries — backend task 9.1).
+interface TimeseriesBucket {
+  bucket: string; // ISO-8601 UTC bucket start
+  orders: number;
+  revenue: number;
+}
+
+// Full time-series response: a granularity label plus two index-aligned series
+// (Current_Period and Previous_Period) of equal length (Req 4.6, 4.7).
+interface TimeseriesResponse {
+  granularity: string; // "hour" | "12-hour" | "day" | "week"
+  current: TimeseriesBucket[];
+  previous: TimeseriesBucket[];
+}
+
+// Maps the UI's existing time-range selector to the backend `range` param.
+// (week→weekly, month→monthly, year→yearly; a daily option would map to daily.)
+const RANGE_PARAM: Record<'week' | 'month' | 'year', string> = {
+  week: 'weekly',
+  month: 'monthly',
+  year: 'yearly',
+};
+
+// Window length used to derive [from, to) for the selected range. These match
+// the backend's default span per range so buckets tile a natural period.
+const RANGE_SPAN_MS: Record<'week' | 'month' | 'year', number> = {
+  week: 7 * 24 * 60 * 60 * 1000,
+  month: 30 * 24 * 60 * 60 * 1000,
+  year: 365 * 24 * 60 * 60 * 1000,
+};
 
 export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('week');
@@ -29,40 +62,78 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
     return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
   }, []);
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [timeRange, companyId]);
-
-  const loadAnalytics = async () => {
-    try {
-      setLoading(true);
-      
-      // Зарг рузаем историю продаж через правильный API endpoint
-      const response = await fetch(
-        `/api/sales?companyId=${companyId || ''}`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
+  // Stable fetcher for the analytics sales data. `timeRange` is included so that
+  // changing the selected period restarts the poll and re-fetches immediately.
+  const fetchSales = useCallback(async (): Promise<any[]> => {
+    // Загружаем историю продаж через правильный API endpoint
+    const response = await fetch(
+      `/api/sales?companyId=${companyId || ''}`,
+      {
+        headers: {
+          'Content-Type': 'application/json'
         }
-      );
-
-      if (response.ok) {
-        const sales = await response.json();
-        console.log('📊 Loaded sales:', sales.length, 'records');
-        
-        // Обрабатываем данные для графиков
-        processSalesData(sales || []);
-        processTopProducts(sales || []);
-        processCategoryData(sales || []);
-        calculateStats(sales || []);
       }
-    } catch (error) {
-      console.error('Error loading analytics:', error);
-    } finally {
-      setLoading(false);
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to load analytics: ${response.status}`);
     }
-  };
+    const sales = await response.json();
+    console.log('📊 Loaded sales:', Array.isArray(sales) ? sales.length : 0, 'records');
+    return Array.isArray(sales) ? sales : [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, timeRange]);
+
+  // Auto-refresh analytics data via the reusable polling hook (Req 2.1–2.3).
+  // On fetch failure the last good data is retained; on success it updates in place.
+  const sales = usePolling<any[]>(fetchSales, 20000);
+
+  // Stable fetcher for the Orders & Revenue time-series. Keyed by companyId +
+  // timeRange so switching the period restarts the poll and refetches the right
+  // range. Maps the UI range to the backend `range` param and computes the
+  // [from, to) window for the selected period (Req 4.1–4.7).
+  const fetchTimeseries = useCallback(async (): Promise<TimeseriesResponse> => {
+    const empty: TimeseriesResponse = { granularity: '', current: [], previous: [] };
+    if (!companyId) {
+      // The endpoint is scoped to a single company; without one there is no series.
+      return empty;
+    }
+    const backendRange = RANGE_PARAM[timeRange];
+    const to = new Date();
+    const from = new Date(to.getTime() - RANGE_SPAN_MS[timeRange]);
+    const params = new URLSearchParams({
+      range: backendRange,
+      from: from.toISOString(),
+      to: to.toISOString(),
+    });
+    const response = await fetch(
+      `/api/analytics/company/${companyId}/timeseries?${params.toString()}`,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to load timeseries: ${response.status}`);
+    }
+    const json = await response.json();
+    return {
+      granularity: typeof json?.granularity === 'string' ? json.granularity : '',
+      current: Array.isArray(json?.current) ? json.current : [],
+      previous: Array.isArray(json?.previous) ? json.previous : [],
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, timeRange]);
+
+  // Poll the two-line Orders & Revenue series alongside the rest of the dashboard.
+  const timeseries = usePolling<TimeseriesResponse>(fetchTimeseries, 20000);
+
+  // Recompute derived chart/stat state whenever fresh sales data arrives.
+  useEffect(() => {
+    if (sales === null) return;
+    processSalesData(sales);
+    processTopProducts(sales);
+    processCategoryData(sales);
+    calculateStats(sales);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sales]);
 
   const processSalesData = (sales: any[]) => {
     // Группируем продажи по дням
@@ -188,6 +259,43 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
     link.click();
   };
 
+  // Locale used for X-axis tick + tooltip date formatting, reactive to language.
+  const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
+
+  // Format an ISO bucket start into an axis tick based on the backend-provided
+  // `granularity` (hour / 12-hour / day / week) so ticks match the range (Req 4.x).
+  const formatTick = (iso: string, granularity: string): string => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    switch (granularity) {
+      case 'hour':
+        return d.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' });
+      case '12-hour':
+        return d.toLocaleString(dateLocale, { day: '2-digit', month: '2-digit', hour: '2-digit' });
+      case 'day':
+        return d.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' });
+      case 'week':
+        return d.toLocaleDateString(dateLocale, { day: '2-digit', month: '2-digit' });
+      default:
+        return d.toLocaleDateString(dateLocale);
+    }
+  };
+
+  // Build the two-line Orders & Revenue dataset: Current_Period and
+  // Previous_Period, index-aligned by bucket position (Req 4.6, 4.7). Only
+  // in-range buckets returned by the endpoint are plotted (Req 4.1).
+  const granularity = timeseries?.granularity ?? '';
+  const ordersRevenueData = (timeseries?.current ?? []).map((cur, i) => {
+    const prev = timeseries?.previous?.[i];
+    return {
+      label: formatTick(cur.bucket, granularity),
+      current: cur.revenue,
+      previous: prev ? prev.revenue : 0,
+    };
+  });
+  const currentPeriodLabel = language === 'uz' ? 'Joriy davr' : 'Текущий период';
+  const previousPeriodLabel = language === 'uz' ? 'Oldingi davr' : 'Предыдущий период';
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -264,18 +372,18 @@ export default function AdvancedAnalytics({ companyId }: AdvancedAnalyticsProps)
         </div>
       </div>
 
-      {/* График продаж */}
+      {/* График продаж — Orders & Revenue: two index-aligned lines (Current vs Previous period) */}
       <div className="bg-white rounded-xl shadow-lg p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">{language === 'uz' ? 'Sotish dinamikasi' : 'Динамика продаж'}</h3>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={salesData}>
+          <LineChart data={ordersRevenueData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
+            <XAxis dataKey="label" />
             <YAxis />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name={language === 'uz' ? 'Tushum' : 'Выручка'} strokeWidth={2} />
-            <Line type="monotone" dataKey="profit" stroke="#10b981" name={language === 'uz' ? 'Foyda' : 'Прибыль'} strokeWidth={2} />
+            <Line type="monotone" dataKey="current" stroke="#3b82f6" name={currentPeriodLabel} strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="previous" stroke="#9ca3af" name={previousPeriodLabel} strokeWidth={2} strokeDasharray="4 4" dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

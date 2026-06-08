@@ -6,6 +6,7 @@ import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image
 import api, { API_BASE } from '../utils/api';
 import { useCompanyProducts, ramCache } from '../utils/cache';
 import ImageUploader from './ImageUploader';
+import VariantPhotoUploader from './VariantPhotoUploader';
 import ExcelColumnMapper, { ColumnMapping } from './ExcelColumnMapper';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -128,6 +129,9 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   const [showVariantPurchaseModal, setShowVariantPurchaseModal] = useState(false);
   const [purchasingVariant, setPurchasingVariant] = useState<{variant: any; product: any} | null>(null);
   const [variantPurchaseForm, setVariantPurchaseForm] = useState({ quantity: '', purchasePrice: '' });
+  // Optimistic per-product default-variant override (Requirement 18.1).
+  // Keyed by productId; undefined means "use the value from the product object".
+  const [defaultVariantByProduct, setDefaultVariantByProduct] = useState<Record<string, number | null>>({});
   // ── End variants state ─────────────────────────────────────────────────────
 
   // Auto-load variants for SKU-only products so max price appears in main table
@@ -585,6 +589,32 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
     } catch (err: any) {
       alert(err?.message || 'Ошибка при удалении варианта');
     }
+  };
+
+  // Designate (or clear, with null) the product's default variant (Requirement 18.1/18.4).
+  const handleSetDefaultVariant = async (productId: string, variantId: number | null) => {
+    // Optimistic update so the selector reflects the choice immediately.
+    setDefaultVariantByProduct(prev => ({ ...prev, [productId]: variantId }));
+    try {
+      await api.products.setDefaultVariant(productId, variantId);
+      ramCache.delete(`company_products_${companyId}`);
+      await refetch();
+    } catch (err: any) {
+      alert(err?.message || (language === 'uz' ? 'Standart variantni o\'rnatishda xatolik' : 'Ошибка при установке варианта по умолчанию'));
+      // Revert optimistic override on failure.
+      setDefaultVariantByProduct(prev => {
+        const copy = { ...prev };
+        delete copy[productId];
+        return copy;
+      });
+    }
+  };
+
+  // Refresh variants (and product images) after a variant photo upload/delete.
+  const handleVariantPhotosChange = async (productId: string) => {
+    await loadVariants(productId);
+    ramCache.delete(`company_products_${companyId}`);
+    await refetch();
   };
   const handleInlineCategoryChange = async (productId: string, newCategory: string) => {
     const originalProduct = products.find((p: any) => String(p.id) === productId);
@@ -2093,6 +2123,89 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                       </table>
                                     </div>
                                   )}
+
+                                  {/* Default-variant selector + per-variant photos (Requirements 18.1, 12.1, 12.3, 12.6) */}
+                                  {(productVariants[String(product.id)] || []).length > 0 && (() => {
+                                    const variants: any[] = productVariants[String(product.id)] || [];
+                                    const currentDefault =
+                                      defaultVariantByProduct[String(product.id)] !== undefined
+                                        ? defaultVariantByProduct[String(product.id)]
+                                        : (product.defaultVariantId ?? null);
+                                    const variantPhotoTotal = variants.reduce(
+                                      (sum: number, v: any) => sum + ((v.photos?.length) || 0), 0,
+                                    );
+                                    const defaultSetCount = (product.images?.length) || 0;
+                                    const productTotalPhotos = defaultSetCount + variantPhotoTotal;
+                                    const variantLabel = (v: any) =>
+                                      [v.color, v.size].filter(Boolean).join(' / ') ||
+                                      (language === 'uz' ? `Variant #${v.id}` : `Вариант #${v.id}`);
+                                    return (
+                                      <div className="mb-4 space-y-4">
+                                        {/* Default-variant selector (Requirement 18.1) */}
+                                        <div className="bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-xl p-4">
+                                          <label className="block text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-2">
+                                            {language === 'uz' ? 'Standart variant' : 'Вариант по умолчанию'}
+                                          </label>
+                                          <select
+                                            value={currentDefault == null ? '' : String(currentDefault)}
+                                            onChange={(e) =>
+                                              handleSetDefaultVariant(
+                                                String(product.id),
+                                                e.target.value === '' ? null : Number(e.target.value),
+                                              )
+                                            }
+                                            className="w-full sm:w-72 px-3 py-2 text-sm border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-indigo-400 outline-none bg-white dark:bg-gray-700 dark:text-white"
+                                          >
+                                            <option value="">
+                                              {language === 'uz' ? '— Tanlanmagan —' : '— Не выбран —'}
+                                            </option>
+                                            {variants.map((v: any) => (
+                                              <option key={v.id} value={String(v.id)}>
+                                                {variantLabel(v)}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          <p className="text-xs text-gray-500 mt-1">
+                                            {language === 'uz'
+                                              ? 'Xaridorlar tezroq qo\'shishlari uchun bitta variantni standart qiling.'
+                                              : 'Сделайте один вариант стандартным для быстрого добавления покупателями.'}
+                                          </p>
+                                        </div>
+
+                                        {/* Per-variant photo uploaders (Requirements 12.1, 12.6) */}
+                                        <div className="bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-800 rounded-xl p-4">
+                                          <div className="flex items-center justify-between mb-3">
+                                            <h5 className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                                              <ImageIcon className="w-4 h-4" />
+                                              {language === 'uz' ? 'Variant rasmlari' : 'Фото вариантов'}
+                                            </h5>
+                                            <span className="text-xs text-gray-500">
+                                              {language === 'uz' ? 'Jami' : 'Всего'}: {productTotalPhotos}/20
+                                            </span>
+                                          </div>
+                                          <div className="space-y-3">
+                                            {variants.map((v: any) => (
+                                              <div
+                                                key={v.id}
+                                                className="border border-gray-100 dark:border-gray-700 rounded-lg p-3"
+                                              >
+                                                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                  {variantLabel(v)}
+                                                </p>
+                                                <VariantPhotoUploader
+                                                  productId={product.id}
+                                                  variantId={v.id}
+                                                  photos={v.photos || []}
+                                                  productTotalPhotos={productTotalPhotos}
+                                                  onPhotosChange={() => handleVariantPhotosChange(String(product.id))}
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
 
                                   {/* Add new variant form */}
                                   {newVariantForms[String(product.id)] && (

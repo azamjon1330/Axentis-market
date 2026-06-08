@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
   FlatList, Dimensions, ActivityIndicator, Alert, Share, TextInput,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getProductDetail, getProductReviews, getProductReviewStats,
   getSimilarProducts, submitReview, voteReview, getProductVariants,
@@ -19,11 +21,30 @@ import ProductCard from '../../components/common/ProductCard';
 
 const { width } = Dimensions.get('window');
 
+// Pure decision for which variant an add-to-cart / Buy Now applies to, and
+// whether the add is allowed at all. Extracted so handleAddToCart/handleBuyNow
+// share one source of truth (and so Property 22 can be tested in isolation):
+//   - an explicit selection always wins;
+//   - a variant product with no selection auto-applies the Default_Variant when
+//     one exists;
+//   - a variant product with no selection and no Default_Variant is BLOCKED
+//     (the caller then prompts the buyer to choose a variant);
+//   - a non-variant product adds with no variant.
+// Returns { action: 'add' | 'block', variant }. The 'block' result NEVER
+// carries a variant to add (Req 17.1, 18.2, 18.3).
+export function resolveAddVariant({ hasVariants, selectedVariant, defaultVariant }) {
+  if (selectedVariant) return { action: 'add', variant: selectedVariant };
+  if (!hasVariants) return { action: 'add', variant: null };
+  if (defaultVariant) return { action: 'add', variant: defaultVariant };
+  return { action: 'block', variant: null };
+}
+
 export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { addItem, items } = useCart();
   const { isFavorite: ctxIsFavorite, toggle: toggleFav } = useFavorites();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const { productId } = route.params;
@@ -38,6 +59,16 @@ export default function ProductDetailScreen() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [imgIndex, setImgIndex] = useState(0);
+  // Single source for the gallery's photo array. Defaults to the product's
+  // default photo set (product.images); a later task repoints this to a
+  // selected variant's photos.
+  const [galleryPhotos, setGalleryPhotos] = useState([]);
+  const [galleryPaused, setGalleryPaused] = useState(false);
+  const galleryResumeRef = useRef(null);
+  // Cross-fade opacity for swapping the gallery photo set on variant selection.
+  const galleryFade = useRef(new Animated.Value(1)).current;
+  // Tracks the currently shown photo set so we only animate on an actual swap.
+  const galleryPhotosKey = useRef('');
   const [addedToCart, setAddedToCart] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
@@ -47,12 +78,136 @@ export default function ProductDetailScreen() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [imgErrors, setImgErrors] = useState({});
   const imgRef = useRef(null);
+  // Latest color/size snapshot for the variants-refresh resolver (task 23.1).
+  // Updated every render so the [variants]-keyed effect below can read the
+  // current selection without re-subscribing to selectedColor/selectedSize
+  // (which would make it run on every tap instead of only on data refresh).
+  const selectionRef = useRef({ color: null, size: null });
+  selectionRef.current = { color: selectedColor, size: selectedSize };
 
   const inCart = items.some(i => i.productId === productId);
 
   useEffect(() => {
     loadAll();
   }, [productId]);
+
+  // Choose the gallery's active photo set and cross-fade to it whenever the
+  // selection (variant/color) or the product changes:
+  //  - a selected variant's own photos take priority,
+  //  - else the photos of any variant matching the selected color,
+  //  - else the product's default photo set (product.images).
+  // The transition fades the gallery out, swaps the photos + resets the index,
+  // then fades back in. The auto-scroll/manual-pause logic keys off
+  // galleryImages.length, so simply updating galleryPhotos keeps it working.
+  useEffect(() => {
+    const variantPhotos = selectedVariant?.photos?.length > 0 ? selectedVariant.photos : null;
+    const colorVariant = (!variantPhotos && selectedColor)
+      ? variants.find(v => v.color === selectedColor && v.photos?.length > 0)
+      : null;
+    const colorPhotos = colorVariant?.photos?.length > 0 ? colorVariant.photos : null;
+    const defaultPhotos = product?.images?.length > 0 ? product.images : [];
+    const nextPhotos = variantPhotos || colorPhotos || defaultPhotos;
+
+    const nextKey = JSON.stringify(nextPhotos);
+    if (nextKey === galleryPhotosKey.current) return;
+    const isFirst = galleryPhotosKey.current === '';
+    galleryPhotosKey.current = nextKey;
+
+    const swap = () => {
+      setGalleryPhotos(nextPhotos);
+      setImgIndex(0);
+      imgRef.current?.scrollTo?.({ x: 0, animated: false });
+    };
+
+    if (isFirst) {
+      // First population (initial product load): show immediately, no fade-out.
+      swap();
+      galleryFade.setValue(1);
+      return;
+    }
+
+    // Cross-fade: fade out -> swap -> fade in.
+    Animated.timing(galleryFade, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      swap();
+      Animated.timing(galleryFade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    });
+  }, [selectedVariant, selectedColor, product, variants]);
+
+  // Stable variant selection across product/variant refresh (task 23.1).
+  // When the variants array refreshes (loadAll re-runs, polling, etc.), MERGE
+  // the new data without clobbering the buyer's active selection:
+  //  - keep selectedColor if that color still exists in the refreshed variants,
+  //  - keep selectedSize if it still exists for the (kept) color,
+  //  - re-resolve selectedVariant to the matching object from the NEW array,
+  //  - only prune a selection field whose value no longer exists.
+  // Keyed strictly on `variants` (selection read via selectionRef) so it runs
+  // on data refresh, not on every user tap, and therefore does not fight the
+  // gallery cross-fade effect above (which only reads selection, never sets it).
+  useEffect(() => {
+    if (!variants || variants.length === 0) return;
+    const { color, size } = selectionRef.current;
+    if (!color && !size) return; // nothing selected -> nothing to preserve/prune
+
+    // Preserve color only if it still exists in the refreshed variants.
+    const colorStillExists = color ? variants.some(v => v.color === color) : true;
+    const nextColor = colorStillExists ? color : null;
+
+    // Preserve size only if it still exists for the (kept) color.
+    const sizeStillExists = size
+      ? variants.some(v => (nextColor ? v.color === nextColor : true) && v.size === size)
+      : true;
+    const nextSize = sizeStillExists ? size : null;
+
+    // Re-resolve the variant object from the NEW variants array, mirroring the
+    // matching logic in handleSelectSize so the picked object is always current.
+    let nextVariant = null;
+    if (nextSize) {
+      nextVariant = variants.find(v => v.color === nextColor && v.size === nextSize)
+        ?? variants.find(v => v.size === nextSize)
+        ?? null;
+    }
+
+    // Guarded updates: only touch state when a value actually changed, so this
+    // effect neither loops nor needlessly re-triggers the gallery effect.
+    if (nextColor !== color) setSelectedColor(nextColor);
+    if (nextSize !== size) setSelectedSize(nextSize);
+    setSelectedVariant(prev => {
+      if (prev == null && nextVariant == null) return prev;
+      if (prev && nextVariant && prev.id === nextVariant.id && prev === nextVariant) return prev;
+      // Same logical variant but a fresh object from the refreshed array, or a
+      // changed/cleared selection: adopt the re-resolved value.
+      return nextVariant;
+    });
+  }, [variants]);
+
+  // Up to 6 photos are ever rendered in the gallery.
+  const galleryImages = (galleryPhotos || []).slice(0, 6);
+
+  // Auto-scroll to the next photo every 3 seconds, wrapping around. Paused
+  // while the buyer is manually interacting (see handleGalleryManualScroll).
+  useEffect(() => {
+    if (galleryPaused || galleryImages.length <= 1) return;
+    const id = setInterval(() => {
+      setImgIndex((prev) => {
+        const next = (prev + 1) % galleryImages.length;
+        imgRef.current?.scrollTo({ x: next * width, animated: true });
+        return next;
+      });
+    }, 3000);
+    return () => clearInterval(id);
+  }, [galleryPaused, galleryImages.length]);
+
+  // Clear any pending resume timer on unmount.
+  useEffect(() => () => {
+    if (galleryResumeRef.current) clearTimeout(galleryResumeRef.current);
+  }, []);
+
+  // When the buyer manually scrolls/swipes, pause auto-scroll for 5s, resume.
+  const handleGalleryManualScroll = () => {
+    setGalleryPaused(true);
+    if (galleryResumeRef.current) clearTimeout(galleryResumeRef.current);
+    galleryResumeRef.current = setTimeout(() => setGalleryPaused(false), 5000);
+  };
 
   const loadAll = async () => {
     setIsLoading(true);
@@ -94,6 +249,12 @@ export default function ProductDetailScreen() {
       ? [...new Set(variants.filter(v => v.color === color).map(v => v.size).filter(Boolean))]
       : [...new Set(variants.map(v => v.size).filter(Boolean))];
   const hasVariants = variants.length > 0;
+  // The product's Default_Variant (if the company designated one). Matched by
+  // product.defaultVariantId against the loaded variants array. Auto-applied on
+  // Add-to-Cart / Buy Now when the buyer has not chosen a variant (Req 18.2).
+  const defaultVariant = product?.defaultVariantId
+    ? (variants.find(v => v.id === product.defaultVariantId) ?? null)
+    : null;
 
   const handleSelectColor = (color) => {
     const next = selectedColor === color ? null : color;
@@ -116,9 +277,20 @@ export default function ProductDetailScreen() {
 
   const handleAddToCart = async () => {
     if (!product || !user) return;
-    if (hasVariants && !selectedVariant) {
-      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер');
+    // Resolve the variant this add applies to (Req 17.1, 17.2, 18.2, 18.3) via
+    // the shared pure resolver: explicit selection wins; else auto-apply the
+    // Default_Variant when present; else block and prompt the buyer to choose.
+    const { action, variant: variantToAdd } = resolveAddVariant({ hasVariants, selectedVariant, defaultVariant });
+    if (action === 'block') {
+      Alert.alert(t('chooseVariant'), uniqueColors.length > 0 ? t('chooseColorAndSize') : t('chooseSize'));
       return;
+    }
+    // When the Default_Variant was auto-applied (no prior selection), reflect it
+    // in the UI selection so price/photos and subsequent taps stay consistent.
+    if (variantToAdd && variantToAdd !== selectedVariant) {
+      setSelectedColor(variantToAdd.color ?? null);
+      setSelectedSize(variantToAdd.size ?? null);
+      setSelectedVariant(variantToAdd);
     }
     if (inCart) {
       navigation.navigate('Main', { screen: 'Cart' });
@@ -126,7 +298,9 @@ export default function ProductDetailScreen() {
     }
     setIsAddingToCart(true);
     try {
-      await addItem(productId, 1, selectedVariant?.color || selectedColor || undefined);
+      // Pass BOTH color and size so the cart line is variant-specific and a
+      // product with variants never produces a variant-less line (Req 17.2).
+      await addItem(productId, 1, variantToAdd?.color || undefined, variantToAdd?.size || undefined);
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (err) {
@@ -138,9 +312,23 @@ export default function ProductDetailScreen() {
 
   const handleBuyNow = async () => {
     if (!product || !user) return;
+    // Same variant enforcement as Add-to-Cart via the shared pure resolver:
+    // auto-apply the Default_Variant when present, otherwise block and prompt
+    // for a variant (Req 17.1, 18.2, 18.3) so Buy Now never adds a variant-less
+    // line for a variant product.
+    const { action, variant: variantToAdd } = resolveAddVariant({ hasVariants, selectedVariant, defaultVariant });
+    if (action === 'block') {
+      Alert.alert(t('chooseVariant'), uniqueColors.length > 0 ? t('chooseColorAndSize') : t('chooseSize'));
+      return;
+    }
+    if (variantToAdd && variantToAdd !== selectedVariant) {
+      setSelectedColor(variantToAdd.color ?? null);
+      setSelectedSize(variantToAdd.size ?? null);
+      setSelectedVariant(variantToAdd);
+    }
     if (!inCart) {
       try {
-        await addItem(productId, 1, selectedColor || undefined);
+        await addItem(productId, 1, variantToAdd?.color || undefined, variantToAdd?.size || undefined);
       } catch {}
     }
     navigation.navigate('Checkout');
@@ -265,18 +453,20 @@ export default function ProductDetailScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={[styles.imgGallery, { backgroundColor: colors.cardAlt }]}>
-          {images.length > 0 ? (
+          <Animated.View style={{ opacity: galleryFade }}>
+          {galleryImages.length > 0 ? (
             <>
               <ScrollView
                 ref={imgRef}
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
+                onScrollBeginDrag={handleGalleryManualScroll}
                 onMomentumScrollEnd={(e) => {
                   setImgIndex(Math.round(e.nativeEvent.contentOffset.x / width));
                 }}
               >
-                {images.map((img, i) => (
+                {galleryImages.map((img, i) => (
                   imgErrors[i] ? (
                     <View key={i} style={[styles.noImg, { width }]}>
                       <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
@@ -292,9 +482,9 @@ export default function ProductDetailScreen() {
                   )
                 ))}
               </ScrollView>
-              {images.length > 1 && (
+              {galleryImages.length > 1 && (
                 <View style={styles.imgDots}>
-                  {images.map((_, i) => (
+                  {galleryImages.map((_, i) => (
                     <View
                       key={i}
                       style={[
@@ -312,6 +502,7 @@ export default function ProductDetailScreen() {
               <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
             </View>
           )}
+          </Animated.View>
 
           <View style={styles.badges}>
             {discount && discount > 0 && (
@@ -321,7 +512,7 @@ export default function ProductDetailScreen() {
             )}
             {product.soldCount > 100 && (
               <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.badgeText}>Топ</Text>
+                <Text style={styles.badgeText}>{t('topBadge')}</Text>
               </View>
             )}
           </View>
@@ -363,7 +554,7 @@ export default function ProductDetailScreen() {
                   <Text style={[styles.variantPillPrice, { color: isSelected ? '#fff' : colors.primary }]}>
                     {minPrice.toLocaleString('ru-RU')} сум
                   </Text>
-                  {!inStock && <Text style={[styles.variantPillOos, { color: isSelected ? '#fff' : colors.error }]}>нет</Text>}
+                  {!inStock && <Text style={[styles.variantPillOos, { color: isSelected ? '#fff' : colors.error }]}>{t('outOfStockShort')}</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -413,7 +604,7 @@ export default function ProductDetailScreen() {
             <View style={styles.variantSection}>
               {uniqueColors.length > 0 && (
                 <View style={{ marginBottom: 12 }}>
-                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Цвет:</Text>
+                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>{t('colorLabel')}</Text>
                   <View style={styles.chipRow}>
                     {uniqueColors.map((c) => (
                       <TouchableOpacity
@@ -437,7 +628,7 @@ export default function ProductDetailScreen() {
 
               {sizesForColor(selectedColor).length > 0 && (
                 <View>
-                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Размер:</Text>
+                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>{t('sizeLabel')}</Text>
                   <View style={styles.chipRow}>
                     {sizesForColor(selectedColor).map((s) => {
                       const v = variants.find(vv => vv.color === selectedColor && vv.size === s)
@@ -458,7 +649,7 @@ export default function ProductDetailScreen() {
                           activeOpacity={outOfStock ? 1 : 0.75}
                         >
                           <Text style={[styles.chipText, { color: selectedSize === s ? '#fff' : colors.text }]}>{s}</Text>
-                          {outOfStock && <Text style={[styles.chipSub, { color: colors.textMuted }]}>нет</Text>}
+                          {outOfStock && <Text style={[styles.chipSub, { color: colors.textMuted }]}>{t('outOfStockShort')}</Text>}
                         </TouchableOpacity>
                       );
                     })}
@@ -485,7 +676,7 @@ export default function ProductDetailScreen() {
 
               {!selectedVariant && (
                 <Text style={[styles.variantHint, { color: colors.textMuted }]}>
-                  {uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер'}
+                  {uniqueColors.length > 0 ? t('chooseColorAndSize') : t('chooseSize')}
                 </Text>
               )}
             </View>
@@ -703,7 +894,7 @@ export default function ProductDetailScreen() {
             onPress={handleBuyNow}
             activeOpacity={0.85}
           >
-            <Text style={styles.buyNowText}>Купить сейчас</Text>
+            <Text style={styles.buyNowText}>{t('buyNow')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -721,7 +912,14 @@ const styles = StyleSheet.create({
   },
   topBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   topActions: { flexDirection: 'row', gap: 8 },
-  imgGallery: { paddingTop: 100 },
+  imgGallery: {
+    paddingTop: 100,
+    paddingBottom: 4,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
   mainImg: { height: 300 },
   noImg: { height: 300, alignItems: 'center', justifyContent: 'center' },
   imgDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 12 },

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +19,8 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Для админ панели показываем все компании, для пользователей - только approved
 		query := `
-			SELECT id, name, phone, password_hash, access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled
+			SELECT id, name, phone, password_hash, access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled,
+			       (COALESCE(is_subscribed, FALSE) AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())) AS is_subscribed
 			FROM companies
 			ORDER BY created_at DESC
 		`
@@ -51,10 +53,11 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				Longitude           sql.NullFloat64
 				DeliveryEnabled     bool
 				IsEnabled           sql.NullBool
+				IsSubscribed        sql.NullBool
 			}
 
 			if err := rows.Scan(&comp.ID, &comp.Name, &comp.Phone, &comp.PasswordHash, &comp.AccessKey, &comp.Mode, &comp.PrivateCode, &comp.Status,
-				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled); err != nil {
+				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled, &comp.IsSubscribed); err != nil {
 				log.Printf("❌ GetCompanies: Failed to scan row: %v", err)
 				continue
 			}
@@ -98,6 +101,14 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				company["is_enabled"] = comp.IsEnabled.Bool
 			}
 
+			// Derived subscription status (Requirement 9.4):
+			// is_subscribed AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())
+			if comp.IsSubscribed.Valid {
+				company["isSubscribed"] = comp.IsSubscribed.Bool
+			} else {
+				company["isSubscribed"] = false
+			}
+
 			companies = append(companies, company)
 		}
 
@@ -106,25 +117,126 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// deriveIsSubscribed is the pure Go mirror of the SQL subscription-derivation
+// expression used inside GetProducts/GetCompanies (Requirement 9.4):
+//
+//	is_subscribed AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())
+//
+// A company counts as actively subscribed only when its is_subscribed flag is
+// set AND it either has no expiry (expiresAt == nil) or its expiry is strictly
+// in the future relative to now. This helper is additive: the SQL above remains
+// authoritative at the query layer, and this function is kept identical to it so
+// the rule can be unit/property-tested without a database. Any change to the
+// derivation rule must be applied in both places.
+func deriveIsSubscribed(isSubscribed bool, expiresAt *time.Time, now time.Time) bool {
+	return isSubscribed && (expiresAt == nil || expiresAt.After(now))
+}
+
+// Ranking weights for the Top Companies score. The viewer's prior-order signal
+// dominates positive-review volume (a single prior order outranks any realistic
+// review count), mirroring the SQL expression in GetTopCompanies:
+//
+//	(CASE WHEN has_prior_order THEN 1000 ELSE 0 END) + positive_reviews
+const (
+	rankWeightHistory = 1000 // weight applied when the viewer has a prior order
+)
+
+// companyRank is the pure, DB-free projection of a company used for ranking.
+// It mirrors the columns the GetTopCompanies SQL computes per company.
+type companyRank struct {
+	id              int64
+	positiveReviews int
+	hasPriorOrder   bool
+	isSubscribed    bool
+}
+
+// rankScore computes the Top Companies rank score for a single company. It is
+// the exact arithmetic the GetTopCompanies SQL applies in its ORDER BY:
+//
+//	score = (has_prior_order ? rankWeightHistory : 0) + positive_reviews
+//
+// Higher scores rank earlier (the caller sorts non-increasingly by this value).
+func rankScore(cr companyRank) int {
+	score := cr.positiveReviews
+	if cr.hasPriorOrder {
+		score += rankWeightHistory
+	}
+	return score
+}
+
+// rankTopCompanies returns a new slice ordered the same way GetTopCompanies'
+// SQL orders rows: non-increasing by rankScore, then non-increasing by
+// positive-review count as a tie-break. The input slice is not mutated.
+//
+// This is the pure core of the ranking. The SQL ORDER BY in GetTopCompanies —
+//
+//	ORDER BY (CASE WHEN has_prior_order THEN 1000 ELSE 0 END) + positive_reviews DESC,
+//	         positive_reviews DESC
+//
+// mirrors this function exactly, so the ordering can be property-tested without
+// a database. Any change to the scoring rule must be made in both places.
+func rankTopCompanies(companies []companyRank) []companyRank {
+	ordered := make([]companyRank, len(companies))
+	copy(ordered, companies)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		si, sj := rankScore(ordered[i]), rankScore(ordered[j])
+		if si != sj {
+			return si > sj // higher score first
+		}
+		// Tie-break mirrors the SQL secondary key: more positive reviews first.
+		return ordered[i].positiveReviews > ordered[j].positiveReviews
+	})
+	return ordered
+}
+
 // GetTopCompanies returns the "hit" shops — public, approved companies ranked
-// by how much they sell (sum of product sold_count), then rating, then views.
-// Powers the Instagram-style "recommended shops" row on the home screen.
+// by positive-review volume and the viewing user's prior order history.
+//
+// It is user-aware: an optional `?userPhone=<phone>` query param lets the
+// ranking promote companies the viewer has already ordered from. The rank
+// score is `positive_reviews + (has_prior_order ? 1000 : 0)`, so any company
+// the user has a non-pending/non-cancelled order from outranks an otherwise
+// equal company they have not ordered from; ties fall back to positive-review
+// count (Requirements 8.1, 8.2, 8.3).
+//
+// When `userPhone` is absent (empty), `has_prior_order` is false for every row
+// and the ranking degrades cleanly to a positive-review ordering. Only
+// approved, public/unset-mode, enabled companies are considered, matching the
+// previous query's visibility filter. The per-company `is_subscribed` flag is
+// included so the app can apply subscription-based ordering downstream.
+//
+// Note: the scored ORDER BY references the computed `has_prior_order` /
+// `positive_reviews` aliases, so the projection is wrapped in a subquery —
+// in PostgreSQL an alias used inside an ORDER BY *expression* is otherwise
+// resolved against the input (base) columns, which do not exist there.
 func GetTopCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userPhone := c.Query("userPhone")
+
 		rows, err := db.Query(`
-			SELECT c.id, c.name, COALESCE(c.logo_url, ''), COALESCE(c.address, ''),
-			       COALESCE((SELECT SUM(p.sold_count) FROM products p WHERE p.company_id = c.id), 0) AS sold_units,
-			       COALESCE(c.view_count, 0) AS view_count,
-			       COALESCE((SELECT AVG(rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating,
-			       COALESCE((SELECT COUNT(*) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating_count,
-			       COALESCE((SELECT COUNT(*) FROM products p WHERE p.company_id = c.id AND p.available_for_customers = TRUE), 0) AS product_count
-			FROM companies c
-			WHERE c.status = 'approved'
-			  AND (c.mode = 'public' OR c.mode IS NULL)
-			  AND COALESCE(c.is_enabled, TRUE) = TRUE
-			ORDER BY sold_units DESC, rating DESC, view_count DESC
+			SELECT id, name, logo_url, address, positive_reviews, has_prior_order, is_subscribed
+			FROM (
+				SELECT c.id,
+				       c.name,
+				       COALESCE(c.logo_url, '') AS logo_url,
+				       COALESCE(c.address, '') AS address,
+				       COALESCE((SELECT COUNT(*) FROM reviews r
+				                 JOIN products p ON p.id = r.product_id
+				                 WHERE p.company_id = c.id AND r.rating >= 4), 0) AS positive_reviews,
+				       EXISTS(SELECT 1 FROM orders o
+				              WHERE o.company_id = c.id
+				                AND o.customer_phone = $1
+				                AND o.status NOT IN ('pending', 'cancelled')) AS has_prior_order,
+				       COALESCE(c.is_subscribed, FALSE) AS is_subscribed
+				FROM companies c
+				WHERE c.status = 'approved'
+				  AND (c.mode = 'public' OR c.mode IS NULL)
+				  AND COALESCE(c.is_enabled, TRUE) = TRUE
+			) ranked
+			ORDER BY (CASE WHEN has_prior_order THEN 1000 ELSE 0 END) + positive_reviews DESC,
+			         positive_reviews DESC
 			LIMIT 12
-		`)
+		`, userPhone)
 		if err != nil {
 			log.Printf("❌ GetTopCompanies: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch top companies"})
@@ -135,19 +247,23 @@ func GetTopCompanies(db *sql.DB) gin.HandlerFunc {
 		list := make([]gin.H, 0)
 		for rows.Next() {
 			var (
-				id                       int64
-				name, logo, address      string
-				soldUnits, viewCount     int
-				rating                   float64
-				ratingCount, productCnt  int
+				id                  int64
+				name, logo, address string
+				positiveReviews     int
+				hasPriorOrder       bool
+				isSubscribed        bool
 			)
-			if err := rows.Scan(&id, &name, &logo, &address, &soldUnits, &viewCount, &rating, &ratingCount, &productCnt); err != nil {
+			if err := rows.Scan(&id, &name, &logo, &address, &positiveReviews, &hasPriorOrder, &isSubscribed); err != nil {
 				continue
 			}
 			list = append(list, gin.H{
-				"id": id, "name": name, "logoUrl": logo, "address": address,
-				"soldUnits": soldUnits, "viewCount": viewCount,
-				"rating": rating, "ratingCount": ratingCount, "productCount": productCnt,
+				"id":              id,
+				"name":            name,
+				"logoUrl":         logo,
+				"address":         address,
+				"positiveReviews": positiveReviews,
+				"hasPriorOrder":   hasPriorOrder,
+				"isSubscribed":    isSubscribed,
 			})
 		}
 		c.JSON(http.StatusOK, list)
@@ -272,6 +388,57 @@ func ToggleCompanyDelivery(db *sql.DB) gin.HandlerFunc {
 
 		log.Printf("✅ ToggleCompanyDelivery: Company %s delivery_enabled set to %v", companyID, req.DeliveryEnabled)
 		c.JSON(http.StatusOK, gin.H{"success": true, "deliveryEnabled": req.DeliveryEnabled})
+	}
+}
+
+// UpdateCompanySubscription - admin endpoint to set a company's paid subscription
+// status used for subscription-based product ranking (Requirement 9.4).
+//
+// PUT /api/companies/:id/subscription
+// Body: { "isSubscribed": bool, "expiresAt": <ISO timestamp | null> }
+//
+// It writes companies.is_subscribed and companies.subscription_expires_at
+// directly. `expiresAt` is optional: when omitted or null the expiry is cleared
+// (NULL), meaning the subscription does not auto-expire. The derived
+// `isSubscribed` exposed by GetProducts/GetCompanies remains
+// `is_subscribed AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())`.
+func UpdateCompanySubscription(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Param("id")
+
+		var req struct {
+			IsSubscribed bool    `json:"isSubscribed"`
+			ExpiresAt    *string `json:"expiresAt"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		res, err := db.Exec(`
+			UPDATE companies
+			SET is_subscribed = $1, subscription_expires_at = $2, updated_at = NOW()
+			WHERE id = $3
+		`, req.IsSubscribed, req.ExpiresAt, companyID)
+
+		if err != nil {
+			log.Printf("❌ UpdateCompanySubscription: Failed to update subscription: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update subscription"})
+			return
+		}
+
+		if rowsAffected, _ := res.RowsAffected(); rowsAffected == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+			return
+		}
+
+		log.Printf("✅ UpdateCompanySubscription: Company %s is_subscribed=%v expiresAt=%v", companyID, req.IsSubscribed, req.ExpiresAt)
+		c.JSON(http.StatusOK, gin.H{
+			"success":      true,
+			"isSubscribed": req.IsSubscribed,
+			"expiresAt":    req.ExpiresAt,
+		})
 	}
 }
 
@@ -557,8 +724,8 @@ func GetCompanyStats(db *sql.DB) gin.HandlerFunc {
 			stats.TotalProducts = 0
 		}
 
-// Получаем количество продаж (онлайн заказы кроме pending)
-	err = db.QueryRow(`
+		// Получаем количество продаж (онлайн заказы кроме pending)
+		err = db.QueryRow(`
 		SELECT COUNT(*) 
 		FROM orders 
 		WHERE company_id = $1 AND status IN ('confirmed', 'completed', 'rejected')
@@ -1054,7 +1221,7 @@ func RateCompany(db *sql.DB) gin.HandlerFunc {
 
 		log.Printf("✅ RateCompany: Rating saved. New average: %.2f (%d ratings)", avgRating, ratingCount)
 		c.JSON(http.StatusOK, gin.H{
-			"message":      "Rating saved successfully",
+			"message":       "Rating saved successfully",
 			"averageRating": avgRating,
 			"ratingCount":   ratingCount,
 		})

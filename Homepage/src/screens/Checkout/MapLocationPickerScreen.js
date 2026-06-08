@@ -2,15 +2,31 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation();
+  const route = useRoute();
+
+  // The screen that opened the picker decides where the chosen coordinate is
+  // returned. Checkout (default) and SavedAddresses both consume the same
+  // `selectedCoords` / `selectedAddress` params. Any `draft` passed in is echoed
+  // back so the caller can restore an in-progress form (e.g. the address editor).
+  const returnScreen = route.params?.returnScreen || 'Checkout';
+  const draft = route.params?.draft;
 
   const [locating, setLocating] = useState(false);
+
+  const returnWith = (coords, address) => {
+    navigation.navigate(returnScreen, {
+      ...(draft || {}),
+      selectedCoords: coords,
+      selectedAddress: address,
+    });
+  };
 
   const handlePickLocation = async () => {
     setLocating(true);
@@ -31,10 +47,7 @@ export default function MapLocationPickerScreen() {
           if (parts.length > 0) address = parts.join(', ');
         }
       } catch {}
-      navigation.navigate('Checkout', {
-        selectedCoords: { lat: latitude, lng: longitude },
-        selectedAddress: address,
-      });
+      returnWith({ lat: latitude, lng: longitude }, address);
     } catch {
       Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
     } finally {

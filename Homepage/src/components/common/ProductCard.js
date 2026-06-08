@@ -10,10 +10,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getImageUrl } from '../../utils/imageUrl';
 
 export default function ProductCard({ product, onPress, onFavorite, isFavorite }) {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const [imgError, setImgError] = useState(false);
   const heartScale = useRef(new Animated.Value(1)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
@@ -25,8 +27,8 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
   const hasDiscount = !!product.discountPercent && product.discountPercent > 0;
   const hasVariants = product.hasColorOptions;
 
-  const formatPrice = p => `${(p || 0).toLocaleString('ru-RU')} сум`;
-  const priceLabel = hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
+  const formatPrice = p => `${(p || 0).toLocaleString('ru-RU')} ${t('sum')}`;
+  const priceLabel = hasVariants ? t('priceFrom', formatPrice(displayPrice)) : formatPrice(displayPrice);
 
   const handleFavorite = () => {
     if (!onFavorite) return;

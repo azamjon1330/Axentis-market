@@ -33,9 +33,11 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
   const t = useTranslation(language);
 
   useEffect(() => {
-    const handleStorage = () => setLanguage(getCurrentLanguage());
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    // React to in-app language switches (setCurrentLanguage dispatches `languageChange`).
+    // The `storage` event only fires in other tabs, so it never caught same-tab switches.
+    const handleLanguageChange = (e: CustomEvent) => setLanguage(e.detail);
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
   }, []);
 
   const [isOpen, setIsOpen] = useState(false);

@@ -292,11 +292,15 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}
+    >
       {/* 📱 Overlay для мобильных (при открытом sidebar) */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="fixed inset-0 z-20 lg:hidden"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -477,17 +481,24 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
       {/* Main Content - РЕСПОНСИВНЫЙ */}
       <main className="flex-1 lg:ml-64">
         {/* Header с гамбургером */}
-        <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+        <header
+          className="shadow-sm sticky top-0 z-10"
+          style={{
+            background: 'var(--ax-surface)',
+            borderBottom: '1px solid var(--ax-border)',
+          }}
+        >
           <div className="px-4 lg:px-8 py-4 flex items-center gap-4">
             {/* 📱 Кнопка гамбургера (только на мобильных) */}
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
+              className="lg:hidden p-2 rounded-lg transition"
+              style={{ background: 'var(--ax-primary-pale)', color: 'var(--ax-primary)' }}
             >
-              <Menu className="w-6 h-6 text-gray-600" />
+              <Menu className="w-6 h-6" />
             </button>
 
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-800">
+            <h1 className="text-xl lg:text-2xl font-bold" style={{ color: 'var(--ax-text)' }}>
               {activeTab === 'overview' && 'Обзор'}
               {activeTab === 'analytics' && 'Аналитика платформы'}
               {activeTab === 'companies' && 'Компании'}
@@ -510,20 +521,26 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <>
               {/* Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white rounded-lg shadow-sm p-6">
+                <div
+                  className="rounded-lg shadow-sm p-6"
+                  style={{ background: 'var(--ax-card)', border: '1px solid var(--ax-border)' }}
+                >
                   <div className="flex items-center gap-3 mb-2">
                     <Users className="w-6 h-6 text-blue-600" />
-                    <div className="text-gray-600">Пользователи</div>
+                    <div style={{ color: 'var(--ax-text-2)' }}>Пользователи</div>
                   </div>
                   <div className="text-3xl text-blue-600">{stats.users}</div>
                 </div>
               </div>
 
               {/* Company Settings */}
-              <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
+              <div
+                className="rounded-lg shadow-sm p-6 mb-8"
+                style={{ background: 'var(--ax-card)', border: '1px solid var(--ax-border)' }}
+              >
                 <div className="flex items-center gap-3 mb-6">
                   <Building2 className="w-6 h-6 text-purple-600" />
-                  <h2 className="text-purple-900">Настройки главной компании</h2>
+                  <h2 style={{ color: 'var(--ax-text)' }}>Настройки главной компании</h2>
                 </div>
 
                 <div className="space-y-4">
@@ -710,7 +727,10 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               </div>
 
               {/* Danger Zone */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border-2 border-red-200">
+              <div
+                className="rounded-lg shadow-sm p-6"
+                style={{ background: 'var(--ax-card)', border: '2px solid var(--ax-danger)' }}
+              >
                 <h2 className="text-red-600 mb-6">Опасная зона</h2>
                 
                 <div className="space-y-4">
