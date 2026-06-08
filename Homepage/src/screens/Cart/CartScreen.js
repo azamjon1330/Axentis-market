@@ -7,9 +7,51 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import { useCart } from '../../context/CartContext';
+import { useCart, clampQuantity } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getImageUrl } from '../../utils/imageUrl';
+
+// Treat unknown stock as effectively unlimited so the plus control still works
+// when the variant stock has not been loaded.
+const UNKNOWN_STOCK = Number.MAX_SAFE_INTEGER;
+
+// Resolve the available stock for a cart line: the selected variant's stock
+// when the line is a specific color/size variant, otherwise the product's own
+// quantity. Unknown / non-positive values fall back to "unlimited".
+const getLineStock = (item) => {
+  const product = item?.product || {};
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const color = item?.selected_color || '';
+  const size = item?.selected_size || '';
+
+  if ((color || size) && variants.length) {
+    const match = variants.find((v) =>
+      ((v.color ?? v.selected_color ?? v.colorName ?? '') === color) &&
+      ((v.size ?? v.selected_size ?? v.sizeName ?? '') === size)
+    );
+    if (match) {
+      const s = match.stockQuantity ?? match.stock_quantity ?? match.quantity;
+      if (Number.isFinite(s) && s >= 1) return s;
+    }
+  }
+
+  const pq = product.quantity;
+  if (Number.isFinite(pq) && pq >= 1) return pq;
+  return UNKNOWN_STOCK;
+};
+
+// Pure decision for the minus control (Req 16.3). Given the current line
+// quantity, decide what should happen:
+//   - quantity > 1  -> { action: 'decrement',     nextQuantity: q - 1 }
+//   - quantity <= 1 -> { action: 'promptRemoval',  nextQuantity: 1 }
+// The minus control never silently deletes a line: at quantity 1 the line is
+// kept (nextQuantity stays 1) and an explicit removal prompt is triggered.
+export const decideMinus = (quantity) => {
+  if (quantity > 1) {
+    return { action: 'decrement', nextQuantity: quantity - 1 };
+  }
+  return { action: 'promptRemoval', nextQuantity: 1 };
+};
 
 export default function CartScreen() {
   const { colors, isDark } = useTheme();
@@ -26,18 +68,55 @@ export default function CartScreen() {
     setRefreshing(false);
   };
 
-  const handleQuantityChange = async (item, delta) => {
-    const newQty = item.quantity + delta;
-    if (newQty <= 0) {
-      await removeItem(item.id);
-      return;
-    }
+  const showStockWarning = (message) => {
+    Alert.alert(t('stockLimit') || 'Stock limit', message);
+  };
+
+  const commitQuantity = async (item, requested) => {
+    const stock = getLineStock(item);
+    const { quantity, warning } = clampQuantity(requested, stock);
+    if (warning) showStockWarning(warning);
+    if (quantity === item.quantity) return;
     setUpdatingId(item.id);
     try {
-      await updateItem(item.productId, newQty, item.selected_color || undefined);
+      await updateItem(
+        item.productId,
+        quantity,
+        item.selected_color || undefined,
+        item.selected_size || undefined,
+      );
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handleIncrement = async (item) => {
+    // Plus: +1 capped at the variant's available stock (Req 16.1, 20.1).
+    await commitQuantity(item, item.quantity + 1);
+  };
+
+  const handleDecrement = async (item) => {
+    const { action, nextQuantity } = decideMinus(item.quantity);
+    if (action === 'decrement') {
+      // Minus above 1: simply decrease by one (Req 16.2).
+      await commitQuantity(item, nextQuantity);
+      return;
+    }
+    // Minus at quantity 1: never silently delete. Keep at 1 and ask the buyer
+    // to explicitly confirm removal (Req 16.3).
+    Alert.alert(
+      t('removeItem') || 'Remove item',
+      t('removeItemMsg') || 'Remove this item from your cart?',
+      [
+        { text: t('no') || 'Cancel', style: 'cancel' },
+        {
+          text: t('remove') || 'Remove',
+          style: 'destructive',
+          onPress: () => handleRemove(item),
+        },
+      ],
+      { cancelable: true },
+    );
   };
 
   const handleQtyInputChange = (item, text) => {
@@ -46,17 +125,12 @@ export default function CartScreen() {
 
   const handleQtyInputBlur = async (item) => {
     const raw = qtyInputs[item.id];
-    if (raw === undefined) return;
-    const parsed = parseInt(raw, 10);
-    if (!isNaN(parsed) && parsed > 0 && parsed !== item.quantity) {
-      setUpdatingId(item.id);
-      try {
-        await updateItem(item.productId, parsed, item.selected_color || undefined);
-      } finally {
-        setUpdatingId(null);
-      }
-    }
     setQtyInputs(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+    if (raw === undefined) return;
+    // Empty / invalid input is treated as 1; otherwise clamp to [1, stock]
+    // (Req 19.1, 19.2, 19.3, 20.2).
+    const parsed = parseInt(raw, 10);
+    await commitQuantity(item, parsed);
   };
 
   const handleRemove = async (item) => {
@@ -124,11 +198,14 @@ export default function CartScreen() {
           {item.selected_color && (
             <Text style={[styles.itemColor, { color: colors.textMuted }]}>Цвет: {item.selected_color}</Text>
           )}
+          {item.selected_size && (
+            <Text style={[styles.itemColor, { color: colors.textMuted }]}>Размер: {item.selected_size}</Text>
+          )}
 
           <View style={styles.itemBottom}>
             <View style={[styles.qtyControl, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
               <TouchableOpacity
-                onPress={() => handleQuantityChange(item, -1)}
+                onPress={() => handleDecrement(item)}
                 style={styles.qtyBtn}
                 disabled={updatingId === item.id}
               >
@@ -147,7 +224,7 @@ export default function CartScreen() {
                 />
               )}
               <TouchableOpacity
-                onPress={() => handleQuantityChange(item, 1)}
+                onPress={() => handleIncrement(item)}
                 style={styles.qtyBtn}
                 disabled={updatingId === item.id}
               >

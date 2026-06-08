@@ -31,6 +31,18 @@ func computeDiscount(discountType string, value, orderAmount float64, maxDiscoun
 	return discount
 }
 
+// invalidPromoResult returns the standard "not applied" response shape so that
+// invalid/expired/ineligible codes always carry an explicit zero discount and
+// an unchanged order total (finalAmount == orderAmount).
+func invalidPromoResult(orderAmount float64, message string) gin.H {
+	return gin.H{
+		"valid":       false,
+		"discount":    0.0,
+		"finalAmount": orderAmount,
+		"message":     message,
+	}
+}
+
 // CreatePromoCode creates a coupon. company_id may be null for platform-wide
 // codes (admin). Code is stored upper-cased for case-insensitive matching.
 func CreatePromoCode(db *sql.DB) gin.HandlerFunc {
@@ -240,7 +252,7 @@ func ValidatePromoCode(db *sql.DB) gin.HandlerFunc {
 		`, code).Scan(&id, &companyID, &dType, &dValue, &minOrder, &maxDisc,
 			&usageLimit, &usedCount, &perUserLimit, &startsAt, &expiresAt, &isActive)
 		if err == sql.ErrNoRows {
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Промокод не найден"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Промокод не найден"))
 			return
 		}
 		if err != nil {
@@ -252,22 +264,22 @@ func ValidatePromoCode(db *sql.DB) gin.HandlerFunc {
 		now := time.Now()
 		switch {
 		case !isActive:
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Промокод неактивен"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Промокод неактивен"))
 			return
 		case startsAt.Valid && now.Before(startsAt.Time):
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Промокод ещё не действует"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Промокод ещё не действует"))
 			return
 		case expiresAt.Valid && now.After(expiresAt.Time):
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Срок действия промокода истёк"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Срок действия промокода истёк"))
 			return
 		case usageLimit.Valid && usedCount >= int(usageLimit.Int64):
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Лимит использований исчерпан"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Лимит использований исчерпан"))
 			return
 		case companyID.Valid && req.CompanyID != nil && companyID.Int64 != *req.CompanyID:
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Промокод не действует для этого магазина"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Промокод не действует для этого магазина"))
 			return
 		case req.OrderAmount < minOrder:
-			c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Сумма заказа меньше минимальной для этого промокода"})
+			c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Сумма заказа меньше минимальной для этого промокода"))
 			return
 		}
 
@@ -275,7 +287,7 @@ func ValidatePromoCode(db *sql.DB) gin.HandlerFunc {
 			var userUses int
 			db.QueryRow(`SELECT COUNT(*) FROM promo_code_uses WHERE promo_code_id = $1 AND user_phone = $2`, id, req.UserPhone).Scan(&userUses)
 			if userUses >= perUserLimit {
-				c.JSON(http.StatusOK, gin.H{"valid": false, "message": "Вы уже использовали этот промокод"})
+				c.JSON(http.StatusOK, invalidPromoResult(req.OrderAmount, "Вы уже использовали этот промокод"))
 				return
 			}
 		}

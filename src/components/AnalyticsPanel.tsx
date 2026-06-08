@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, Package, AlertTriangle, CreditCard, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import api from '../utils/api';
 import ExpensesManager from './ExpensesManager';
@@ -9,6 +9,7 @@ import CompactPeriodSelector from './CompactPeriodSelector';
 import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ComposedChart, Area } from 'recharts';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
+import { usePolling } from '../hooks/usePolling';
 
 interface Product {
   id: number;
@@ -79,21 +80,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   const [financialStartDate, setFinancialStartDate] = useState<Date | null>(null);
   const [financialEndDate, setFinancialEndDate] = useState<Date | null>(null);
   
-  useEffect(() => {
-    loadData();
-  }, [companyId]);
-
-  // 🔄 НОВОЕ: Автообновление данных каждые 30 секунд для решения AFK проблемы
-  useEffect(() => {
-    const interval = setInterval(() => {
-      console.log('🔄 [Analytics Panel] Auto-refresh data (every 30s)');
-      loadData();
-    }, 30000); // 30 секунд
-
-    return () => clearInterval(interval);
-  }, [companyId]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('\n' + '='.repeat(80));
       console.log('📊 [Analytics Panel] НАЧАЛО ЗАГРУЗКИ ДАННЫХ');
@@ -233,7 +220,12 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [companyId, t]);
+
+  // 🔄 Auto-refresh analytics via the reusable polling hook (Req 2.1–2.3):
+  // fetches immediately, re-fetches on a fixed interval, and retains the last
+  // successfully loaded data if a refresh fails.
+  usePolling(loadData, 20000);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('uz-UZ').format(price) + ' ' + t.sum;

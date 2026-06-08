@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, Building2, Percent, Eye, EyeOff, Wallet } from 'lucide-react';
 import api from '../utils/api';
-import { getCurrentLanguage, useTranslation } from '../utils/translations';
+import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
 interface CompanyFinancials {
   company_id: number;
@@ -31,9 +31,16 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
   const [loading, setLoading] = useState(true);
   const [showEarnings, setShowEarnings] = useState(true);
   
-  // Translations
-  const language = getCurrentLanguage();
+  // Translations — read reactively so in-app language switches re-render labels
+  // with no page reload (setCurrentLanguage dispatches `languageChange`).
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
   const t = useTranslation(language);
+
+  useEffect(() => {
+    const handleLanguageChange = (e: CustomEvent) => setLanguage(e.detail);
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
+    return () => window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+  }, []);
 
   useEffect(() => {
     if (agentId) {

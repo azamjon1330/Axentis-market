@@ -9,7 +9,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail } from '../../api';
+import {
+  createOrder, getPaymentCards, addPaymentCard, getCompanyDetail,
+  getCompanyPromoCodes, validatePromoCode, redeemPromoCode,
+} from '../../api';
 
 const STEPS = ['Доставка', 'Оплата', 'Подтверждение'];
 const DELIVERY_COST_PER_KM = 1500;
@@ -62,6 +65,18 @@ export default function CheckoutScreen() {
   const [savingInlineCard, setSavingInlineCard] = useState(false);
   const [showAddCardForm, setShowAddCardForm] = useState(false);
 
+  // ─── Promo codes (Req 21.1–21.3) ──────────────────────────────────────────
+  const [promoCodes, setPromoCodes] = useState([]);
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null); // { id, code }
+  const [discount, setDiscount] = useState(0);
+  const [promoMessage, setPromoMessage] = useState('');
+  const [promoError, setPromoError] = useState(false);
+  const [applyingPromo, setApplyingPromo] = useState(false);
+
+  // The order is placed against the first item's company (see handlePlaceOrder).
+  const orderCompanyId = useMemo(() => items[0]?.product?.companyId || null, [items]);
+
   useEffect(() => {
     if (route.params?.selectedCoords) {
       setDeliveryCoords(route.params.selectedCoords);
@@ -69,7 +84,16 @@ export default function CheckoutScreen() {
     if (route.params?.selectedAddress) {
       setAddress(route.params.selectedAddress);
     }
-  }, [route.params?.selectedCoords, route.params?.selectedAddress]);
+    // Applied from a chosen saved address (SavedAddresses screen, select mode).
+    if (route.params?.selectedRecipient) {
+      setRecipientName(route.params.selectedRecipient);
+    }
+  }, [
+    route.params?.selectedCoords,
+    route.params?.selectedAddress,
+    route.params?.selectedRecipient,
+    route.params?.selectedLabel,
+  ]);
 
   useEffect(() => {
     const companyId = items[0]?.product?.companyId;
@@ -99,6 +123,33 @@ export default function CheckoutScreen() {
     return Math.ceil(dist - radius) * DELIVERY_COST_PER_KM;
   }, [deliveryCoords, companyInfo]);
 
+  // Load the promo codes available for this order's company (Req 21.1).
+  useEffect(() => {
+    if (!orderCompanyId) return;
+    getCompanyPromoCodes(orderCompanyId)
+      .then(setPromoCodes)
+      .catch(() => setPromoCodes([]));
+  }, [orderCompanyId]);
+
+  // If the cart contents change, a previously applied discount may no longer be
+  // valid — reset it so the buyer re-applies against the new total.
+  useEffect(() => {
+    setAppliedPromo(null);
+    setDiscount(0);
+    setPromoMessage('');
+    setPromoError(false);
+  }, [total, orderCompanyId]);
+
+  // Discount can never exceed the order amount; the payable total is floored at 0.
+  const effectiveDiscount = useMemo(
+    () => Math.max(0, Math.min(discount, total)),
+    [discount, total],
+  );
+  const payableTotal = useMemo(
+    () => Math.max(0, total + deliveryCost - effectiveDiscount),
+    [total, deliveryCost, effectiveDiscount],
+  );
+
   const formatPrice = (p) => `${p.toLocaleString('ru-RU')} сум`;
 
   const canContinue = useMemo(() => {
@@ -117,6 +168,10 @@ export default function CheckoutScreen() {
     navigation.navigate('MapLocationPicker', {
       initialCoords: deliveryCoords ?? undefined,
     });
+  };
+
+  const handleSelectSavedAddress = () => {
+    navigation.navigate('SavedAddresses', { selectMode: true });
   };
 
   const openInMaps = () => {
@@ -184,6 +239,60 @@ export default function CheckoutScreen() {
   const getCardColor = (type) =>
     CARD_TYPES.find(ct => ct.key === type)?.color || colors.primary;
 
+  // Apply a promo code: validate against the backend, then either show the
+  // resulting discount (Req 21.2) or surface the returned message while leaving
+  // the order total unchanged (Req 21.3).
+  const handleApplyPromo = async (rawCode) => {
+    const code = (rawCode ?? promoInput).trim();
+    if (!code) {
+      setPromoError(true);
+      setPromoMessage('Введите промокод');
+      return;
+    }
+    if (typeof rawCode === 'string') setPromoInput(rawCode);
+    setApplyingPromo(true);
+    setPromoError(false);
+    setPromoMessage('');
+    try {
+      const result = await validatePromoCode({
+        code,
+        userPhone: user?.phone,
+        companyId: orderCompanyId,
+        orderAmount: total,
+      });
+      if (result.valid && result.discount > 0) {
+        const matched = promoCodes.find(
+          p => (p.code || '').toLowerCase() === code.toLowerCase(),
+        );
+        setDiscount(result.discount);
+        setAppliedPromo({ id: result.promoId ?? matched?.id ?? null, code });
+        setPromoError(false);
+        setPromoMessage(result.message || `Скидка применена: −${formatPrice(result.discount)}`);
+      } else {
+        // Invalid / expired: keep the total unchanged (Req 21.3).
+        setDiscount(0);
+        setAppliedPromo(null);
+        setPromoError(true);
+        setPromoMessage(result.message || 'Промокод недействителен или истёк');
+      }
+    } catch (err) {
+      setDiscount(0);
+      setAppliedPromo(null);
+      setPromoError(true);
+      setPromoMessage(err?.response?.data?.message || err?.response?.data?.error || 'Не удалось применить промокод');
+    } finally {
+      setApplyingPromo(false);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setDiscount(0);
+    setPromoInput('');
+    setPromoMessage('');
+    setPromoError(false);
+  };
+
   const handlePlaceOrder = async () => {
     if (!user || items.length === 0) return;
     setIsPlacing(true);
@@ -201,15 +310,27 @@ export default function CheckoutScreen() {
         companyId: firstCompanyId || undefined,
         customerName: recipientName || user.name,
         customerPhone: user.phone,
-        items: companyItems.map(i => ({
-          productId: i.productId,
-          productName: i.product?.name || 'Товар',
-          quantity: i.quantity,
-          price: i.product?.price || 0,
-          price_with_markup: i.product?.sellingPrice || i.product?.price || 0,
-          imageUrl: i.product?.images?.[0] || undefined,
-        })),
-        totalAmount: total + deliveryCost,
+        items: companyItems.map(i => {
+          const selectedColor = i.selected_color ?? i.selectedColor ?? undefined;
+          const selectedSize = i.selected_size ?? i.selectedSize ?? undefined;
+          return {
+            productId: i.productId,
+            productName: i.product?.name || 'Товар',
+            quantity: i.quantity,
+            price: i.product?.price || 0,
+            price_with_markup: i.product?.sellingPrice || i.product?.price || 0,
+            imageUrl: i.product?.images?.[0] || undefined,
+            // Carry the selected variant color/size into the order items payload
+            // so it survives in orders.items JSON (Req 15.1, 15.2). Both
+            // snake_case (as the cart uses) and the plain color/size keys are
+            // sent for backend compatibility.
+            selected_color: selectedColor,
+            selected_size: selectedSize,
+            color: selectedColor,
+            size: selectedSize,
+          };
+        }),
+        totalAmount: payableTotal,
         deliveryType: 'delivery',
         deliveryAddress: address,
         deliveryCoordinates: deliveryCoords
@@ -220,7 +341,22 @@ export default function CheckoutScreen() {
         cardSubtype: paymentMethod === 'card' && selectedCard ? selectedCard.cardType : undefined,
         recipientName,
         comment: comment || undefined,
+        promoCode: appliedPromo?.code || undefined,
+        discount: effectiveDiscount || undefined,
       });
+      // Record the promo redemption now that the order exists (Req 21).
+      if (appliedPromo && effectiveDiscount > 0) {
+        try {
+          await redeemPromoCode({
+            promoId: appliedPromo.id,
+            userPhone: user.phone,
+            orderId: order.id,
+            discount: effectiveDiscount,
+          });
+        } catch {
+          // Redemption tracking failure must not block a placed order.
+        }
+      }
       await clearAllItems();
       navigation.replace('OrderConfirmed', { orderId: order.id, orderCode: order.orderCode });
     } catch (err) {
@@ -306,6 +442,16 @@ export default function CheckoutScreen() {
                   <Ionicons name="map-outline" size={22} color={colors.primary} />
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                style={[styles.savedAddrBtn, { borderColor: colors.primary + '60', backgroundColor: colors.primary + '08' }]}
+                onPress={handleSelectSavedAddress}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="bookmarks-outline" size={18} color={colors.primary} />
+                <Text style={[styles.savedAddrBtnText, { color: colors.primary }]}>
+                  Выбрать из сохранённых
+                </Text>
+              </TouchableOpacity>
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -637,6 +783,83 @@ export default function CheckoutScreen() {
               </View>
             </View>
 
+            <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Промокод</Text>
+
+              {promoCodes.length > 0 && (
+                <View style={styles.promoChipsRow}>
+                  {promoCodes.map(pc => {
+                    const isApplied = appliedPromo && (appliedPromo.code || '').toLowerCase() === (pc.code || '').toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={pc.id ?? pc.code}
+                        style={[
+                          styles.promoChip,
+                          {
+                            borderColor: isApplied ? colors.primary : colors.border,
+                            backgroundColor: isApplied ? colors.primary + '15' : colors.inputBg,
+                          },
+                        ]}
+                        onPress={() => handleApplyPromo(pc.code)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name="pricetag-outline" size={14} color={colors.primary} />
+                        <Text style={[styles.promoChipCode, { color: colors.text }]}>{pc.code}</Text>
+                        {!!pc.description && (
+                          <Text style={[styles.promoChipDesc, { color: colors.textMuted }]} numberOfLines={1}>
+                            {pc.description}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              <View style={styles.promoInputRow}>
+                <View style={[styles.inputWrap, { flex: 1, backgroundColor: colors.inputBg, borderColor: promoError ? (colors.danger || '#E53935') : colors.border }]}>
+                  <Ionicons name="pricetag-outline" size={18} color={colors.textSecondary} />
+                  <TextInput
+                    style={[styles.input, { color: colors.text }]}
+                    value={promoInput}
+                    onChangeText={(t) => { setPromoInput(t); setPromoError(false); }}
+                    placeholder="Введите промокод"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    editable={!applyingPromo}
+                  />
+                </View>
+                {appliedPromo ? (
+                  <TouchableOpacity
+                    style={[styles.promoApplyBtn, { backgroundColor: colors.border }]}
+                    onPress={handleRemovePromo}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.promoApplyBtnText, { color: colors.text }]}>Убрать</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.promoApplyBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => handleApplyPromo()}
+                    disabled={applyingPromo}
+                    activeOpacity={0.85}
+                  >
+                    {applyingPromo
+                      ? <ActivityIndicator color="#FFF" />
+                      : <Text style={[styles.promoApplyBtnText, { color: '#FFF' }]}>Применить</Text>
+                    }
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {!!promoMessage && (
+                <Text style={[styles.promoMessage, { color: promoError ? (colors.danger || '#E53935') : (colors.success || '#4CAF50') }]}>
+                  {promoMessage}
+                </Text>
+              )}
+            </View>
+
             <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               {items.map(item => (
                 <View key={item.id} style={styles.summaryRow}>
@@ -655,10 +878,20 @@ export default function CheckoutScreen() {
                   : <Text style={[styles.freeText, { color: colors.success || '#4CAF50' }]}>Бесплатно</Text>
                 }
               </View>
+              {effectiveDiscount > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabel, { color: colors.success || '#4CAF50' }]}>
+                    Скидка{appliedPromo?.code ? ` (${appliedPromo.code})` : ''}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: colors.success || '#4CAF50' }]}>
+                    −{formatPrice(effectiveDiscount)}
+                  </Text>
+                </View>
+              )}
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryRow}>
                 <Text style={[styles.totalLabel, { color: colors.text }]}>Итого</Text>
-                <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(total + deliveryCost)}</Text>
+                <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(payableTotal)}</Text>
               </View>
             </View>
           </>
@@ -670,7 +903,7 @@ export default function CheckoutScreen() {
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomTotal}>
           <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>Итого</Text>
-          <Text style={[styles.bottomTotalValue, { color: colors.text }]}>{formatPrice(total + deliveryCost)}</Text>
+          <Text style={[styles.bottomTotalValue, { color: colors.text }]}>{formatPrice(payableTotal)}</Text>
         </View>
         <TouchableOpacity
           style={[styles.nextBtn, { backgroundColor: canContinue ? colors.primary : colors.border }]}
@@ -682,7 +915,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={[styles.nextBtnText, { color: canContinue ? '#FFF' : colors.textMuted }]}>
-              {step < 2 ? 'Продолжить' : `Оплатить ${formatPrice(total + deliveryCost)}`}
+              {step < 2 ? 'Продолжить' : `Оплатить ${formatPrice(payableTotal)}`}
             </Text>
           )}
         </TouchableOpacity>
@@ -750,6 +983,17 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   input: { flex: 1, fontSize: 15 },
+  savedAddrBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    paddingVertical: 11,
+  },
+  savedAddrBtnText: { fontSize: 14, fontWeight: '600' },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -814,6 +1058,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   savedBadgeText: { fontSize: 14, fontWeight: '600' },
+  promoChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  promoChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    maxWidth: '100%',
+  },
+  promoChipCode: { fontSize: 13, fontWeight: '700' },
+  promoChipDesc: { fontSize: 11, flexShrink: 1 },
+  promoInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  promoApplyBtn: {
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promoApplyBtnText: { fontSize: 14, fontWeight: '700' },
+  promoMessage: { fontSize: 13, fontWeight: '500' },
   orderItemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   orderItemName: { flex: 1, fontSize: 14, lineHeight: 20 },
   orderItemQty: { fontSize: 13, marginTop: 2 },

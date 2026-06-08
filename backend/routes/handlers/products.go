@@ -59,8 +59,9 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					           p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
 					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
-					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
-					       c.name as company_name
+					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.default_variant_id, p.created_at, p.updated_at,
+					       c.name as company_name,
+					       (COALESCE(c.is_subscribed, FALSE) AND (c.subscription_expires_at IS NULL OR c.subscription_expires_at > NOW())) as is_subscribed
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -79,8 +80,9 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					           p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
 					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
-					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
-					       c.name as company_name
+					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.default_variant_id, p.created_at, p.updated_at,
+					       c.name as company_name,
+					       (COALESCE(c.is_subscribed, FALSE) AND (c.subscription_expires_at IS NULL OR c.subscription_expires_at > NOW())) as is_subscribed
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -99,11 +101,12 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				           price * (1.0 + COALESCE(markup_percent, 0) / 100.0)
 				       ) as selling_price,
 				       markup_amount, barcode, barid, category, images,
-				       description, color, size, brand, has_color_options, available_for_customers, sold_count, created_at, updated_at,
+				       description, color, size, brand, has_color_options, available_for_customers, sold_count, default_variant_id, created_at, updated_at,
 				       COALESCE(
 				           NULLIF((SELECT SUM(pv.price * pv.stock_quantity) FROM product_variants pv WHERE pv.product_id = products.id), 0),
 				           price * quantity
-				       ) as inventory_cost
+				       ) as inventory_cost,
+				       (SELECT (COALESCE(c.is_subscribed, FALSE) AND (c.subscription_expires_at IS NULL OR c.subscription_expires_at > NOW())) FROM companies c WHERE c.id = products.company_id) as is_subscribed
 				FROM products
 				WHERE company_id = $1
 				ORDER BY created_at DESC
@@ -141,10 +144,12 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			HasColorOptions       sql.NullBool
 				AvailableForCustomers sql.NullBool
 				SoldCount             sql.NullInt64
+				DefaultVariantID      sql.NullInt64
 				CreatedAt             string
 				UpdatedAt             string
 				CompanyName           sql.NullString
 				InventoryCost         sql.NullFloat64
+				IsSubscribed          sql.NullBool
 			}
 
 			var err error
@@ -154,14 +159,14 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 					&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 					&p.HasColorOptions, &p.AvailableForCustomers,
-					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName)
+					&p.SoldCount, &p.DefaultVariantID, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName, &p.IsSubscribed)
 			} else {
 				// Без company_name, но с inventory_cost
 				err = rows.Scan(&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
 					&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 					&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 					&p.HasColorOptions, &p.AvailableForCustomers,
-					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.InventoryCost)
+					&p.SoldCount, &p.DefaultVariantID, &p.CreatedAt, &p.UpdatedAt, &p.InventoryCost, &p.IsSubscribed)
 			}
 
 			if err != nil {
@@ -231,10 +236,23 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			} else {
 				product["soldCount"] = 0
 			}
+			if p.DefaultVariantID.Valid {
+				product["defaultVariantId"] = p.DefaultVariantID.Int64
+			} else {
+				product["defaultVariantId"] = nil
+			}
 			if p.InventoryCost.Valid {
 				product["inventoryCost"] = p.InventoryCost.Float64
 			} else {
 				product["inventoryCost"] = p.Price * float64(p.Quantity)
+			}
+
+			// Derived subscription status (Requirement 9.4):
+			// is_subscribed AND (subscription_expires_at IS NULL OR subscription_expires_at > NOW())
+			if p.IsSubscribed.Valid {
+				product["isSubscribed"] = p.IsSubscribed.Bool
+			} else {
+				product["isSubscribed"] = false
 			}
 
 			// Парсим images
@@ -286,6 +304,7 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			HasColorOptions       sql.NullBool
 			AvailableForCustomers sql.NullBool
 			SoldCount             sql.NullInt64
+			DefaultVariantID      sql.NullInt64
 			CreatedAt             string
 			UpdatedAt             string
 			CompanyName           sql.NullString
@@ -295,7 +314,7 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
 			       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
 			       p.description, p.color, p.size, p.brand, p.has_color_options,
-			       p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
+			       p.available_for_customers, p.sold_count, p.default_variant_id, p.created_at, p.updated_at,
 			       c.name as company_name
 			FROM products p
 			LEFT JOIN companies c ON p.company_id = c.id
@@ -305,7 +324,7 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 			&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 			&p.HasColorOptions, &p.AvailableForCustomers,
-			&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName,
+			&p.SoldCount, &p.DefaultVariantID, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName,
 		)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
@@ -379,6 +398,11 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			product["soldCount"] = p.SoldCount.Int64
 		} else {
 			product["soldCount"] = 0
+		}
+		if p.DefaultVariantID.Valid {
+			product["defaultVariantId"] = p.DefaultVariantID.Int64
+		} else {
+			product["defaultVariantId"] = nil
 		}
 		if p.Images.Valid && p.Images.String != "" {
 			var images []string
@@ -700,7 +724,38 @@ func UploadProductImages(db *sql.DB) gin.HandlerFunc {
 		if currentImagesJSON.Valid && currentImagesJSON.String != "" {
 			json.Unmarshal([]byte(currentImagesJSON.String), &currentImages)
 		}
-		
+
+		// Enforce photo limits BEFORE writing anything so an over-limit request is
+		// rejected with no partial write (Requirement 12.3, 12.5, 12.6):
+		//   - default photo set (products.images): ≤ 6
+		//   - product total (images + all variant photos): ≤ 20
+		incoming := len(files)
+		if len(currentImages)+incoming > maxDefaultSetPhotos {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("default photo set limit is %d (have %d, adding %d)",
+					maxDefaultSetPhotos, len(currentImages), incoming),
+			})
+			return
+		}
+		pid, err := strconv.ParseInt(productID, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+			return
+		}
+		variantTotal, err := sumVariantPhotos(db, pid)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate photo limits"})
+			return
+		}
+		productTotal := len(currentImages) + variantTotal
+		if productTotal+incoming > maxProductPhotos {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("product photo limit is %d (have %d, adding %d)",
+					maxProductPhotos, productTotal, incoming),
+			})
+			return
+		}
+
 		// Загружаем новые файлы
 		var uploadedPaths []string
 		for _, file := range files {
@@ -719,13 +774,8 @@ func UploadProductImages(db *sql.DB) gin.HandlerFunc {
 			uploadedPaths = append(uploadedPaths, filePath)
 		}
 		
-		// Объединяем старые и новые изображения
+		// Объединяем старые и новые изображения (лимит уже проверен выше)
 		allImages := append(currentImages, uploadedPaths...)
-		
-		// Ограничиваем до 6 изображений
-		if len(allImages) > 6 {
-			allImages = allImages[:6]
-		}
 		
 		// Сохраняем в базу
 		imagesJSON, _ := json.Marshal(allImages)

@@ -4,22 +4,25 @@
 ═══════════════════════════════════════════════════════ */
 
 :root {
-  --ax-bg:            #E4E9EF;
-  --ax-surface:       #F2F4F8;
-  --ax-sidebar:       #D4DCE8;
+  /* Light / day theme — clean professional palette.
+     Page background is a soft gray-blue; cards/surfaces are pure white so
+     they separate clearly from the page (high contrast, readable text). */
+  --ax-bg:            #EEF1F6;
+  --ax-surface:       #FFFFFF;
+  --ax-sidebar:       #FFFFFF;
   --ax-sidebar-hover: rgba(79, 70, 229, 0.08);
-  --ax-border:        #B8C5D4;
+  --ax-border:        #D8DEE9;
   --ax-text:          #0F172A;
   --ax-text-2:        #475569;
-  --ax-text-3:        #94A3B8;
+  --ax-text-3:        #64748B;
   --ax-primary:       #4F46E5;
-  --ax-primary-pale:  rgba(79, 70, 229, 0.12);
+  --ax-primary-pale:  rgba(79, 70, 229, 0.10);
   --ax-success:       #16A34A;
   --ax-danger:        #DC2626;
   --ax-warning:       #D97706;
-  --ax-card:          #F2F4F8;
-  --ax-input:         #EAEFF5;
-  --ax-shadow:        0 1px 3px rgba(15,23,42,0.10), 0 4px 16px rgba(15,23,42,0.08);
+  --ax-card:          #FFFFFF;
+  --ax-input:         #FFFFFF;
+  --ax-shadow:        0 1px 3px rgba(15,23,42,0.08), 0 4px 16px rgba(15,23,42,0.06);
 }
 
 .dark {
@@ -398,6 +401,12 @@
 
 .dark .text-blue-700 {
   color: #60a5fa !important;
+}
+
+/* Info-panel headings/body that use darker blue text need a light tint in dark mode */
+.dark .text-blue-800,
+.dark .text-blue-900 {
+  color: #93c5fd !important;
 }
 
 .dark .text-orange-700 {

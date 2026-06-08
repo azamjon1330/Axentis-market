@@ -106,6 +106,22 @@ export default function OrdersScreen() {
                 {orderItems.map(i => i.productName).join(', ')}
               </Text>
             )}
+            {(() => {
+              const variantSummary = orderItems
+                .map(i => [
+                  i.size ? `Размер: ${i.size}` : null,
+                  i.color ? `Цвет: ${i.color}` : null,
+                ].filter(Boolean).join(' · '))
+                .filter(Boolean)
+                .join(', ');
+              return variantSummary
+                ? (
+                  <Text style={[styles.orderVariants, { color: colors.textMuted }]} numberOfLines={1}>
+                    {variantSummary}
+                  </Text>
+                )
+                : null;
+            })()}
           </View>
         </View>
 
@@ -226,6 +242,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '600' },
   orderDate: { fontSize: 12 },
   orderItems: { fontSize: 13 },
+  orderVariants: { fontSize: 12, marginTop: 2 },
   cardDivider: { height: 1, marginHorizontal: 14 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 6 },
   totalLabel: { fontSize: 13 },

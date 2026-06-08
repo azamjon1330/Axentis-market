@@ -90,6 +90,19 @@ const translations = {
     uzbek: "O'zbek",
     continueBtn: 'Продолжить',
     currentLanguage: 'Текущий язык',
+    // Home card labels (Req 10.2)
+    topCompanies: 'Топ магазины',
+    // Product card labels (Req 10.1)
+    priceFrom: 'от {0}',
+    topBadge: 'Топ',
+    // Selection label & text (Req 10.3)
+    colorLabel: 'Цвет:',
+    sizeLabel: 'Размер:',
+    chooseVariant: 'Выберите вариант',
+    chooseColorAndSize: 'Выберите цвет и размер',
+    chooseSize: 'Выберите размер',
+    outOfStockShort: 'нет',
+    buyNow: 'Купить сейчас',
   },
   uz: {
     home: 'Bosh sahifa',
@@ -176,6 +189,19 @@ const translations = {
     uzbek: "O'zbek",
     continueBtn: 'Davom etish',
     currentLanguage: 'Joriy til',
+    // Home card labels (Req 10.2)
+    topCompanies: "Top do'konlar",
+    // Product card labels (Req 10.1)
+    priceFrom: '{0} dan',
+    topBadge: 'Top',
+    // Selection label & text (Req 10.3)
+    colorLabel: 'Rang:',
+    sizeLabel: "O'lcham:",
+    chooseVariant: 'Variantni tanlang',
+    chooseColorAndSize: "Rang va o'lchamni tanlang",
+    chooseSize: "O'lchamni tanlang",
+    outOfStockShort: "yo'q",
+    buyNow: 'Hozir sotib olish',
   },
 };
 
@@ -219,8 +245,14 @@ export const LanguageProvider = ({ children }) => {
     } catch {}
   };
 
-  const t = (key) => {
-    return translations[language]?.[key] ?? translations.ru?.[key] ?? key;
+  const t = (key, ...args) => {
+    let str = translations[language]?.[key] ?? translations.ru?.[key] ?? key;
+    if (typeof str === 'string' && args.length > 0) {
+      args.forEach((value, i) => {
+        str = str.replace(`{${i}}`, String(value));
+      });
+    }
+    return str;
   };
 
   return (

@@ -366,6 +366,59 @@ export const products = {
       method: 'DELETE',
     });
   },
+
+  // Set (or clear) a product's default variant — Requirement 18.1/18.4.
+  // Pass null/undefined to clear the default designation.
+  setDefaultVariant: async (productId: string | number, variantId: string | number | null) => {
+    return apiCall(`/products/${productId}/default-variant`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        variantId: variantId === null || variantId === undefined ? null : Number(variantId),
+      }),
+    });
+  },
+
+  // Upload photos for a single variant (multipart `files`, ≤4 per variant) —
+  // Requirement 12.1/12.6. The backend enforces 4/variant and 20/product caps
+  // and returns a 400 with an explanatory message on violation.
+  uploadVariantPhotos: async (productId: string | number, variantId: string | number, files: FileList | File[]) => {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append('files', file);
+    });
+
+    // Don't set Content-Type — let the browser add the multipart boundary.
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/products/${productId}/variants/${variantId}/photos`, {
+      method: 'POST',
+      body: formData,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || response.statusText);
+    }
+
+    return response.json();
+  },
+
+  // Remove a single variant photo by URL or zero-based index — Requirement 12.
+  deleteVariantPhoto: async (
+    productId: string | number,
+    variantId: string | number,
+    target: { url?: string; index?: number },
+  ) => {
+    return apiCall(`/products/${productId}/variants/${variantId}/photos`, {
+      method: 'DELETE',
+      body: JSON.stringify(target),
+    });
+  },
   // ── End variant endpoints ──────────────────────────────────────────────────
 
   // Get product reviews

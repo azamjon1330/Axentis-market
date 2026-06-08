@@ -189,6 +189,9 @@ const mapOrder = (o) => ({
     quantity: i.quantity ?? 1,
     price: i.price ?? 0,
     imageUrl: i.imageUrl ?? i.image_url,
+    // Carry the variant color/size back so orders can render them (Req 15.1, 15.2).
+    color: i.color ?? i.selected_color ?? i.selectedColor,
+    size: i.size ?? i.selected_size ?? i.selectedSize,
   })) : [],
   totalAmount: o.totalAmount ?? o.total_amount ?? 0,
   status: o.status ?? 'pending',
@@ -266,6 +269,17 @@ export const getCompanyDetail = async (id) => {
   return res.data;
 };
 
+// Top / promoted companies, ranked by positive reviews + the viewer's prior
+// orders (user-aware). The backend returns the list already ordered with the
+// highest-ranked companies first. `userPhone` is optional — when omitted the
+// ranking degrades cleanly to a positive-review ordering.
+export const getTopCompanies = async (userPhone) => {
+  const res = await api.get(ENDPOINTS.topCompanies, {
+    params: userPhone ? { userPhone } : undefined,
+  });
+  return Array.isArray(res.data) ? res.data : (res.data?.companies || []);
+};
+
 export const getCompanyStats = async (id) => {
   const res = await api.get(ENDPOINTS.companyStats(id));
   return res.data;
@@ -285,6 +299,39 @@ export const getUserProfile = async (phone) => {
   return res.data;
 };
 
+// ─── Saved Delivery Addresses ───────────────────────────────────────────────
+const mapSavedAddress = (a) => ({
+  id: a.id,
+  label: a.label ?? '',
+  addressText: a.addressText ?? a.address_text ?? '',
+  latitude: a.latitude ?? null,
+  longitude: a.longitude ?? null,
+  recipientName: a.recipientName ?? a.recipient_name ?? '',
+  isDefault: a.isDefault ?? a.is_default ?? false,
+  createdAt: a.createdAt ?? a.created_at,
+  updatedAt: a.updatedAt ?? a.updated_at,
+});
+
+export const getSavedAddresses = async (phone) => {
+  const res = await api.get(ENDPOINTS.savedAddresses(phone));
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.addresses || []);
+  return raw.map(mapSavedAddress);
+};
+
+export const createSavedAddress = async (phone, data) => {
+  const res = await api.post(ENDPOINTS.savedAddresses(phone), data);
+  return res.data;
+};
+
+export const updateSavedAddress = async (phone, addressId, data) => {
+  const res = await api.put(ENDPOINTS.savedAddress(phone, addressId), data);
+  return res.data;
+};
+
+export const deleteSavedAddress = async (phone, addressId) => {
+  await api.delete(ENDPOINTS.savedAddress(phone, addressId));
+};
+
 // ─── Payment Cards ────────────────────────────────────────────────────────────
 export const getPaymentCards = async (phone) => {
   const res = await api.get(ENDPOINTS.paymentCards(phone));
@@ -302,6 +349,56 @@ export const deletePaymentCard = async (id) => {
 
 export const setDefaultCard = async (id) => {
   await api.put(ENDPOINTS.paymentCardDefault(id));
+};
+
+// ─── Promo Codes ──────────────────────────────────────────────────────────────
+const mapPromoCode = (p) => ({
+  id: p.id ?? p.promoId ?? p.promo_id,
+  code: p.code ?? '',
+  description: p.description ?? '',
+  discountType: p.discountType ?? p.discount_type ?? '',
+  discountValue: p.discountValue ?? p.discount_value ?? p.discount ?? 0,
+  minOrderAmount: p.minOrderAmount ?? p.min_order_amount ?? 0,
+  maxDiscount: p.maxDiscount ?? p.max_discount ?? null,
+  expiresAt: p.expiresAt ?? p.expires_at ?? null,
+  companyId: p.companyId ?? p.company_id ?? null,
+});
+
+// List promo codes visible for a company (company-specific + platform-wide).
+export const getCompanyPromoCodes = async (companyId) => {
+  const res = await api.get(ENDPOINTS.promoCodesCompany(companyId));
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.promoCodes || res.data?.promo_codes || res.data?.codes || []);
+  return raw.map(mapPromoCode);
+};
+
+// Validate a promo code against an order. Returns the backend's bounded
+// { valid, discount, finalAmount, message } shape (with snake_case fallbacks).
+export const validatePromoCode = async ({ code, userPhone, companyId, orderAmount }) => {
+  const res = await api.post(ENDPOINTS.promoValidate, {
+    code,
+    userPhone,
+    companyId,
+    orderAmount,
+  });
+  const d = res.data || {};
+  return {
+    valid: d.valid ?? false,
+    discount: d.discount ?? 0,
+    finalAmount: d.finalAmount ?? d.final_amount ?? orderAmount,
+    message: d.message ?? '',
+    promoId: d.promoId ?? d.promo_id ?? d.id ?? null,
+  };
+};
+
+// Record a promo-code redemption when an order is placed.
+export const redeemPromoCode = async ({ promoId, userPhone, orderId, discount }) => {
+  const res = await api.post(ENDPOINTS.promoRedeem, {
+    promoId,
+    userPhone,
+    orderId,
+    discount,
+  });
+  return res.data;
 };
 
 export default api;
