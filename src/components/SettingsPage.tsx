@@ -4,12 +4,26 @@ import LoyaltyCard from './LoyaltyCard'; // ⭐ Баланс баллов/кэш
 import { useState, useEffect, useRef } from 'react';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import api, { getImageUrl } from '../utils/api';
-// TODO: User reviews, stats, subscriptions not yet in new API
-const getUserReviews = async (phone: string) => [];
-const getUserStats = async (phone: string) => ({ likesCount: 0, ordersCount: 0, reviewsCount: 0 });
+// Wired to the existing backend (/api/users/:phone/*).
+const getUserReviews = async (phone: string) => {
+  try { const r = await api.users.getReviews(phone); return Array.isArray(r) ? r : []; }
+  catch { return []; }
+};
+const getUserStats = async (phone: string) => {
+  try {
+    const r: any = await api.users.getStats(phone);
+    return { following: r?.following ?? 0, followers: r?.followers ?? 0, views: r?.views ?? 0 };
+  } catch { return { following: 0, followers: 0, views: 0 }; }
+};
 const getUsers = async () => [];
-const toggleSubscription = async (from: string, to: string) => ({ subscribed: true });
-const checkSubscription = async (from: string, to: string) => false;
+const toggleSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.toggleSubscription(from, to); return { subscribed: r?.subscribed ?? false }; }
+  catch { return { subscribed: false }; }
+};
+const checkSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.subscriptionStatus(from, to); return r?.subscribed ?? false; }
+  catch { return false; }
+};
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface SettingsPageProps {

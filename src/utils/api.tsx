@@ -681,6 +681,20 @@ export const companies = {
       body: JSON.stringify(expenses),
     });
   },
+
+  // ⭐ Rate a company (customer)
+  rate: async (id: string | number, userPhone: string, rating: number) =>
+    apiCall(`/companies/${id}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ user_phone: userPhone, rating }),
+      requiresAuth: false,
+    }),
+
+  // 🔔 Subscribe / unsubscribe to a company (customer)
+  subscribe: async (id: string | number, userPhone: string) =>
+    apiCall(`/companies/${id}/subscribe`, { method: 'POST', body: JSON.stringify({ userPhone }), requiresAuth: false }),
+  unsubscribe: async (id: string | number, userPhone: string) =>
+    apiCall(`/companies/${id}/unsubscribe`, { method: 'POST', body: JSON.stringify({ userPhone }), requiresAuth: false }),
 };
 
 // ============================================================================
@@ -875,6 +889,17 @@ export const users = {
   getReceipts: async (phone: string) => {
     return apiCall(`/users/${phone}/receipts`, { requiresAuth: false });
   },
+
+  // 👤 Public profile / stats / reviews / subscriptions
+  getProfile: async (phone: string) => apiCall(`/users/${phone}/profile`, { requiresAuth: false }),
+  getStats: async (phone: string) => apiCall(`/users/${phone}/stats`, { requiresAuth: false }),
+  getReviews: async (phone: string) => apiCall(`/users/${phone}/reviews`, { requiresAuth: false }),
+  incrementViews: async (phone: string) =>
+    apiCall(`/users/${phone}/increment-views`, { method: 'POST', requiresAuth: false }),
+  toggleSubscription: async (phone: string, targetPhone: string) =>
+    apiCall(`/users/${phone}/subscribe`, { method: 'POST', body: JSON.stringify({ targetPhone }), requiresAuth: false }),
+  subscriptionStatus: async (phone: string, targetPhone: string) =>
+    apiCall(`/users/${phone}/subscription-status/${targetPhone}`, { requiresAuth: false }),
 
   // List all users (admin only)
   list: async (params?: { limit?: number; offset?: number }) => {
