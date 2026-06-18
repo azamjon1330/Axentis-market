@@ -1417,7 +1417,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   if (error) return <div className="p-8 text-center text-red-600">{t.errorLoadingWarehouse} {(error as Error).message}</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8">
+    <div className="min-h-screen p-4 sm:p-8" style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 sm:mb-6 lg:mb-8">
@@ -1428,40 +1428,51 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.productsCount}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-purple-600">{warehouseStats.totalProducts}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.totalInStock}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-blue-600">{warehouseStats.totalQuantity.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.cost}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-green-600">{warehouseStats.totalValue.toLocaleString()} {t.sum}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.categoriesCount}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-orange-600">{warehouseStats.categories}</div>
-            </div>
+            {[
+              { label: t.productsCount, value: warehouseStats.totalProducts, color: '#7C5CF0' },
+              { label: t.totalInStock, value: warehouseStats.totalQuantity.toLocaleString(), color: '#38BDF8' },
+              { label: t.cost, value: `${warehouseStats.totalValue.toLocaleString()} ${t.sum}`, color: '#22C55E' },
+              { label: t.categoriesCount, value: warehouseStats.categories, color: '#FBBF24' },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: 'var(--ax-card)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 14,
+                padding: '14px 16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              }}>
+                <div style={{ color: '#8B8BAA', fontSize: 12, marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
           </div>
 
           {/* Search and filters */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#8B8BAA' }} />
               <input
                 type="text"
                 placeholder={t.searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-purple-500 outline-none"
+                style={{
+                  width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 12, paddingBottom: 12,
+                  borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--ax-input)', color: 'var(--ax-text)',
+                  outline: 'none', fontSize: 14,
+                }}
               />
             </div>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-purple-500 outline-none"
+              style={{
+                padding: '12px 16px', borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--ax-input)', color: 'var(--ax-text)',
+                outline: 'none', fontSize: 14,
+              }}
             >
               <option value="all">{t.allCategories}</option>
               {categories.map(cat => (
@@ -1472,45 +1483,41 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            <button
-              onClick={() => { setShowAddForm(true); if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]); }}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-green-600 text-white rounded-lg sm:rounded-xl hover:bg-green-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.addProduct}</span>
-              <span className="sm:hidden">{t.addProductShort}</span>
-            </button>
-
-            <label className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-purple-600 text-white rounded-lg sm:rounded-xl hover:bg-purple-700 transition-colors cursor-pointer shadow-lg text-sm sm:text-base">
+            {[
+              { icon: <Plus className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.addProduct, labelShort: t.addProductShort, onClick: () => { setShowAddForm(true); if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]); }, bg: '#22C55E', isLabel: false },
+              { icon: <Download className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.exportToExcel, labelShort: t.exportShort, onClick: exportToExcel, bg: '#38BDF8', isLabel: false },
+              { icon: <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.deleteAllProducts, labelShort: t.deleteAll, onClick: handleDeleteAllProducts, bg: '#F87171', isLabel: false },
+            ].map((btn, i) => (
+              <button
+                key={i}
+                onClick={btn.onClick}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 18px',
+                  background: btn.bg,
+                  color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  fontWeight: 600, fontSize: 14, transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.85'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+              >
+                {btn.icon}
+                <span className="hidden sm:inline">{btn.labelFull}</span>
+                <span className="sm:hidden">{btn.labelShort}</span>
+              </button>
+            ))}
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px',
+              background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
+              color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer',
+              fontWeight: 600, fontSize: 14,
+            }}>
               <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">{importing ? importProgress : t.importFromExcelCSV}</span>
               <span className="lg:hidden">{importing ? importProgress : t.importShort}</span>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv,.txt"
-                onChange={handleFileImport}
-                disabled={importing}
-                className="hidden"
-              />
+              <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={handleFileImport} disabled={importing} className="hidden" />
             </label>
-
-            <button
-              onClick={exportToExcel}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.exportToExcel}</span>
-              <span className="sm:hidden">{t.exportShort}</span>
-            </button>
-
-            <button
-              onClick={handleDeleteAllProducts}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-red-600 text-white rounded-lg sm:rounded-xl hover:bg-red-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.deleteAllProducts}</span>
-              <span className="sm:hidden">{t.deleteAll}</span>
-            </button>
           </div>
         </div>
 
@@ -1842,17 +1849,17 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
         )}
 
         {/* Products Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.4)' }}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
+              <thead style={{ background: 'linear-gradient(135deg, rgba(124,92,240,0.6), rgba(91,61,212,0.6))' }}>
                 <tr>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.productName}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.categoryHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.quantityHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.basePriceHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.sellingPriceHeader}</th>
-                  <th className="px-6 py-4 text-right text-white font-semibold">{t.actionsHeader}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'left', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.productName}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'left', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.categoryHeader}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'left', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.quantityHeader}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'left', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.basePriceHeader}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'left', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.sellingPriceHeader}</th>
+                  <th style={{ padding: '14px 20px', textAlign: 'right', color: '#FFFFFF', fontWeight: 600, fontSize: 13 }}>{t.actionsHeader}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1867,11 +1874,14 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                 ) : (
                   filteredProducts.map((product: any) => (
                     <React.Fragment key={product.id}>
-                      <tr className="border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4">
-                          <span className="text-gray-800 dark:text-gray-200">{product.name}</span>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', transition: 'background 0.15s', cursor: 'default' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                      >
+                        <td style={{ padding: '14px 20px' }}>
+                          <span style={{ color: 'var(--ax-text)', fontWeight: 500 }}>{product.name}</span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td style={{ padding: '14px 20px' }}>
                           {changingCategoryId === String(product.id) ? (
                             <select
                               autoFocus
