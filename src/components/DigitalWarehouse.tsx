@@ -511,17 +511,26 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       return;
     }
     try {
-      await api.products.createVariant(productId, {
-        color: form.color || undefined,
-        size: form.size || undefined,
-        price: parseFloat(form.price) || 0,
-        markupPercent: parseFloat(form.markupPercent) || 0,
-        stockQuantity: parseInt(form.stockQuantity) || 0,
-        barcode: form.barcode || undefined,
-        sku: form.sku || undefined,
-        barid: form.barid || undefined,
-        description: form.description || undefined,
-      });
+      // Comma-separated sizes generate one variant per size (same color/price/
+      // markup/quantity) — same smart behaviour as the product-creation form.
+      const sizes = (form.size || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+      const sizeList: (string | undefined)[] = sizes.length > 0 ? sizes : [undefined];
+      const single = sizeList.length === 1;
+      for (const sz of sizeList) {
+        await api.products.createVariant(productId, {
+          color: form.color || undefined,
+          size: sz || undefined,
+          price: parseFloat(form.price) || 0,
+          markupPercent: parseFloat(form.markupPercent) || 0,
+          stockQuantity: parseInt(form.stockQuantity) || 0,
+          // barcode/barid are unique per variant — only carry them over for a
+          // single size, otherwise they'd collide across generated variants.
+          barcode: single ? (form.barcode || undefined) : undefined,
+          sku: single ? (form.sku || undefined) : undefined,
+          barid: single ? (form.barid || undefined) : undefined,
+          description: form.description || undefined,
+        });
+      }
       await loadVariants(productId);
       await updateProductMinPrice(productId);
       setNewVariantForms(prev => ({
@@ -2100,13 +2109,18 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                       <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-3">
                                         + {language === 'uz' ? 'Yangi tur qo\'shish' : 'Добавить новый вид'}
                                       </p>
+                                      <p className="text-[11px] text-gray-400 mb-2">
+                                        {language === 'uz'
+                                          ? 'Razmerlarni vergul bilan yozing (S, M, L, XL) — har biriga alohida variant yaratiladi'
+                                          : 'Размеры через запятую (S, M, L, XL) — для каждого создаётся отдельный вариант'}
+                                      </p>
                                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-3">
                                         {[
-                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text', placeholder: language === 'uz' ? 'Qora...' : 'Чёрный...' },
-                                          { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text', placeholder: 'XL, L...' },
                                           { key: 'price', label: language === 'uz' ? 'Narx *' : 'Цена *', type: 'number', placeholder: '0' },
                                           { key: 'markupPercent', label: language === 'uz' ? 'Naцen %' : 'Наценка %', type: 'number', placeholder: '0' },
+                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text', placeholder: language === 'uz' ? 'Qora...' : 'Чёрный...' },
                                           { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number', placeholder: '0' },
+                                          { key: 'size', label: language === 'uz' ? 'Razmerlar (vergul)' : 'Размеры (через запятую)', type: 'text', placeholder: 'S, M, L, XL' },
                                           { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text', placeholder: '—' },
                                           { key: 'barid', label: 'Barid', type: 'text', placeholder: '—' },
                                           { key: 'description', label: language === 'uz' ? 'Tavsif' : 'Описание', type: 'text', placeholder: '—' },
@@ -2135,7 +2149,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                         className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
                                       >
                                         <Plus className="w-4 h-4" />
-                                        {language === 'uz' ? 'Tur qo\'shish' : 'Добавить вид'}
+                                        {language === 'uz' ? 'Variantlar yaratish' : 'Создать варианты'}
                                       </button>
                                     </div>
                                   )}
