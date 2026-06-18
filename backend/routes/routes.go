@@ -79,19 +79,19 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.GET("/search", handlers.SearchProducts(db)) // 🔍 Умный поиск (с опечатками, ранжирование)
 			products.GET("/find-by-barcode", handlers.FindProductByBarcode(db)) // Поиск по штрих-коду (включая варианты)
 			products.POST("", middleware.RequireCompany(cfg), handlers.CreateProduct(db))
-			products.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateProduct(db))
-			products.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteProduct(db))
-			products.POST("/:id/images", middleware.RequireCompany(cfg), handlers.UploadProductImages(db))
-			products.DELETE("/:id/images", middleware.RequireCompany(cfg), handlers.DeleteProductImage(db))
+			products.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.UpdateProduct(db))
+			products.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.DeleteProduct(db))
+			products.POST("/:id/images", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.UploadProductImages(db))
+			products.DELETE("/:id/images", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.DeleteProductImage(db))
 			products.GET("/:id", handlers.GetProductByID(db))
 			products.GET("/:id/reviews", handlers.GetProductReviews(db))
 			products.GET("/:id/review-stats", handlers.GetReviewStats(db))
 			products.GET("/:id/similar", handlers.GetSimilarProducts(db)) // 🔍 Похожие товары
 			// Variant routes — SKU management per product
 			products.GET("/:id/variants", handlers.GetProductVariants(db))
-			products.POST("/:id/variants", middleware.RequireCompany(cfg), handlers.CreateProductVariant(db))
-			products.PUT("/:id/variants/:variantId", middleware.RequireCompany(cfg), handlers.UpdateProductVariant(db))
-			products.DELETE("/:id/variants/:variantId", middleware.RequireCompany(cfg), handlers.DeleteProductVariant(db))
+			products.POST("/:id/variants", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.CreateProductVariant(db))
+			products.PUT("/:id/variants/:variantId", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.UpdateProductVariant(db))
+			products.DELETE("/:id/variants/:variantId", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.DeleteProductVariant(db))
 		}
 
 		// AI routes
