@@ -85,7 +85,8 @@ export const getProductReviewStats = async (id: number): Promise<ReviewStats> =>
 };
 
 export const getProductVariants = async (id: number): Promise<ProductVariant[]> => {
-  const res = await api.get(ENDPOINTS.productVariants(id));
+  // Customers only see in-stock variants (out-of-stock ones are hidden).
+  const res = await api.get(ENDPOINTS.productVariants(id), { params: { inStock: true } });
   return Array.isArray(res.data) ? res.data : [];
 };
 

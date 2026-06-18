@@ -323,8 +323,11 @@ export const products = {
   },
 
   // ── Variant endpoints ──────────────────────────────────────────────────────
-  getVariants: async (productId: string | number) => {
-    return apiCall(`/products/${productId}/variants`, { requiresAuth: false });
+  // inStock=true hides out-of-stock variants (customer view); the seller
+  // warehouse calls without it to see every variant.
+  getVariants: async (productId: string | number, inStock = false) => {
+    const q = inStock ? '?inStock=true' : '';
+    return apiCall(`/products/${productId}/variants${q}`, { requiresAuth: false });
   },
 
   createVariant: async (productId: string | number, data: {
