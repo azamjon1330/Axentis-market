@@ -18,6 +18,8 @@ type Config struct {
 	JWTExpiration string
 	AllowedOrigins string
 	CardEncryptionKey string
+	AdminPhone     string
+	AdminCode      string
 }
 
 func Load() *Config {
@@ -34,6 +36,10 @@ func Load() *Config {
 		JWTExpiration: getEnv("JWT_EXPIRATION", "168h"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
 		CardEncryptionKey: getEnv("CARD_ENCRYPTION_KEY", ""),
+		// Admin login credentials (kept as the project's existing hardcoded
+		// values by default; override via env in production).
+		AdminPhone: getEnv("ADMIN_PHONE", "914751330"),
+		AdminCode:  getEnv("ADMIN_CODE", "15051"),
 	}
 }
 

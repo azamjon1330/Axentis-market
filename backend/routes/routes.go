@@ -70,6 +70,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			auth.POST("/login/user", handlers.LoginUser(db))
 			auth.POST("/register/company", handlers.RegisterCompany(db, cfg))
 			auth.POST("/login/company", handlers.LoginCompany(db, cfg))
+			auth.POST("/login/admin", handlers.LoginAdmin(cfg))
 		}
 
 		// Products routes
@@ -115,8 +116,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.GET("/top", handlers.GetTopCompanies(db)) // ⭐ Хитовые магазины (рекомендации)
 			companies.GET("/:id", handlers.GetCompany(db))
 			companies.POST("/:id/verify-access", handlers.VerifyAccessKey(db))
-			companies.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateCompany(db))
-			companies.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteCompany(db))
+			companies.PUT("/:id", middleware.RequireAdminOrOwnCompany(), handlers.UpdateCompany(db))
+			companies.DELETE("/:id", middleware.RequireAdminOrOwnCompany(), handlers.DeleteCompany(db))
 			companies.POST("/:id/view", handlers.TrackCompanyView(db))
 			companies.GET("/:id/stats", handlers.GetCompanyStats(db))
 			companies.POST("/:id/subscribe", handlers.SubscribeToCompany(db))
@@ -213,7 +214,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			notifications.GET("/unread-count", handlers.GetUnreadNotificationsCount(db))
 			notifications.PUT("/:id/read", handlers.MarkNotificationAsRead(db))
 			notifications.PUT("/mark-all-read", handlers.MarkAllNotificationsAsRead(db))
-			notifications.POST("/send", middleware.RequireCompany(cfg), handlers.SendAdminNotification(db))      // Отправка от админа
+			notifications.POST("/send", middleware.RequireAdmin(cfg), handlers.SendAdminNotification(db))      // Отправка от админа
 			notifications.GET("/users-list", handlers.GetAllUsersPhones(db))     // Список пользователей
 			notifications.POST("/push-token", handlers.SaveExpoPushToken(db))    // Сохранение Expo Push Token
 		}
@@ -221,8 +222,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Company Messages routes (📨 Сообщения компаниям от админа)
 		companyMessages := api.Group("/company-messages")
 		{
-			companyMessages.POST("/send", middleware.RequireCompany(cfg), handlers.SendMessageToCompany(db))                         // Отправить компании
-			companyMessages.POST("/send-all", middleware.RequireCompany(cfg), handlers.SendMessageToAllCompanies(db))                // Отправить всем
+			companyMessages.POST("/send", middleware.RequireAdmin(cfg), handlers.SendMessageToCompany(db))                         // Отправить компании
+			companyMessages.POST("/send-all", middleware.RequireAdmin(cfg), handlers.SendMessageToAllCompanies(db))                // Отправить всем
 			companyMessages.GET("/companies", handlers.GetAllCompaniesForMessages(db))               // Список компаний
 			companyMessages.GET("/company/:companyId", handlers.GetCompanyMessages(db))              // Сообщения компании
 			companyMessages.GET("/company/:companyId/count", handlers.GetCompanyMessagesCount(db))   // Кол-во непрочитанных
@@ -278,8 +279,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			ads.GET("", handlers.GetApprovedAds(db))
 			ads.POST("", middleware.RequireCompany(cfg), handlers.CreateAd(db))
 			ads.POST("/upload-image", middleware.RequireCompany(cfg), handlers.UploadAdImage(db)) // 🆕 Загрузка изображения
-			ads.PUT("/:id/moderate", middleware.RequireCompany(cfg), handlers.ModerateAd(db))
-			ads.PUT("/:id/link", middleware.RequireCompany(cfg), handlers.UpdateAdLink(db))
+			ads.PUT("/:id/moderate", middleware.RequireAdmin(cfg), handlers.ModerateAd(db))
+			ads.PUT("/:id/link", middleware.RequireAdmin(cfg), handlers.UpdateAdLink(db))
 			ads.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteAd(db))
 			ads.DELETE("/company/:companyId/all", middleware.RequireCompany(cfg), handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
 		}
@@ -288,9 +289,9 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		categories := api.Group("/categories")
 		{
 			categories.GET("", gin.WrapF(handlers.GetCategories(db)))
-			categories.POST("", middleware.RequireCompany(cfg), gin.WrapF(handlers.CreateCategory(db)))
-			categories.PUT("/:id", middleware.RequireCompany(cfg), gin.WrapF(handlers.UpdateCategory(db)))
-			categories.DELETE("/:id", middleware.RequireCompany(cfg), gin.WrapF(handlers.DeleteCategory(db)))
+			categories.POST("", middleware.RequireAdmin(cfg), gin.WrapF(handlers.CreateCategory(db)))
+			categories.PUT("/:id", middleware.RequireAdmin(cfg), gin.WrapF(handlers.UpdateCategory(db)))
+			categories.DELETE("/:id", middleware.RequireAdmin(cfg), gin.WrapF(handlers.DeleteCategory(db)))
 			categories.GET("/products", gin.WrapF(handlers.GetProductsByCategory(db)))
 		}
 
@@ -301,7 +302,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			discounts.GET("/company/:companyId", handlers.GetCompanyDiscounts(db)) // Скидки компании
 			discounts.GET("/all", handlers.GetAllDiscounts(db))                   // Все скидки (админ)
 			discounts.GET("/approved", handlers.GetApprovedDiscounts(db))         // Одобренные скидки (клиенты)
-			discounts.PUT("/:id/status", middleware.RequireCompany(cfg), handlers.UpdateDiscountStatus(db))       // Обновление статуса (админ)
+			discounts.PUT("/:id/status", middleware.RequireAdmin(cfg), handlers.UpdateDiscountStatus(db))       // Обновление статуса (админ)
 			discounts.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteDiscount(db))                 // Удаление скидки
 		}
 
@@ -318,29 +319,29 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Referral Agents routes (👥 Реферальная система)
 		referrals := api.Group("/referrals")
 		{
-			referrals.POST("/agents", middleware.RequireCompany(cfg), handlers.CreateReferralAgent(db))                    // Создание агента (админ)
+			referrals.POST("/agents", middleware.RequireAdmin(cfg), handlers.CreateReferralAgent(db))                    // Создание агента (админ)
 			referrals.POST("/agents/login", handlers.LoginReferralAgent(db, cfg))               // Вход агента
-			referrals.GET("/agents", middleware.RequireCompany(cfg), handlers.GetReferralAgents(db)) // Список агентов (админ) — содержит креды
+			referrals.GET("/agents", middleware.RequireAdmin(cfg), handlers.GetReferralAgents(db)) // Список агентов (админ) — содержит креды
 			referrals.GET("/agents/:id/stats", handlers.GetReferralAgentStats(db))         // Статистика агента
 			referrals.GET("/agents/:id/analytics", handlers.GetAgentFinancialAnalytics(db)) // 💰 Финансовая аналитика агента
-			referrals.PUT("/agents/:id/password", middleware.RequireCompany(cfg), handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
-			referrals.DELETE("/agents/:id", middleware.RequireCompany(cfg), handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
+			referrals.PUT("/agents/:id/password", middleware.RequireAdmin(cfg), handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
+			referrals.DELETE("/agents/:id", middleware.RequireAdmin(cfg), handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
 			referrals.GET("/agents/:id/companies", handlers.GetMyReferredCompanies(db))    // Компании агента
 			referrals.GET("/validate/:code", handlers.ValidateReferralCode(db))            // Проверка кода
-			referrals.PUT("/companies/:id/toggle", middleware.RequireCompany(cfg), handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
-			referrals.GET("/companies/all", middleware.RequireCompany(cfg), handlers.GetCompaniesWithReferralInfo(db)) // Компании с реф. инфо (админ)
+			referrals.PUT("/companies/:id/toggle", middleware.RequireAdmin(cfg), handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
+			referrals.GET("/companies/all", middleware.RequireAdmin(cfg), handlers.GetCompaniesWithReferralInfo(db)) // Компании с реф. инфо (админ)
 		}
 
 		// Promo codes / coupons (🎟️ промокоды) — platform-wide or per-company
 		promoCodes := api.Group("/promo-codes")
 		{
-			promoCodes.POST("", middleware.RequireCompany(cfg), handlers.CreatePromoCode(db))                       // Создать промокод
+			promoCodes.POST("", middleware.RequireAdmin(cfg), handlers.CreatePromoCode(db))                       // Создать промокод
 			promoCodes.GET("/all", handlers.GetAllPromoCodes(db))                   // Все промокоды (админ)
 			promoCodes.GET("/company/:companyId", handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
 			promoCodes.POST("/validate", handlers.ValidatePromoCode(db))            // Проверить промокод (без списания)
 			promoCodes.POST("/redeem", handlers.RedeemPromoCode(db))                // Зафиксировать использование
-			promoCodes.PUT("/:id/toggle", middleware.RequireCompany(cfg), handlers.TogglePromoCode(db))             // Вкл/выкл промокод
-			promoCodes.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeletePromoCode(db))                 // Удалить промокод
+			promoCodes.PUT("/:id/toggle", middleware.RequireAdmin(cfg), handlers.TogglePromoCode(db))             // Вкл/выкл промокод
+			promoCodes.DELETE("/:id", middleware.RequireAdmin(cfg), handlers.DeletePromoCode(db))                 // Удалить промокод
 		}
 
 		// Order returns / refunds (↩️ возвраты и споры)

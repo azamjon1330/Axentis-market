@@ -409,13 +409,15 @@ function AppContent() {
     return key;
   };
 
-  const handleUserLogin = (userData: any) => {
+  const handleUserLogin = async (userData: any) => {
     console.log('🔐 handleUserLogin called with userData:', userData);
     setPendingUser(userData);
-    
+
     // Check if this is admin login (already verified in LoginPage)
     if (userData.phone === '914751330') {
       console.log('✅ Admin detected! Opening admin panel...');
+      // Obtain a real admin JWT so the admin panel can call protected endpoints.
+      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       // Admin login - go directly to admin panel
       setUserType('admin');
       navigateTo('admin', true);
@@ -505,6 +507,8 @@ function AppContent() {
   const handleSmsVerify = async (code: string) => {
     // Check for admin access
     if (pendingUser.phone === '914751330' && code === '15051') {
+      // Obtain a real admin JWT so the admin panel can call protected endpoints.
+      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       setUserType('admin');
       navigateTo('admin', true);
       

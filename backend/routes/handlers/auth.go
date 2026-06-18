@@ -337,6 +337,43 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
+// LoginAdmin authenticates the platform administrator and issues a JWT with
+// the "admin" role. Credentials come from config (ADMIN_PHONE / ADMIN_CODE),
+// defaulting to the project's existing values. This replaces the previous
+// frontend-only admin check (which issued no token at all).
+func LoginAdmin(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Phone    string `json:"phone"`
+			Code     string `json:"code"`
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		// Accept the secret in either "code" or "password" for client flexibility.
+		secret := req.Code
+		if secret == "" {
+			secret = req.Password
+		}
+		if req.Phone != cfg.AdminPhone || secret != cfg.AdminCode {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid admin credentials"})
+			return
+		}
+		token, err := middleware.GenerateToken(cfg, 0, req.Phone, "admin")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"token":   token,
+			"admin":   gin.H{"phone": req.Phone, "role": "admin"},
+		})
+	}
+}
+
 // Login Company
 func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -432,8 +469,13 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			log.Printf("ℹ️ Company %d already has referral agent %d, ignoring new code", company.ID, *company.ReferralAgentID)
 		}
 
-		// Generate JWT token
-		tokenString, err := middleware.GenerateToken(cfg, company.ID, req.Phone, "company")
+		// Generate JWT token. The platform admin (matched by phone) gets the
+		// "admin" role so admin-only endpoints accept this token too.
+		role := "company"
+		if req.Phone == cfg.AdminPhone {
+			role = "admin"
+		}
+		tokenString, err := middleware.GenerateToken(cfg, company.ID, req.Phone, role)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return

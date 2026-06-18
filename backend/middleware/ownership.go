@@ -3,6 +3,7 @@ package middleware
 import (
 	"database/sql"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,6 +18,11 @@ import (
 // still passed as a bound parameter.
 func RequireResourceOwner(db *sql.DB, table string) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// The platform admin may act on any resource.
+		if c.GetString(CtxRole) == "admin" {
+			c.Next()
+			return
+		}
 		companyID := c.GetInt64(CtxCompanyID)
 		if companyID == 0 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
@@ -35,6 +41,29 @@ func RequireResourceOwner(db *sql.DB, table string) gin.HandlerFunc {
 		}
 		if !owner.Valid || owner.Int64 != companyID {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён: ресурс принадлежит другой компании"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequireAdminOrOwnCompany allows the request when the caller is the platform
+// admin, or when the authenticated company is acting on its OWN company record
+// (the :id path param equals the token's companyId). Used for routes that both
+// the admin (any company) and a company (itself) legitimately call.
+func RequireAdminOrOwnCompany() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetString(CtxRole) == "admin" {
+			c.Next()
+			return
+		}
+		companyID := c.GetInt64(CtxCompanyID)
+		if companyID == 0 {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+		if c.Param("id") != strconv.FormatInt(companyID, 10) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
 			return
 		}
 		c.Next()
