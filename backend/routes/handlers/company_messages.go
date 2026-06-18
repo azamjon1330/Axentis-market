@@ -83,7 +83,6 @@ log.Printf("📤 Attempting to send message to company ID: %d", input.CompanyID)
 		log.Printf("👀 SQL Error details: %T", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to send message",
-			"details": err.Error(),
 		})
 		return
 	}

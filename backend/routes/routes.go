@@ -78,26 +78,26 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.GET("", handlers.GetProducts(db)) // Все товары или с query param companyId
 			products.GET("/search", handlers.SearchProducts(db)) // 🔍 Умный поиск (с опечатками, ранжирование)
 			products.GET("/find-by-barcode", handlers.FindProductByBarcode(db)) // Поиск по штрих-коду (включая варианты)
-			products.POST("", handlers.CreateProduct(db))
-			products.PUT("/:id", handlers.UpdateProduct(db))
-			products.DELETE("/:id", handlers.DeleteProduct(db))
-			products.POST("/:id/images", handlers.UploadProductImages(db))
-			products.DELETE("/:id/images", handlers.DeleteProductImage(db))
+			products.POST("", middleware.RequireCompany(cfg), handlers.CreateProduct(db))
+			products.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateProduct(db))
+			products.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteProduct(db))
+			products.POST("/:id/images", middleware.RequireCompany(cfg), handlers.UploadProductImages(db))
+			products.DELETE("/:id/images", middleware.RequireCompany(cfg), handlers.DeleteProductImage(db))
 			products.GET("/:id", handlers.GetProductByID(db))
 			products.GET("/:id/reviews", handlers.GetProductReviews(db))
 			products.GET("/:id/review-stats", handlers.GetReviewStats(db))
 			products.GET("/:id/similar", handlers.GetSimilarProducts(db)) // 🔍 Похожие товары
 			// Variant routes — SKU management per product
 			products.GET("/:id/variants", handlers.GetProductVariants(db))
-			products.POST("/:id/variants", handlers.CreateProductVariant(db))
-			products.PUT("/:id/variants/:variantId", handlers.UpdateProductVariant(db))
-			products.DELETE("/:id/variants/:variantId", handlers.DeleteProductVariant(db))
+			products.POST("/:id/variants", middleware.RequireCompany(cfg), handlers.CreateProductVariant(db))
+			products.PUT("/:id/variants/:variantId", middleware.RequireCompany(cfg), handlers.UpdateProductVariant(db))
+			products.DELETE("/:id/variants/:variantId", middleware.RequireCompany(cfg), handlers.DeleteProductVariant(db))
 		}
 
 		// AI routes
 		ai := api.Group("/ai")
 		{
-			ai.POST("/parse-products", handlers.AIParseProducts())
+			ai.POST("/parse-products", middleware.RequireCompany(cfg), handlers.AIParseProducts())
 		}
 
 		// Reviews routes
@@ -115,16 +115,16 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.GET("/top", handlers.GetTopCompanies(db)) // ⭐ Хитовые магазины (рекомендации)
 			companies.GET("/:id", handlers.GetCompany(db))
 			companies.POST("/:id/verify-access", handlers.VerifyAccessKey(db))
-			companies.PUT("/:id", handlers.UpdateCompany(db))
-			companies.DELETE("/:id", handlers.DeleteCompany(db))
+			companies.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateCompany(db))
+			companies.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteCompany(db))
 			companies.POST("/:id/view", handlers.TrackCompanyView(db))
 			companies.GET("/:id/stats", handlers.GetCompanyStats(db))
 			companies.POST("/:id/subscribe", handlers.SubscribeToCompany(db))
 			companies.POST("/:id/unsubscribe", handlers.UnsubscribeFromCompany(db))
-			companies.PUT("/:id/expenses", handlers.UpdateCompanyExpenses(db))
-			companies.POST("/:id/upload-logo", handlers.UploadCompanyLogo(db))
-			companies.PUT("/:id/privacy", handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
-			companies.PUT("/:id/delivery", handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
+			companies.PUT("/:id/expenses", middleware.RequireCompany(cfg), handlers.UpdateCompanyExpenses(db))
+			companies.POST("/:id/upload-logo", middleware.RequireCompany(cfg), handlers.UploadCompanyLogo(db))
+			companies.PUT("/:id/privacy", middleware.RequireCompany(cfg), handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
+			companies.PUT("/:id/delivery", middleware.RequireCompany(cfg), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
 		}
@@ -133,13 +133,13 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		sales := api.Group("/sales")
 		{
 			sales.GET("", handlers.GetSales(db))
-			sales.POST("", handlers.CreateSale(db))
+			sales.POST("", middleware.RequireCompany(cfg), handlers.CreateSale(db))
 		}
 
 		// Cash Sales routes (для панели штрих-кода)
 		cashSales := api.Group("/cash-sales")
 		{
-			cashSales.POST("", handlers.CreateCashSale(db))
+			cashSales.POST("", middleware.RequireCompany(cfg), handlers.CreateCashSale(db))
 			cashSales.GET("", handlers.GetCashSales(db))
 		}
 
@@ -213,7 +213,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			notifications.GET("/unread-count", handlers.GetUnreadNotificationsCount(db))
 			notifications.PUT("/:id/read", handlers.MarkNotificationAsRead(db))
 			notifications.PUT("/mark-all-read", handlers.MarkAllNotificationsAsRead(db))
-			notifications.POST("/send", handlers.SendAdminNotification(db))      // Отправка от админа
+			notifications.POST("/send", middleware.RequireCompany(cfg), handlers.SendAdminNotification(db))      // Отправка от админа
 			notifications.GET("/users-list", handlers.GetAllUsersPhones(db))     // Список пользователей
 			notifications.POST("/push-token", handlers.SaveExpoPushToken(db))    // Сохранение Expo Push Token
 		}
@@ -221,8 +221,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Company Messages routes (📨 Сообщения компаниям от админа)
 		companyMessages := api.Group("/company-messages")
 		{
-			companyMessages.POST("/send", handlers.SendMessageToCompany(db))                         // Отправить компании
-			companyMessages.POST("/send-all", handlers.SendMessageToAllCompanies(db))                // Отправить всем
+			companyMessages.POST("/send", middleware.RequireCompany(cfg), handlers.SendMessageToCompany(db))                         // Отправить компании
+			companyMessages.POST("/send-all", middleware.RequireCompany(cfg), handlers.SendMessageToAllCompanies(db))                // Отправить всем
 			companyMessages.GET("/companies", handlers.GetAllCompaniesForMessages(db))               // Список компаний
 			companyMessages.GET("/company/:companyId", handlers.GetCompanyMessages(db))              // Сообщения компании
 			companyMessages.GET("/company/:companyId/count", handlers.GetCompanyMessagesCount(db))   // Кол-во непрочитанных
@@ -234,27 +234,27 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		expenses := api.Group("/expenses")
 		{
 			expenses.GET("", handlers.GetExpenses(db))
-			expenses.POST("", handlers.CreateExpense(db))
-			expenses.DELETE("/:id", handlers.DeleteExpense(db))
+			expenses.POST("", middleware.RequireCompany(cfg), handlers.CreateExpense(db))
+			expenses.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteExpense(db))
 		}
 
 		// Custom Expenses routes
 		customExpenses := api.Group("/custom-expenses")
 		{
 			customExpenses.GET("", handlers.GetCustomExpenses(db))
-			customExpenses.POST("", handlers.CreateCustomExpense(db))
-			customExpenses.PUT("/:id", handlers.UpdateCustomExpense(db))
-			customExpenses.DELETE("/:id", handlers.DeleteCustomExpense(db))
+			customExpenses.POST("", middleware.RequireCompany(cfg), handlers.CreateCustomExpense(db))
+			customExpenses.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateCustomExpense(db))
+			customExpenses.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteCustomExpense(db))
 		}
 
 		// Product Purchases routes (📦 История закупок товаров)
 		productPurchases := api.Group("/product-purchases")
 		{
 			productPurchases.GET("", handlers.GetProductPurchases(db))                  // Список закупок
-			productPurchases.POST("", handlers.CreateProductPurchase(db))              // Создание записи о закупке
+			productPurchases.POST("", middleware.RequireCompany(cfg), handlers.CreateProductPurchase(db))              // Создание записи о закупке
 			productPurchases.GET("/stats", handlers.GetProductPurchaseStats(db))       // Статистика закупок
-			productPurchases.PUT("/:id", handlers.UpdateProductPurchase(db))           // Обновление закупки
-			productPurchases.DELETE("/:id", handlers.DeleteProductPurchase(db))        // Удаление закупки
+			productPurchases.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateProductPurchase(db))           // Обновление закупки
+			productPurchases.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteProductPurchase(db))        // Удаление закупки
 		}
 
 		// Analytics routes
@@ -276,71 +276,71 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		ads := api.Group("/ads")
 		{
 			ads.GET("", handlers.GetApprovedAds(db))
-			ads.POST("", handlers.CreateAd(db))
-			ads.POST("/upload-image", handlers.UploadAdImage(db)) // 🆕 Загрузка изображения
-			ads.PUT("/:id/moderate", handlers.ModerateAd(db))
-			ads.PUT("/:id/link", handlers.UpdateAdLink(db))
-			ads.DELETE("/:id", handlers.DeleteAd(db))
-			ads.DELETE("/company/:companyId/all", handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
+			ads.POST("", middleware.RequireCompany(cfg), handlers.CreateAd(db))
+			ads.POST("/upload-image", middleware.RequireCompany(cfg), handlers.UploadAdImage(db)) // 🆕 Загрузка изображения
+			ads.PUT("/:id/moderate", middleware.RequireCompany(cfg), handlers.ModerateAd(db))
+			ads.PUT("/:id/link", middleware.RequireCompany(cfg), handlers.UpdateAdLink(db))
+			ads.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteAd(db))
+			ads.DELETE("/company/:companyId/all", middleware.RequireCompany(cfg), handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
 		}
 
 		// Categories routes (global, managed by admin)
 		categories := api.Group("/categories")
 		{
 			categories.GET("", gin.WrapF(handlers.GetCategories(db)))
-			categories.POST("", gin.WrapF(handlers.CreateCategory(db)))
-			categories.PUT("/:id", gin.WrapF(handlers.UpdateCategory(db)))
-			categories.DELETE("/:id", gin.WrapF(handlers.DeleteCategory(db)))
+			categories.POST("", middleware.RequireCompany(cfg), gin.WrapF(handlers.CreateCategory(db)))
+			categories.PUT("/:id", middleware.RequireCompany(cfg), gin.WrapF(handlers.UpdateCategory(db)))
+			categories.DELETE("/:id", middleware.RequireCompany(cfg), gin.WrapF(handlers.DeleteCategory(db)))
 			categories.GET("/products", gin.WrapF(handlers.GetProductsByCategory(db)))
 		}
 
 		// Discounts routes
 		discounts := api.Group("/discounts")
 		{
-			discounts.POST("", handlers.CreateDiscount(db))                       // Создание скидки компанией
+			discounts.POST("", middleware.RequireCompany(cfg), handlers.CreateDiscount(db))                       // Создание скидки компанией
 			discounts.GET("/company/:companyId", handlers.GetCompanyDiscounts(db)) // Скидки компании
 			discounts.GET("/all", handlers.GetAllDiscounts(db))                   // Все скидки (админ)
 			discounts.GET("/approved", handlers.GetApprovedDiscounts(db))         // Одобренные скидки (клиенты)
-			discounts.PUT("/:id/status", handlers.UpdateDiscountStatus(db))       // Обновление статуса (админ)
-			discounts.DELETE("/:id", handlers.DeleteDiscount(db))                 // Удаление скидки
+			discounts.PUT("/:id/status", middleware.RequireCompany(cfg), handlers.UpdateDiscountStatus(db))       // Обновление статуса (админ)
+			discounts.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteDiscount(db))                 // Удаление скидки
 		}
 
 		// Aggressive Discounts routes (🔥 Агрессивные скидки для распродажи)
 		aggressiveDiscounts := api.Group("/aggressive-discounts")
 		{
-			aggressiveDiscounts.POST("", handlers.CreateAggressiveDiscount(db))                       // Создание агрессивной скидки
+			aggressiveDiscounts.POST("", middleware.RequireCompany(cfg), handlers.CreateAggressiveDiscount(db))                       // Создание агрессивной скидки
 			aggressiveDiscounts.GET("/company/:companyId", handlers.GetCompanyAggressiveDiscounts(db)) // Агрессивные скидки компании
 			aggressiveDiscounts.GET("/approved", handlers.GetApprovedAggressiveDiscounts(db))         // Одобренные агрессивные скидки
 			aggressiveDiscounts.GET("/product/:productId", handlers.GetProductAggressiveDiscount(db)) // Агрессивная скидка товара
-			aggressiveDiscounts.DELETE("/:id", handlers.DeleteAggressiveDiscount(db))                // Удаление агрессивной скидки
+			aggressiveDiscounts.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteAggressiveDiscount(db))                // Удаление агрессивной скидки
 		}
 
 		// Referral Agents routes (👥 Реферальная система)
 		referrals := api.Group("/referrals")
 		{
-			referrals.POST("/agents", handlers.CreateReferralAgent(db))                    // Создание агента (админ)
-			referrals.POST("/agents/login", handlers.LoginReferralAgent(db))               // Вход агента
-			referrals.GET("/agents", handlers.GetReferralAgents(db))                       // Список агентов (админ)
+			referrals.POST("/agents", middleware.RequireCompany(cfg), handlers.CreateReferralAgent(db))                    // Создание агента (админ)
+			referrals.POST("/agents/login", handlers.LoginReferralAgent(db, cfg))               // Вход агента
+			referrals.GET("/agents", middleware.RequireCompany(cfg), handlers.GetReferralAgents(db)) // Список агентов (админ) — содержит креды
 			referrals.GET("/agents/:id/stats", handlers.GetReferralAgentStats(db))         // Статистика агента
 			referrals.GET("/agents/:id/analytics", handlers.GetAgentFinancialAnalytics(db)) // 💰 Финансовая аналитика агента
-			referrals.PUT("/agents/:id/password", handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
-			referrals.DELETE("/agents/:id", handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
+			referrals.PUT("/agents/:id/password", middleware.RequireCompany(cfg), handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
+			referrals.DELETE("/agents/:id", middleware.RequireCompany(cfg), handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
 			referrals.GET("/agents/:id/companies", handlers.GetMyReferredCompanies(db))    // Компании агента
 			referrals.GET("/validate/:code", handlers.ValidateReferralCode(db))            // Проверка кода
-			referrals.PUT("/companies/:id/toggle", handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
-			referrals.GET("/companies/all", handlers.GetCompaniesWithReferralInfo(db))     // Компании с реф. инфо (админ)
+			referrals.PUT("/companies/:id/toggle", middleware.RequireCompany(cfg), handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
+			referrals.GET("/companies/all", middleware.RequireCompany(cfg), handlers.GetCompaniesWithReferralInfo(db)) // Компании с реф. инфо (админ)
 		}
 
 		// Promo codes / coupons (🎟️ промокоды) — platform-wide or per-company
 		promoCodes := api.Group("/promo-codes")
 		{
-			promoCodes.POST("", handlers.CreatePromoCode(db))                       // Создать промокод
+			promoCodes.POST("", middleware.RequireCompany(cfg), handlers.CreatePromoCode(db))                       // Создать промокод
 			promoCodes.GET("/all", handlers.GetAllPromoCodes(db))                   // Все промокоды (админ)
 			promoCodes.GET("/company/:companyId", handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
 			promoCodes.POST("/validate", handlers.ValidatePromoCode(db))            // Проверить промокод (без списания)
 			promoCodes.POST("/redeem", handlers.RedeemPromoCode(db))                // Зафиксировать использование
-			promoCodes.PUT("/:id/toggle", handlers.TogglePromoCode(db))             // Вкл/выкл промокод
-			promoCodes.DELETE("/:id", handlers.DeletePromoCode(db))                 // Удалить промокод
+			promoCodes.PUT("/:id/toggle", middleware.RequireCompany(cfg), handlers.TogglePromoCode(db))             // Вкл/выкл промокод
+			promoCodes.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeletePromoCode(db))                 // Удалить промокод
 		}
 
 		// Order returns / refunds (↩️ возвраты и споры)
@@ -355,8 +355,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Product questions & answers (❓ вопросы к товару)
 		questions := api.Group("/questions")
 		{
-			questions.POST("/:id/answer", handlers.AnswerQuestion(db)) // Ответ продавца
-			questions.DELETE("/:id", handlers.DeleteQuestion(db))      // Удалить вопрос
+			questions.POST("/:id/answer", middleware.RequireCompany(cfg), handlers.AnswerQuestion(db)) // Ответ продавца
+			questions.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteQuestion(db))      // Удалить вопрос
 		}
 		// Per-product question routes live under /products for discoverability.
 		products.POST("/:id/questions", handlers.AskQuestion(db)) // Задать вопрос о товаре

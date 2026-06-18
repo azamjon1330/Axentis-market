@@ -68,8 +68,8 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"deliveryEnabled": comp.DeliveryEnabled,
 			}
 
-			// Возвращаем пароль для админ-панели (plaintext если не bcrypt, иначе маркер)
-			company["password"] = comp.PasswordHash
+			// SECURITY: never expose the password hash in this (publicly reachable)
+			// list response.
 			if comp.AccessKey.Valid {
 				company["accessKey"] = comp.AccessKey.String
 			}

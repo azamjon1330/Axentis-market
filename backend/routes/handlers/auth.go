@@ -283,7 +283,7 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 
 		if err != nil {
 			log.Println("❌ Error creating company:", err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company"})
 			return
 		}
 

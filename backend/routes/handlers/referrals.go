@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"azaton-backend/config"
+	"azaton-backend/middleware"
 	"crypto/rand"
 	"database/sql"
 	"fmt"
@@ -111,7 +113,7 @@ func CreateReferralAgent(db *sql.DB) gin.HandlerFunc {
 }
 
 // LoginReferralAgent - вход реферального агента
-func LoginReferralAgent(db *sql.DB) gin.HandlerFunc {
+func LoginReferralAgent(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
 			Phone    string `json:"phone" binding:"required"`
@@ -160,14 +162,19 @@ func LoginReferralAgent(db *sql.DB) gin.HandlerFunc {
 
 		log.Printf("✅ Referral agent logged in: ID=%d, Code=%s", agent.ID, agent.UniqueCode)
 
-		// Добавляем пароль в структуру агента
-		if password != "" {
-			agent.Password = &password
+		// Issue a real JWT (role "agent") instead of a placeholder token.
+		token, err := middleware.GenerateToken(cfg, agent.ID, agent.Phone, "agent")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
 		}
+
+		// Never echo the plaintext password back to the client on login.
+		agent.Password = nil
 
 		c.JSON(http.StatusOK, gin.H{
 			"agent": agent,
-			"token": "dummy_token", // TODO: implement JWT
+			"token": token,
 		})
 	}
 }
