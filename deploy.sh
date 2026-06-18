@@ -2,7 +2,7 @@
 # Quick Deploy Script for VPS
 # Save this as deploy.sh and run: bash deploy.sh
 
-VPS="root@109.123.253.238"
+VPS="root@77.237.242.126"
 PROJECT_DIR="/root/Axentis-market"
 
 echo "=== Deploying to VPS ==="
