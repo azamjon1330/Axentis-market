@@ -235,7 +235,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			expenses.GET("", handlers.GetExpenses(db))
 			expenses.POST("", middleware.RequireCompany(cfg), handlers.CreateExpense(db))
-			expenses.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteExpense(db))
+			expenses.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "expenses"), handlers.DeleteExpense(db))
 		}
 
 		// Custom Expenses routes
@@ -243,8 +243,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			customExpenses.GET("", handlers.GetCustomExpenses(db))
 			customExpenses.POST("", middleware.RequireCompany(cfg), handlers.CreateCustomExpense(db))
-			customExpenses.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateCustomExpense(db))
-			customExpenses.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteCustomExpense(db))
+			customExpenses.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "custom_expenses"), handlers.UpdateCustomExpense(db))
+			customExpenses.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "custom_expenses"), handlers.DeleteCustomExpense(db))
 		}
 
 		// Product Purchases routes (📦 История закупок товаров)
@@ -253,8 +253,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			productPurchases.GET("", handlers.GetProductPurchases(db))                  // Список закупок
 			productPurchases.POST("", middleware.RequireCompany(cfg), handlers.CreateProductPurchase(db))              // Создание записи о закупке
 			productPurchases.GET("/stats", handlers.GetProductPurchaseStats(db))       // Статистика закупок
-			productPurchases.PUT("/:id", middleware.RequireCompany(cfg), handlers.UpdateProductPurchase(db))           // Обновление закупки
-			productPurchases.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteProductPurchase(db))        // Удаление закупки
+			productPurchases.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_purchases"), handlers.UpdateProductPurchase(db))           // Обновление закупки
+			productPurchases.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_purchases"), handlers.DeleteProductPurchase(db))        // Удаление закупки
 		}
 
 		// Analytics routes
@@ -312,7 +312,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			aggressiveDiscounts.GET("/company/:companyId", handlers.GetCompanyAggressiveDiscounts(db)) // Агрессивные скидки компании
 			aggressiveDiscounts.GET("/approved", handlers.GetApprovedAggressiveDiscounts(db))         // Одобренные агрессивные скидки
 			aggressiveDiscounts.GET("/product/:productId", handlers.GetProductAggressiveDiscount(db)) // Агрессивная скидка товара
-			aggressiveDiscounts.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteAggressiveDiscount(db))                // Удаление агрессивной скидки
+			aggressiveDiscounts.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "aggressive_discounts"), handlers.DeleteAggressiveDiscount(db))                // Удаление агрессивной скидки
 		}
 
 		// Referral Agents routes (👥 Реферальная система)
