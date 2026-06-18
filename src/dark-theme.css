@@ -23,22 +23,22 @@
 }
 
 .dark {
-  --ax-bg:            #0F0F13;
-  --ax-surface:       #17171C;
-  --ax-sidebar:       #0C0C10;
-  --ax-sidebar-hover: rgba(255,255,255,0.06);
-  --ax-border:        #242430;
-  --ax-text:          #E6E3DC;
-  --ax-text-2:        #8E8C96;
-  --ax-text-3:        #56545E;
-  --ax-primary:       #7C6FE8;
-  --ax-primary-pale:  rgba(124, 111, 232, 0.15);
+  --ax-bg:            #0A0A18;
+  --ax-surface:       #0E0E1C;
+  --ax-sidebar:       #0C0C1A;
+  --ax-sidebar-hover: rgba(124, 92, 240, 0.12);
+  --ax-border:        rgba(255,255,255,0.07);
+  --ax-text:          #FFFFFF;
+  --ax-text-2:        #8B8BAA;
+  --ax-text-3:        #5A5A78;
+  --ax-primary:       #7C5CF0;
+  --ax-primary-pale:  rgba(124, 92, 240, 0.15);
   --ax-success:       #22C55E;
   --ax-danger:        #F87171;
   --ax-warning:       #FBBF24;
-  --ax-card:          #1C1C22;
-  --ax-input:         #1C1C22;
-  --ax-shadow:        0 1px 4px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+  --ax-card:          #13132A;
+  --ax-input:         #1A1A35;
+  --ax-shadow:        0 4px 24px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.4);
 }
 
 /* Темная тема для всех панелей компании */
@@ -104,7 +104,7 @@
 }
 
 .dark .bg-gradient-to-br {
-  background: linear-gradient(to bottom right, #1f2937, #111827) !important;
+  background: var(--ax-bg) !important;
 }
 
 /* DigitalWarehouse - Статистика */

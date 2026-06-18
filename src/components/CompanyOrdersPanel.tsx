@@ -254,31 +254,38 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     switch (status) {
       case 'confirmed':
         return (
-          <span className="flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(59,130,246,0.15)', color: '#60A5FA' }}>
             <Check className="w-3 h-3" /> {t.statusConfirmed}
+          </span>
+        );
+      case 'processing':
+        return (
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(124,92,240,0.15)', color: '#A78BFA' }}>
+            <Clock className="w-3 h-3" /> {t.statusConfirmed}
           </span>
         );
       case 'shipped':
         return (
-          <span className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(14,165,233,0.15)', color: '#38BDF8' }}>
             <Truck className="w-3 h-3" /> {t.statusShipped}
           </span>
         );
       case 'completed':
+      case 'delivered':
         return (
-          <span className="flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>
             <Check className="w-3 h-3" /> {t.completed}
           </span>
         );
       case 'cancelled':
         return (
-          <span className="flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(248,113,113,0.15)', color: '#F87171' }}>
             <X className="w-3 h-3" /> {t.cancelled}
           </span>
         );
       default:
         return (
-          <span className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-medium">
+          <span className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium" style={{ background: 'rgba(251,191,36,0.15)', color: '#FBBF24' }}>
             <Clock className="w-3 h-3" /> {t.waiting}
           </span>
         );
@@ -314,9 +321,9 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   }
 
   return (
-    <div className={responsive.spacing}>
+    <div className={responsive.spacing} style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
       {/* Header & Filters */}
-      <div className={`bg-white ${responsive.card} shadow-sm`}>
+      <div className={`${responsive.card}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
           <h2 className={`${responsive.subheading} font-bold text-gray-800 flex items-center ${responsive.gap}`}>
             <Receipt className={responsive.icon} />
@@ -400,41 +407,61 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
             <button
               onClick={() => setStatusFilter('all')}
-              className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+              style={{
+                borderRadius: 20,
+                background: statusFilter === 'all' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter === 'all' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter === 'all' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              }}
             >
               {t.all}
             </button>
             <button
               onClick={() => setStatusFilter('pending')}
-              className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'pending' ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100'
-              }`}
+              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+              style={{
+                borderRadius: 20,
+                background: statusFilter === 'pending' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter === 'pending' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter === 'pending' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              }}
             >
               {t.waitingOrders}
             </button>
             <button
               onClick={() => setStatusFilter('confirmed')}
-              className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'confirmed' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-              }`}
+              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+              style={{
+                borderRadius: 20,
+                background: statusFilter === 'confirmed' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter === 'confirmed' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter === 'confirmed' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              }}
             >
               {t.confirmedOrders}
             </button>
             <button
               onClick={() => setStatusFilter('shipped')}
-              className={`${responsive.buttonSmall} rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'shipped' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-              }`}
+              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+              style={{
+                borderRadius: 20,
+                background: statusFilter === 'shipped' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter === 'shipped' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter === 'shipped' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              }}
             >
               {t.shippedOrders}
             </button>
             <button
               onClick={() => setStatusFilter('cancelled')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                statusFilter === 'cancelled' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100'
-              }`}
+              className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors`}
+              style={{
+                borderRadius: 20,
+                background: statusFilter === 'cancelled' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter === 'cancelled' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter === 'cancelled' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+              }}
             >
               {t.cancelledOrders}
             </button>
@@ -445,7 +472,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
       {/* Orders List */}
       <div className={responsive.spacing}>
         {filteredOrders.length === 0 ? (
-          <div className={`text-center ${isMobile ? 'py-8' : 'py-12'} bg-white ${responsive.card} shadow-sm`}>
+          <div className={`text-center ${isMobile ? 'py-8' : 'py-12'} ${responsive.card}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <Package className={`${responsive.iconLarge} mx-auto text-gray-300 mb-4`} />
             <p className={`text-gray-500 ${responsive.body}`}>{t.ordersNotFound}</p>
           </div>
@@ -453,9 +480,12 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           filteredOrders.map((order) => (
             <div
               key={order.id}
-              className={`bg-white ${responsive.card} shadow-sm border transition-all duration-200 overflow-hidden ${
-                expandedOrderId === order.id ? 'ring-2 ring-blue-500 shadow-md' : 'border-gray-100 hover:border-blue-200'
-              }`}
+              className={`${responsive.card} transition-all duration-200 overflow-hidden`}
+              style={{
+                background: 'var(--ax-card)',
+                border: expandedOrderId === order.id ? '1px solid rgba(124,92,240,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                boxShadow: expandedOrderId === order.id ? '0 0 0 1px rgba(124,92,240,0.2)' : 'none',
+              }}
             >
               <div
                 onClick={() => toggleExpand(order.id)}
@@ -463,10 +493,10 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               >
                 {/* Code & Date */}
                 <div className={isMobile ? 'min-w-full' : 'min-w-[120px]'}>
-                  <div className={`font-mono font-bold ${isMobile ? 'text-base' : 'text-lg'} text-gray-800`}>
+                  <div className={`font-mono font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-text)' }}>
                     #{order.order_code}
                   </div>
-                  <div className={`${responsive.small} text-gray-500 flex items-center ${responsive.gap} mt-1`}>
+                  <div className={`${responsive.small} flex items-center ${responsive.gap} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
                     <Calendar className={responsive.iconSmall} />
                     {new Date(order.order_date || order.created_at || '').toLocaleDateString('ru-RU',
                       isMobile ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'long' }
@@ -476,12 +506,12 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
                 {/* Customer Info */}
                 <div className="flex-1">
-                  <div className={`flex items-center ${responsive.gap} font-medium text-gray-900`}>
+                  <div className={`flex items-center ${responsive.gap} font-medium`} style={{ color: 'var(--ax-text)' }}>
                     <User className={responsive.iconSmall} />
                     {order.user_name || t.guest}
                   </div>
                   {order.user_phone && (
-                    <div className={`flex items-center ${responsive.gap} ${responsive.small} text-gray-500 mt-1`}>
+                    <div className={`flex items-center ${responsive.gap} ${responsive.small} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
                       <Phone className={responsive.iconSmall} />
                       {order.user_phone}
                     </div>
@@ -491,16 +521,16 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                 {/* Amount & Status */}
                 <div className={`flex items-center justify-between ${!isMobile && 'md:justify-end'} gap-4 ${isMobile ? 'min-w-full' : 'min-w-[300px]'}`}>
                   <div className="text-right">
-                    <div className={`font-bold ${isMobile ? 'text-base' : 'text-lg'} text-blue-600`}>
+                    <div className={`font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-primary)' }}>
                       {formatPrice(order.total_amount)}
                     </div>
                     {order.markup_profit > 0 && (
-                      <div className={`${responsive.small} text-green-600 font-medium`}>
+                      <div className={`${responsive.small} font-medium`} style={{ color: '#22C55E' }}>
                         <DollarSign className="inline w-3 h-3 mr-1" />
                         +{formatPrice(order.markup_profit)}
                       </div>
                     )}
-                    <div className={`${responsive.small} text-gray-500`}>
+                    <div className={`${responsive.small}`} style={{ color: 'var(--ax-text-2)' }}>
                       {order.items?.length || 0} {t.products}
                     </div>
                   </div>
@@ -513,29 +543,29 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
               {/* Expanded Details */}
               {expandedOrderId === order.id && (
-                <div className={`border-t border-gray-100 bg-gray-50 ${isMobile ? 'p-3' : 'p-5'} animate-in slide-in-from-top-2`}>
+                <div className={`${isMobile ? 'p-3' : 'p-5'} animate-in slide-in-from-top-2`} style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
                   <div className={`flex flex-col lg:flex-row ${responsive.gapLarge}`}>
                     {/* Items List */}
                     <div className={`flex-1 ${responsive.spacing}`}>
-                      <h4 className={`${responsive.small} font-medium text-gray-700 uppercase tracking-wider mb-2`}>{t.orderComposition}</h4>
+                      <h4 className={`${responsive.small} font-medium uppercase tracking-wider mb-2`} style={{ color: 'var(--ax-text-2)' }}>{t.orderComposition}</h4>
                       {order.items.map((item, idx) => (
-                        <div key={idx} className={`flex items-center justify-between bg-white ${responsive.cardCompact} border border-gray-100`}>
+                        <div key={idx} className={`flex items-center justify-between ${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
                           <div className={`flex items-center ${responsive.gap}`}>
-                            <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} bg-gray-100 rounded-md flex items-center justify-center text-gray-400`}>
+                            <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-md flex items-center justify-center`} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--ax-text-2)' }}>
                               <Package className={responsive.iconSmall} />
                             </div>
                             <div>
-                              <div className={`font-medium text-gray-900 ${responsive.body}`}>{item.name}</div>
+                              <div className={`font-medium ${responsive.body}`} style={{ color: 'var(--ax-text)' }}>{item.name}</div>
                               {item.color && item.color !== 'Любой' && (
-                                <div className={`${responsive.small} text-gray-500`}>{t.color}: {item.color}</div>
+                                <div className={`${responsive.small}`} style={{ color: 'var(--ax-text-2)' }}>{t.color}: {item.color}</div>
                               )}
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className={`font-medium text-gray-900 ${responsive.small}`}>
+                            <div className={`font-medium ${responsive.small}`} style={{ color: 'var(--ax-text)' }}>
                               {item.quantity} {t.pcs}. × {formatPrice(item.price)}
                             </div>
-                            <div className={`font-bold text-blue-600 ${responsive.body}`}>
+                            <div className={`font-bold ${responsive.body}`} style={{ color: 'var(--ax-primary)' }}>
                               {formatPrice(item.total)}
                             </div>
                           </div>
@@ -545,18 +575,18 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
                     {/* Actions & Info */}
                     <div className={`lg:w-80 ${responsive.spacing}`}>
-                      <div className={`bg-white ${responsive.cardCompact} border border-gray-200`}>
-                        <h4 className={`${responsive.small} font-medium text-gray-700 mb-3`}>{t.orderDetails}</h4>
+                      <div className={`${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <h4 className={`${responsive.small} font-medium mb-3`} style={{ color: 'var(--ax-text-2)' }}>{t.orderDetails}</h4>
                         <div className={`${responsive.spacing} ${responsive.small}`}>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">{t.orderTime}:</span>
-                            <span className="font-medium">
+                            <span style={{ color: 'var(--ax-text-2)' }}>{t.orderTime}:</span>
+                            <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
                               {order.order_date ? formatUzbekistanFullDateTime(order.order_date) : '-'}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-500">{t.paymentMethod}:</span>
-                            <span className="font-medium">
+                            <span style={{ color: 'var(--ax-text-2)' }}>{t.paymentMethod}:</span>
+                            <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
                               {order.payment_method === 'demo_online' ? t.demoOnline :
                                order.payment_method === 'real_online' ? t.onlineCard : t.cashCheck}
                             </span>

@@ -168,7 +168,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           style={{
             padding: isMobile ? '14px' : '16px',
             borderBottom: '1px solid rgba(255,255,255,0.15)',
-            background: 'var(--ax-primary)',
+            background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
           }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -207,14 +207,19 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 onClick={() => handleNavigate(key)}
                 className="w-full flex items-center gap-2.5 transition-all duration-200"
                 style={{
-                  padding: isMobile ? '9px 12px' : '10px 14px',
+                  padding: isMobile
+                    ? (active ? '9px 9px' : '9px 12px')
+                    : (active ? '10px 11px' : '10px 14px'),
                   marginBottom: 2,
-                  borderRadius: 10,
-                  background: active ? 'var(--ax-primary)' : 'transparent',
+                  borderRadius: 12,
+                  background: active
+                    ? 'linear-gradient(135deg, rgba(124,92,240,0.9), rgba(91,61,212,0.9))'
+                    : 'transparent',
                   color: active ? '#fff' : 'var(--ax-text-2)',
                   fontWeight: active ? 600 : 500,
                   fontSize: isMobile ? 13 : 14,
                   border: 'none',
+                  borderLeft: active ? '3px solid rgba(255,255,255,0.6)' : '3px solid transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
                 }}
@@ -233,7 +238,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {/* Theme toggle */}
           <div
             className="flex items-center justify-between rounded-xl mb-2"
-            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+            style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}
           >
             <Sun className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
             <div className="flex gap-1">
@@ -272,7 +277,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {/* Language toggle */}
           <div
             className="flex items-center justify-between rounded-xl mb-2"
-            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+            style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}
           >
             <Globe className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
             <div className="flex gap-1">
@@ -337,8 +342,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         <header
           className="sticky top-0 z-10"
           style={{
-            background: 'var(--ax-surface)',
-            borderBottom: '1px solid var(--ax-border)',
+            background: 'var(--ax-sidebar)',
+            borderBottom: '1px solid rgba(124,92,240,0.15)',
           }}
         >
           <div

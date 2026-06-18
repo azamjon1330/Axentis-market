@@ -365,38 +365,41 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
     <div>
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Package className="w-5 h-5 text-blue-600" />
-            <div className="text-gray-600">{t.productsAvailable}</div>
+            <Package className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsAvailable}</div>
           </div>
-          <div className="text-3xl text-blue-600">{products.length}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{products.length}</div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Users className="w-5 h-5 text-green-600" />
-            <div className="text-gray-600">{t.availableForCustomers}</div>
+            <Users className="w-5 h-5" style={{ color: '#22C55E' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.availableForCustomers}</div>
           </div>
-          <div className="text-3xl text-green-600">
+          <div className="text-3xl" style={{ color: '#22C55E' }}>
             {products.filter(p => p.availableForCustomers).length}
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <ShoppingCart className="w-5 h-5 text-purple-600" />
-            <div className="text-gray-600">{t.productsSelected}</div>
+            <ShoppingCart className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsSelected}</div>
           </div>
-          <div className="text-3xl text-purple-600">{selectedForSale.size}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{selectedForSale.size}</div>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6 mb-6">
         <div className="flex flex-wrap gap-4">
           <button
             onClick={openSaleModal}
             disabled={selectedForSale.size === 0}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 text-white px-6 py-3 transition-colors disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', borderRadius: 12 }}
+            onMouseEnter={e => { if (selectedForSale.size > 0) (e.currentTarget as HTMLElement).style.opacity = '0.85'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
           >
             <ShoppingCart className="w-5 h-5" />
             {t.putOnSale} ({selectedForSale.size})
@@ -438,7 +441,8 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               }
             }}
             disabled={selectedForSale.size === 0}
-            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 text-white px-6 py-3 transition-colors disabled:cursor-not-allowed"
+            style={{ background: selectedForSale.size === 0 ? 'rgba(255,255,255,0.05)' : '#dc2626', borderRadius: 12 }}
           >
             <X className="w-5 h-5" />
             {t.removeFromSale} ({selectedForSale.size})
@@ -446,11 +450,15 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
           <button
             onClick={handleSelectAll}
             disabled={products.length === 0}
-            className={`flex items-center gap-2 text-white px-6 py-3 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
-              selectedForSale.size === products.length && products.length > 0
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-purple-600 hover:bg-purple-700'
-            }`}
+            className="flex items-center gap-2 text-white px-6 py-3 transition-colors disabled:cursor-not-allowed"
+            style={{
+              background: products.length === 0
+                ? 'rgba(255,255,255,0.05)'
+                : selectedForSale.size === products.length && products.length > 0
+                  ? '#22C55E'
+                  : 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
+              borderRadius: 12
+            }}
           >
             {selectedForSale.size === products.length && products.length > 0 ? (
               <>
@@ -468,18 +476,25 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+      <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6 mb-6">
         <div className="flex items-center gap-4">
-          <Search className="w-5 h-5 text-gray-500" />
+          <Search className="w-5 h-5" style={{ color: '#8B8BAA' }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full focus:outline-none"
+            style={{
+              background: 'var(--ax-input)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              color: 'var(--ax-text)',
+            }}
             placeholder={t.searchByName}
           />
           {searchQuery && (
-            <div className="text-sm text-gray-600 whitespace-nowrap">
+            <div className="text-sm whitespace-nowrap" style={{ color: '#8B8BAA' }}>
               Найдено: {filteredProducts.length}
             </div>
           )}
@@ -488,45 +503,46 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
       {/* Found Order Receipt */}
       {foundOrder && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6 mb-6">
           <div className="flex items-center gap-3 mb-6">
-            <Receipt className="w-6 h-6 text-orange-600" />
-            <h2 className="text-orange-600">{t.foundOrder} ({t.receipt} #{foundOrder.id})</h2>
+            <Receipt className="w-6 h-6" style={{ color: '#7C5CF0' }} />
+            <h2 style={{ color: '#FFFFFF' }}>{t.foundOrder} ({t.receipt} #{foundOrder.id})</h2>
           </div>
           <div className="space-y-4">
-            <div key={foundOrder.id} className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
+            <div key={foundOrder.id} style={{ background: 'rgba(124,92,240,0.08)', border: '1px solid rgba(124,92,240,0.25)', borderRadius: 12 }} className="p-6">
               {/* Order Header */}
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <div className="flex items-center gap-3 mb-2">
-                    <h3>{t.receipt} #{foundOrder.order_code || foundOrder.id}</h3>
-                    <span className="bg-orange-600 text-white px-3 py-1 rounded-full text-xs">
+                    <h3 style={{ color: '#FFFFFF' }}>{t.receipt} #{foundOrder.order_code || foundOrder.id}</h3>
+                    <span className="px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(124,92,240,0.3)', color: '#7C5CF0' }}>
                       {t.pendingPayment}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm" style={{ color: '#8B8BAA' }}>
                     <div className="flex items-center gap-2 mb-1">
                       <Users className="w-4 h-4" />
                       <span>{foundOrder.user_name || t.guest}</span>
                     </div>
                     {foundOrder.user_phone && (
-                      <div className="text-sm text-gray-600 flex items-center gap-1 mb-1">
+                      <div className="text-sm flex items-center gap-1 mb-1" style={{ color: '#8B8BAA' }}>
                         📱 {foundOrder.user_phone}
                       </div>
                     )}
-                    <div className="text-sm text-gray-500 flex items-center gap-1">
+                    <div className="text-sm flex items-center gap-1" style={{ color: '#8B8BAA' }}>
                       <Clock className="w-3 h-3" />
                       {formatUzbekistanFullDateTime(foundOrder.order_date)}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-2xl text-orange-600 mb-2">
+                  <div className="text-2xl mb-2" style={{ color: '#7C5CF0', fontWeight: 700 }}>
                     {formatPrice(foundOrder.total_amount)}
                   </div>
                   <button
                     onClick={() => handleConfirmPayment(foundOrder.id)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex items-center gap-2 text-white px-6 py-3 transition-colors"
+                    style={{ background: '#22C55E', borderRadius: 12 }}
                   >
                     <DollarSign className="w-5 h-5" />
                     {t.paymentReceived}
@@ -535,16 +551,16 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               </div>
 
               {/* Order Items */}
-              <div className="border-t border-orange-200 pt-4">
-                <div className="text-sm text-gray-600 mb-2">{t.orderItems}</div>
+              <div className="pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="text-sm mb-2" style={{ color: '#8B8BAA' }}>{t.orderItems}</div>
                 <div className="space-y-2">
                   {foundOrder.items.map((item: any, index: number) => (
-                    <div key={index} className="flex justify-between text-sm bg-white rounded p-3">
+                    <div key={index} className="flex justify-between text-sm p-3" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 8 }}>
                       <div>
-                        <span className="">{item.name}</span>
-                        <span className="text-gray-600 ml-2">× {item.quantity} {t.pcs}</span>
+                        <span style={{ color: '#FFFFFF' }}>{item.name}</span>
+                        <span className="ml-2" style={{ color: '#8B8BAA' }}>× {item.quantity} {t.pcs}</span>
                       </div>
-                      <div className="text-gray-700">
+                      <div style={{ color: '#8B8BAA' }}>
                         {formatPrice(item.total)}
                       </div>
                     </div>
@@ -558,18 +574,24 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
       {/* Products Grid */}
       {filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm p-12 text-center text-gray-500">
-          <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <p>{t.noProductsInStock}</p>
+        <div className="p-12 text-center" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
+          <Package className="w-16 h-16 mx-auto mb-4" style={{ color: '#8B8BAA' }} />
+          <p style={{ color: '#8B8BAA' }}>{t.noProductsInStock}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => (
-            <div 
-              key={product.id} 
-              className={`bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer ${
-                selectedForSale.has(product.id) ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-200/50' : 'hover:shadow-blue-100'
-              }`}
+            <div
+              key={product.id}
+              className="overflow-hidden transition-all duration-300 hover:scale-105 cursor-pointer"
+              style={{
+                background: 'var(--ax-card)',
+                border: selectedForSale.has(product.id) ? '1px solid rgba(124,92,240,0.6)' : '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 14,
+                boxShadow: selectedForSale.has(product.id) ? '0 0 0 2px rgba(124,92,240,0.2)' : 'none',
+              }}
+              onMouseEnter={e => { if (!selectedForSale.has(product.id)) (e.currentTarget as HTMLElement).style.border = '1px solid rgba(124,92,240,0.3)'; }}
+              onMouseLeave={e => { if (!selectedForSale.has(product.id)) (e.currentTarget as HTMLElement).style.border = '1px solid rgba(255,255,255,0.07)'; }}
               onClick={(e) => {
                 // Если клик не на checkbox или иконку карандаша - открываем детали
                 if (!(e.target as HTMLElement).closest('button')) {
@@ -579,16 +601,17 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               }}
             >
               {/* Product Image */}
-              <div className="relative h-48 bg-gray-100">
+              <div className="relative h-48" style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px 10px 0 0' }}>
                 {/* Checkbox for selection */}
                 <button
                   onClick={() => toggleProductSelection(product.id)}
-                  className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors z-10"
+                  className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center rounded-lg shadow-md transition-colors z-10"
+                  style={{ background: 'rgba(19,19,42,0.85)' }}
                 >
                   {selectedForSale.has(product.id) ? (
-                    <CheckSquare className="w-5 h-5 text-blue-600" />
+                    <CheckSquare className="w-5 h-5" style={{ color: '#7C5CF0' }} />
                   ) : (
-                    <Square className="w-5 h-5 text-gray-400" />
+                    <Square className="w-5 h-5" style={{ color: '#8B8BAA' }} />
                   )}
                 </button>
                 
@@ -601,7 +624,8 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                     setEditingProductDescription(true);
                     loadCompanyInfo(); // Load company info in background
                   }}
-                  className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg shadow-md hover:bg-green-700 transition-colors z-10"
+                  className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center rounded-lg shadow-md transition-colors z-10"
+                  style={{ background: '#22C55E' }}
                   title={t.editProductDescTitle}
                 >
                   <Pencil className="w-4 h-4 text-white" />
@@ -626,7 +650,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                   // Иначе - дефолтное изображение
                   return (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-16 h-16 text-gray-300" />
+                      <Package className="w-16 h-16" style={{ color: '#8B8BAA' }} />
                     </div>
                   );
                 })()}
@@ -635,14 +659,14 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               {/* Product Info */}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="line-clamp-2 flex-1">{product.name}</h3>
+                  <h3 className="line-clamp-2 flex-1" style={{ color: '#FFFFFF' }}>{product.name}</h3>
                   {product.availableForCustomers ? (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>
                       <Users className="w-3 h-3" />
                       <span>{t.onSale}</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium whitespace-nowrap">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap" style={{ background: 'rgba(255,255,255,0.07)', color: '#8B8BAA' }}>
                       <Users className="w-3 h-3" />
                       <span>{t.notOnSale}</span>
                     </div>
@@ -651,16 +675,16 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                 <div className="mb-3">
                   {product.markupPercent && product.markupPercent > 0 ? (
                     <>
-                      <div className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</div>
-                      <div className="text-blue-600 mb-1 text-lg">
-                        {formatPrice(getPriceWithMarkup(product))} <span className="text-xs text-orange-600">+{product.markupPercent}%</span>
+                      <div className="text-xs line-through" style={{ color: '#8B8BAA' }}>{formatPrice(product.price)}</div>
+                      <div className="mb-1 text-lg" style={{ color: '#7C5CF0' }}>
+                        {formatPrice(getPriceWithMarkup(product))} <span className="text-xs" style={{ color: '#f97316' }}>+{product.markupPercent}%</span>
                       </div>
                     </>
                   ) : (
-                    <div className="text-blue-600 mb-1">{formatPrice(product.price)}</div>
+                    <div className="mb-1" style={{ color: '#7C5CF0' }}>{formatPrice(product.price)}</div>
                   )}
-                  <div className="text-sm text-gray-600">
-                    {t.inStock}: <span className="font-medium">{product.quantity} {t.pcs}</span>
+                  <div className="text-sm" style={{ color: '#8B8BAA' }}>
+                    {t.inStock}: <span className="font-medium" style={{ color: '#FFFFFF' }}>{product.quantity} {t.pcs}</span>
                   </div>
                 </div>
               </div>
@@ -671,12 +695,12 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
       {/* Sale Confirmation Modal */}
       {showSaleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
             {/* Modal Header */}
-            <div className="bg-blue-600 text-white p-6">
-              <h2 className="text-2xl">{t.listForCustomers}</h2>
-              <p className="text-blue-100 text-sm mt-1">{t.listForCustomersDesc}</p>
+            <div className="p-6 text-white" style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' }}>
+              <h2 className="text-2xl" style={{ color: '#FFFFFF' }}>{t.listForCustomers}</h2>
+              <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.listForCustomersDesc}</p>
             </div>
 
             {/* Modal Content */}
@@ -687,13 +711,13 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                   if (!product) return null;
 
                   return (
-                    <div key={productId} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div key={productId} className="flex items-center gap-4 p-4" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)' }}>
                       <div className="flex-1">
-                        <h3 className="mb-1">{product.name}</h3>
-                        <div className="text-sm text-gray-600">
+                        <h3 className="mb-1" style={{ color: '#FFFFFF' }}>{product.name}</h3>
+                        <div className="text-sm" style={{ color: '#8B8BAA' }}>
                           {product.markupPercent && product.markupPercent > 0 ? (
                             <>
-                              {t.price}: <span className="line-through text-gray-400">{formatPrice(product.price)}</span> → <span className="text-blue-600">{formatPrice(getPriceWithMarkup(product))}</span> <span className="text-orange-600">+{product.markupPercent}%</span> | {t.inStock}: {product.quantity} {t.pcs}
+                              {t.price}: <span className="line-through" style={{ color: '#8B8BAA' }}>{formatPrice(product.price)}</span> → <span style={{ color: '#7C5CF0' }}>{formatPrice(getPriceWithMarkup(product))}</span> <span style={{ color: '#f97316' }}>+{product.markupPercent}%</span> | {t.inStock}: {product.quantity} {t.pcs}
                             </>
                           ) : (
                             <>
@@ -703,11 +727,10 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`px-3 py-1 rounded text-sm ${
-                          product.availableForCustomers 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
+                        <div className="px-3 py-1 rounded text-sm" style={{
+                          background: product.availableForCustomers ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.07)',
+                          color: product.availableForCustomers ? '#22C55E' : '#8B8BAA',
+                        }}>
                           {product.availableForCustomers ? t.alreadyOnSale : t.willBeListed}
                         </div>
                       </div>
@@ -717,12 +740,12 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               </div>
 
               {/* Info */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                  <Users className="w-6 h-6 text-blue-600" />
+              <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="flex items-center gap-3 p-4" style={{ background: 'rgba(124,92,240,0.1)', borderRadius: 10, border: '1px solid rgba(124,92,240,0.2)' }}>
+                  <Users className="w-6 h-6" style={{ color: '#7C5CF0' }} />
                   <div className="flex-1">
-                    <div className="">{t.productsAvailableForCustomers}</div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div style={{ color: '#FFFFFF' }}>{t.productsAvailableForCustomers}</div>
+                    <div className="text-sm mt-1" style={{ color: '#8B8BAA' }}>
                       Покупатели смогут увидеть эти товары в магазине и оформить заказ
                     </div>
                   </div>
@@ -731,16 +754,18 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-gray-50 p-6 flex gap-4">
+            <div className="p-6 flex gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <button
                 onClick={() => setShowSaleModal(false)}
-                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors"
+                className="flex-1 py-3 transition-colors"
+                style={{ background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)' }}
               >
                 Отмена
               </button>
               <button
                 onClick={handleConfirmMakeAvailable}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 text-white py-3 transition-colors flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', borderRadius: 12 }}
               >
                 <Users className="w-5 h-5" />
                 Выставить для покупателей
@@ -752,17 +777,18 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
       {/* Product Details Modal */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedProduct(null)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setSelectedProduct(null)}>
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} onClick={(e) => e.stopPropagation()}>
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 flex justify-between items-start">
+            <div className="p-6 flex justify-between items-start" style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' }}>
               <div>
-                <h2 className="text-2xl font-bold">{selectedProduct.name}</h2>
-                <p className="text-purple-100 text-sm mt-1">{t.productDetailsDesc}</p>
+                <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{selectedProduct.name}</h2>
+                <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.productDetailsDesc}</p>
               </div>
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                className="p-2 rounded-lg transition-colors"
+                style={{ color: '#FFFFFF' }}
               >
                 <X className="w-6 h-6" />
               </button>
@@ -782,7 +808,7 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                         {images.map((img, idx) => {
                           const imageUrl = getImageUrl(img) || img;
                           return (
-                            <div key={idx} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                            <div key={idx} className="aspect-square rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                               <ImageWithFallback
                                 src={imageUrl}
                                 alt={`${selectedProduct.name} ${idx + 1}`}
@@ -796,30 +822,30 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                   }
 
                   return (
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Package className="w-16 h-16 text-gray-300" />
+                    <div className="aspect-square rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <Package className="w-16 h-16" style={{ color: '#8B8BAA' }} />
                     </div>
                   );
                 })()}
               </div>
 
               {/* Price and Stock */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 mb-6">
+              <div className="rounded-lg p-4 mb-6" style={{ background: 'rgba(124,92,240,0.1)', border: '1px solid rgba(124,92,240,0.2)' }}>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-600 mb-1">{t.sellingPrice}</div>
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-sm mb-1" style={{ color: '#8B8BAA' }}>{t.sellingPrice}</div>
+                    <div className="text-2xl font-bold" style={{ color: '#7C5CF0' }}>
                       {formatPrice(getPriceWithMarkup(selectedProduct))}
                     </div>
                     {selectedProduct.markupPercent && selectedProduct.markupPercent > 0 && (
-                      <div className="text-xs text-orange-600 mt-1">
+                      <div className="text-xs mt-1" style={{ color: '#f97316' }}>
                         +{selectedProduct.markupPercent}% наценка
                       </div>
                     )}
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600 mb-1">{t.inStock}</div>
-                    <div className="text-2xl font-bold text-green-600">
+                    <div className="text-sm mb-1" style={{ color: '#8B8BAA' }}>{t.inStock}</div>
+                    <div className="text-2xl font-bold" style={{ color: '#22C55E' }}>
                       {selectedProduct.quantity} {t.pcs}
                     </div>
                   </div>
@@ -828,32 +854,35 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
               {/* 🆕 ОПИСАНИЕ КОНКРЕТНОГО ТОВАРА */}
               <div className="mb-6">
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+                <div className="rounded-lg p-4" style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-green-600" />
+                    <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: '#FFFFFF' }}>
+                      <FileText className="w-5 h-5" style={{ color: '#22C55E' }} />
                       📄 Описание этого товара
                     </h3>
                     <button
                       onClick={() => setEditingProductDescription(!editingProductDescription)}
-                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      className="px-3 py-1 text-sm text-white transition-colors"
+                      style={{ background: '#22C55E', borderRadius: 8 }}
                     >
                       {editingProductDescription ? t.cancel : '✏️ ' + t.editButton}
                     </button>
                   </div>
-                  
+
                   {editingProductDescription ? (
                     <div className="space-y-3">
                       <textarea
                         value={productDescriptionDraft}
                         onChange={(e) => setProductDescriptionDraft(e.target.value)}
                         placeholder={t.describeProduct}
-                        className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm resize-none h-32 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                        className="w-full px-3 py-2 text-sm resize-none h-32 outline-none"
+                        style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF' }}
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={saveProductDescription}
-                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+                          className="flex-1 text-white px-4 py-2 text-sm font-medium"
+                          style={{ background: '#22C55E', borderRadius: 8 }}
                         >
                           💾 Сохранить
                         </button>
@@ -862,18 +891,19 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                             setEditingProductDescription(false);
                             setProductDescriptionDraft(selectedProduct.description || '');
                           }}
-                          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                          className="flex-1 px-4 py-2 text-sm font-medium"
+                          style={{ background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', borderRadius: 8 }}
                         >
                           Отмена
                         </button>
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs" style={{ color: '#8B8BAA' }}>
                         💡 Это описание будет показано покупателям для ЭТОГО товара
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white border border-green-200 rounded-lg p-3">
-                      <p className="text-gray-700 whitespace-pre-wrap text-sm">
+                    <div className="rounded-lg p-3" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <p className="whitespace-pre-wrap text-sm" style={{ color: '#8B8BAA' }}>
                         {selectedProduct.description || t.noDescriptionClickEdit}
                       </p>
                     </div>
@@ -882,76 +912,80 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               </div>
 
               {/* Company Profile Section - Collapsible */}
-              <div className="border-t border-gray-200 pt-6">
+              <div className="pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                 <button
                   onClick={() => setShowCompanyProfile(!showCompanyProfile)}
-                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg hover:from-purple-100 hover:to-blue-100 transition-all"
+                  className="w-full flex items-center justify-between p-4 rounded-lg transition-all"
+                  style={{ background: 'rgba(124,92,240,0.1)', border: '1px solid rgba(124,92,240,0.2)' }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-600 rounded-lg">
+                    <div className="p-2 rounded-lg" style={{ background: '#7C5CF0' }}>
                       <ShoppingCart className="w-5 h-5 text-white" />
                     </div>
                     <div className="text-left">
-                      <div className="font-bold text-gray-800">{t.storeInfo}</div>
-                      <div className="text-sm text-gray-600">
+                      <div className="font-bold" style={{ color: '#FFFFFF' }}>{t.storeInfo}</div>
+                      <div className="text-sm" style={{ color: '#8B8BAA' }}>
                         {companyInfo?.name || t.loading}
                       </div>
                     </div>
                   </div>
                   <div className={`transform transition-transform ${showCompanyProfile ? 'rotate-180' : ''}`}>
-                    <ChevronDown className="w-5 h-5 text-gray-600" />
+                    <ChevronDown className="w-5 h-5" style={{ color: '#8B8BAA' }} />
                   </div>
                 </button>
 
                 {showCompanyProfile && companyInfo && (
-                  <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4 animate-in slide-in-from-top duration-200">
+                  <div className="mt-4 p-4 animate-in slide-in-from-top duration-200" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10 }}>
                     <div className="space-y-3">
                       <div>
-                        <div className="text-sm text-gray-600">{t.storeName}</div>
-                        <div className="font-medium text-gray-900">{companyInfo.name}</div>
+                        <div className="text-sm" style={{ color: '#8B8BAA' }}>{t.storeName}</div>
+                        <div className="font-medium" style={{ color: '#FFFFFF' }}>{companyInfo.name}</div>
                       </div>
                       {companyInfo.phone && (
                         <div>
-                          <div className="text-sm text-gray-600">{t.storePhone}</div>
-                          <div className="font-medium text-gray-900">{companyInfo.phone}</div>
+                          <div className="text-sm" style={{ color: '#8B8BAA' }}>{t.storePhone}</div>
+                          <div className="font-medium" style={{ color: '#FFFFFF' }}>{companyInfo.phone}</div>
                         </div>
                       )}
                       {companyInfo.address && (
                         <div>
-                          <div className="text-sm text-gray-600">{t.storeAddress}</div>
-                          <div className="font-medium text-gray-900">{companyInfo.address}</div>
+                          <div className="text-sm" style={{ color: '#8B8BAA' }}>{t.storeAddress}</div>
+                          <div className="font-medium" style={{ color: '#FFFFFF' }}>{companyInfo.address}</div>
                         </div>
                       )}
-                      <div className="pt-3 border-t border-gray-200">
-                        <div className="text-xs text-gray-500">
+                      <div className="pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="text-xs" style={{ color: '#8B8BAA' }}>
                           {t.productsAvailable}: {products.reduce((sum, p) => sum + p.quantity, 0)} {t.pcs} ({products.filter(p => p.quantity > 0).length} {t.category})
                         </div>
                       </div>
 
                       {/* 🆕 Описание товаров компании */}
-                      <div className="pt-3 border-t border-gray-200">
+                      <div className="pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
                         <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-gray-600">📝 Описание товаров</div>
+                          <div className="text-sm" style={{ color: '#8B8BAA' }}>📝 Описание товаров</div>
                           <button
                             onClick={() => setEditingProductsDescription(!editingProductsDescription)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                            className="text-xs font-medium"
+                            style={{ color: '#7C5CF0' }}
                           >
                             {editingProductsDescription ? t.cancel : t.editButton}
                           </button>
                         </div>
-                        
+
                         {editingProductsDescription ? (
                           <div className="space-y-2">
                             <textarea
                               value={productsDescriptionDraft}
                               onChange={(e) => setProductsDescriptionDraft(e.target.value)}
                               placeholder={t.describeProducts}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none h-32"
+                              className="w-full px-3 py-2 text-sm resize-none h-32 outline-none"
+                              style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF' }}
                             />
                             <div className="flex gap-2">
                               <button
                                 onClick={saveProductsDescription}
-                                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
+                                className="flex-1 text-white px-4 py-2 text-sm font-medium"
+                                style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', borderRadius: 8 }}
                               >
                                 💾 Сохранить
                               </button>
@@ -960,17 +994,18 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
                                   setEditingProductsDescription(false);
                                   setProductsDescriptionDraft(companyInfo.productsDescription || '');
                                 }}
-                                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                                className="flex-1 px-4 py-2 text-sm font-medium"
+                                style={{ background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', borderRadius: 8 }}
                               >
                                 Отмена
                               </button>
                             </div>
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs" style={{ color: '#8B8BAA' }}>
                               💡 Совет: Ссылки будут автоматически кликабельными в профиле компании
                             </div>
                           </div>
                         ) : (
-                          <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                          <div className="text-sm whitespace-pre-wrap" style={{ color: '#8B8BAA' }}>
                             {companyInfo.productsDescription || t.noDescription}
                           </div>
                         )}
@@ -982,10 +1017,11 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-gray-50 p-6 flex gap-4">
+            <div className="p-6 flex gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <button
                 onClick={() => setSelectedProduct(null)}
-                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                className="flex-1 py-3 font-medium transition-colors"
+                style={{ background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)' }}
               >
                 Закрыть
               </button>
