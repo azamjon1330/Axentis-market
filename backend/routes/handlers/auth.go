@@ -13,6 +13,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// userConfig is set once by the router setup so user auth handlers can issue tokens.
+var userCfg *config.Config
+
+// InitUserConfig must be called once at startup with the application config.
+func InitUserConfig(cfg *config.Config) {
+	userCfg = cfg
+}
+
 // generateAccessKey создает 30-значный ключ доступа из цифр
 func generateAccessKey() string {
 	const chars = "0123456789"
@@ -104,19 +112,29 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		response := gin.H{
-			"success": true,
-			"user": gin.H{
-				"id":      userID,
-				"phone":   req.Phone,
-				"name":    fullName,
-				"surname": req.Surname,
-				"mode":    req.Mode,
-			},
+		userObj := gin.H{
+			"id":      userID,
+			"phone":   req.Phone,
+			"name":    fullName,
+			"surname": req.Surname,
+			"mode":    req.Mode,
 		}
 		if privateCompanyID != nil {
-			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
+			userObj["privateCompanyId"] = *privateCompanyID
 		}
+
+		response := gin.H{
+			"success": true,
+			"user":    userObj,
+		}
+
+		// Issue a JWT so the mobile client can make authenticated requests.
+		if userCfg != nil {
+			if tok, err := middleware.GenerateToken(userCfg, userID, req.Phone, "user"); err == nil {
+				response["token"] = tok
+			}
+		}
+
 		log.Printf("✅ User registered: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}
@@ -198,19 +216,28 @@ func LoginUser(db *sql.DB) gin.HandlerFunc {
 		_, _ = db.Exec(`UPDATE users SET mode = $1, private_company_id = $2, updated_at = NOW() WHERE id = $3`,
 			req.Mode, privateCompanyID, userID)
 
-		response := gin.H{
-			"success": true,
-			"user": gin.H{
-				"id":      userID,
-				"phone":   req.Phone,
-				"name":    name.String,
-				"surname": surname.String,
-				"mode":    req.Mode,
-			},
+		userObj := gin.H{
+			"id":      userID,
+			"phone":   req.Phone,
+			"name":    name.String,
+			"surname": surname.String,
+			"mode":    req.Mode,
 		}
 		if privateCompanyID != nil {
-			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
+			userObj["privateCompanyId"] = *privateCompanyID
 		}
+
+		response := gin.H{
+			"success": true,
+			"user":    userObj,
+		}
+
+		if userCfg != nil {
+			if tok, err := middleware.GenerateToken(userCfg, userID, req.Phone, "user"); err == nil {
+				response["token"] = tok
+			}
+		}
+
 		log.Printf("✅ User logged in: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}

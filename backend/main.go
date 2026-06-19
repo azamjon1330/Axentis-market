@@ -34,6 +34,9 @@ func main() {
 		log.Fatal("Failed to run migrations:", err)
 	}
 
+	// Provide config to user auth handlers so they can issue JWT tokens.
+	handlers.InitUserConfig(cfg)
+
 	// Initialize Firebase Admin SDK (опционально - работает с Expo fallback)
 	_, err = handlers.InitFirebase()
 	if err != nil {

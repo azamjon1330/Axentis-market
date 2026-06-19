@@ -132,6 +132,15 @@ func Migrate(db *sql.DB) error {
 		id BIGSERIAL PRIMARY KEY,
 		phone VARCHAR(20) UNIQUE NOT NULL,
 		name VARCHAR(255),
+		surname VARCHAR(255),
+		password_hash VARCHAR(255),
+		mode VARCHAR(10) DEFAULT 'public' CHECK (mode IN ('public', 'private')),
+		private_company_id BIGINT,
+		avatar_url TEXT,
+		default_delivery_address TEXT,
+		default_delivery_coordinates TEXT,
+		default_recipient_name TEXT,
+		expo_push_token TEXT,
 		cart JSONB DEFAULT '{}'::jsonb,
 		likes JSONB DEFAULT '[]'::jsonb,
 		receipts JSONB DEFAULT '[]'::jsonb,
@@ -139,13 +148,31 @@ func Migrate(db *sql.DB) error {
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
-	-- Add avatar_url column if it doesn't exist
+	-- Ensure all user columns exist (idempotent — safe to re-run on existing DBs)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'surname VARCHAR(255)',
+		'password_hash VARCHAR(255)',
+		'mode VARCHAR(10) DEFAULT ''public''',
+		'private_company_id BIGINT',
+		'avatar_url TEXT',
+		'default_delivery_address TEXT',
+		'default_delivery_coordinates TEXT',
+		'default_recipient_name TEXT',
+		'expo_push_token TEXT'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-		               WHERE table_name='users' AND column_name='avatar_url') THEN
-			ALTER TABLE users ADD COLUMN avatar_url TEXT;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'users' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE users ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
@@ -299,12 +326,20 @@ func runMigrationFiles(db *sql.DB, dir string) error {
 
 		_, err = db.Exec(sqlContent)
 		if err != nil {
-			// Skip "already exists" errors — idempotent migrations
 			errMsg := err.Error()
-			if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate") {
-				log.Printf("⚠️  Skipping migration %s (already applied): %v", fileName, err)
+			// Always skip "already exists" / "duplicate" errors — idempotent migrations.
+			// Also skip permission-related errors (e.g. CREATE EXTENSION on managed PG)
+			// so the server doesn't crash on hosting providers that restrict extensions.
+			if strings.Contains(errMsg, "already exists") ||
+				strings.Contains(errMsg, "duplicate") ||
+				strings.Contains(errMsg, "permission denied") ||
+				strings.Contains(errMsg, "must be superuser") ||
+				strings.Contains(errMsg, "must be owner") {
+				log.Printf("⚠️  Skipping migration %s: %v", fileName, err)
 			} else {
-				return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
+				log.Printf("❌ Migration %s failed: %v", fileName, err)
+				// Non-fatal: log the error and continue so the rest of the migrations
+				// and the server startup are not blocked by a single bad file.
 			}
 		}
 
