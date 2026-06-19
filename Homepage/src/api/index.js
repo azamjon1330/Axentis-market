@@ -325,7 +325,7 @@ export const deleteUserAddress = async (phone, id) => {
 };
 
 export const setDefaultAddress = async (phone, id) => {
-  const res = await api.put(ENDPOINTS.userAddressDefault(id));
+  const res = await api.put(ENDPOINTS.userAddressDefault(phone, id));
   return res.data;
 };
 

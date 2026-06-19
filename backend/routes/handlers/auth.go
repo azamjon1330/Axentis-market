@@ -429,6 +429,15 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			SELECT id, name, password_hash, mode, status, is_enabled, referral_agent_id
 			FROM companies WHERE phone = $1
 		`, req.Phone).Scan(&company.ID, &company.Name, &company.PasswordHash, &company.Mode, &company.Status, &company.IsEnabled, &company.ReferralAgentID)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ LoginCompany: Database error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка входа"})
+			return
+		}
 		// Проверяем пароль - сначала plain text (для legacy паролей), потом bcrypt hash.
 		// SECURITY: never log the password or the stored hash.
 		passwordValid := false

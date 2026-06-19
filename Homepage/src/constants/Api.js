@@ -49,5 +49,5 @@ export const ENDPOINTS = {
   companyStats: (id) => `/companies/${id}/stats`,
   userAddresses: (phone) => `/users/${phone}/addresses`,
   userAddressDetail: (phone, id) => `/users/${phone}/addresses/${id}`,
-  userAddressDefault: (id) => `/users/addresses/${id}/default`,
+  userAddressDefault: (phone, id) => `/users/${phone}/addresses/${id}/default`,
 };
