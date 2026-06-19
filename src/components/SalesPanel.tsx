@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Package, Search, Users, CheckSquare, Square, ShoppingCart, Receipt, DollarSign, FileText, Clock, X, ChevronDown, Pencil } from 'lucide-react';
+import { Package, Search, Users, CheckSquare, Square, ShoppingCart, X } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api, { getImageUrl } from '../utils/api';
 import { getUzbekistanToday, toUzbekistanDate, formatUzbekistanFullDateTime } from '../utils/uzbekTime';
@@ -74,18 +74,6 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
   const [language, setLanguage] = useState<Language>(getCurrentLanguage());
   const t = useTranslation(language);
   
-  // POS Cart state
-  interface CartItem {
-    productId: number;
-    name: string;
-    price: number;
-    quantity: number;
-    maxQty: number;
-    image?: string;
-  }
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
-
   // 🔄 Слушаем изменения языка
   useEffect(() => {
     const handleLanguageChange = (e: CustomEvent) => {
@@ -236,64 +224,6 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
     return name.includes(query) || price.includes(query) || quantity.includes(query);
   });
 
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(i => i.productId === product.id);
-      if (existing) {
-        if (existing.quantity >= existing.maxQty) return prev;
-        return prev.map(i => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      }
-      const images = Array.isArray(product.images) ? product.images : [];
-      return [...prev, {
-        productId: product.id,
-        name: product.name,
-        price: getPriceWithMarkup(product),
-        quantity: 1,
-        maxQty: product.quantity,
-        image: images[0] ? (getImageUrl(images[0]) || images[0]) : undefined,
-      }];
-    });
-  };
-
-  const removeFromCart = (productId: number) => {
-    setCart(prev => prev.filter(i => i.productId !== productId));
-  };
-
-  const updateCartQty = (productId: number, qty: number) => {
-    if (qty <= 0) { removeFromCart(productId); return; }
-    setCart(prev => prev.map(i => i.productId === productId ? { ...i, quantity: Math.min(qty, i.maxQty) } : i));
-  };
-
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const handlePOSCheckout = async () => {
-    if (cart.length === 0) return;
-    try {
-      const items = cart.map(item => ({
-        productId: item.productId,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        total: item.price * item.quantity,
-      }));
-      await api.sales.create({
-        companyId,
-        items,
-        totalAmount: cartTotal,
-        paymentMethod,
-      });
-      setCart([]);
-      await loadData();
-      const el = document.createElement('div');
-      el.style.cssText = 'position:fixed;top:20px;right:20px;background:#22C55E;color:#fff;padding:12px 24px;border-radius:12px;z-index:9999;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.3)';
-      el.textContent = '✅ Продажа проведена!';
-      document.body.appendChild(el);
-      setTimeout(() => el.remove(), 3000);
-    } catch (error) {
-      console.error('POS checkout error:', error);
-    }
-  };
-
   const handleToggleCustomerAvailability = async (productId: number) => {
     try {
       const result = await api.products.toggleAvailability(productId);
@@ -369,6 +299,23 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
     }
   };
 
+  // Handle removing products from sale
+  const handleRemoveFromSale = async () => {
+    if (selectedForSale.size === 0) {
+      alert(t.selectProductsForSale);
+      return;
+    }
+    try {
+      const productIds = Array.from(selectedForSale);
+      await api.products.bulkToggleAvailability(productIds, false);
+      setSelectedForSale(new Set());
+      await loadData();
+    } catch (error) {
+      console.error('Error removing products from sale:', error);
+      alert(t.statusChangeError);
+    }
+  };
+
   // Handle confirming customer payment
   const handleConfirmPayment = async (orderId: number) => {
     if (!confirm(t.confirmPayment)) return;
@@ -434,277 +381,152 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
   return (
     <div>
       {/* Stats Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 20 }}>
-        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Package style={{ width: 18, height: 18, color: '#7C5CF0' }} />
-            <span style={{ color: '#8B8BAA', fontSize: 13 }}>{t.productsAvailable}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Package className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsAvailable}</div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#7C5CF0' }}>{products.length}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{products.length}</div>
         </div>
-        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <TrendingUp style={{ width: 18, height: 18, color: '#22C55E' }} />
-            <span style={{ color: '#8B8BAA', fontSize: 13 }}>Продаж сегодня</span>
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Users className="w-5 h-5" style={{ color: '#22C55E' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.availableForCustomers}</div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#22C55E' }}>{formatPrice(getTodaysSales())}</div>
+          <div className="text-3xl" style={{ color: '#22C55E' }}>
+            {products.filter(p => p.availableForCustomers).length}
+          </div>
         </div>
-        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <ShoppingCart style={{ width: 18, height: 18, color: '#F59E0B' }} />
-            <span style={{ color: '#8B8BAA', fontSize: 13 }}>В корзине</span>
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <ShoppingCart className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsSelected}</div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#F59E0B' }}>{cart.length}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{selectedForSale.size}</div>
         </div>
       </div>
 
-      {/* POS Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start' }}>
-        {/* LEFT: Product Grid */}
-        <div>
-          {/* Search */}
-          <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Search style={{ width: 18, height: 18, color: '#8B8BAA', flexShrink: 0 }} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t.searchByName}
-              style={{
-                flex: 1, background: 'transparent', border: 'none', outline: 'none',
-                color: 'var(--ax-text)', fontSize: 14,
-              }}
-            />
-            {searchQuery && (
-              <span style={{ color: '#8B8BAA', fontSize: 12, whiteSpace: 'nowrap' }}>
-                {filteredProducts.length} найдено
-              </span>
-            )}
-          </div>
-
-          {/* Product Cards Grid */}
-          {filteredProducts.length === 0 ? (
-            <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 48, textAlign: 'center' }}>
-              <Package style={{ width: 48, height: 48, color: '#5A5A78', margin: '0 auto 12px' }} />
-              <p style={{ color: '#8B8BAA' }}>{t.noProductsInStock}</p>
-            </div>
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+        <button
+          onClick={openSaleModal}
+          disabled={selectedForSale.size === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: selectedForSale.size > 0 ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+            color: '#FFFFFF', border: 'none', borderRadius: 10,
+            cursor: selectedForSale.size > 0 ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <Users style={{ width: 15, height: 15 }} />
+          {t.putOnSale} ({selectedForSale.size})
+        </button>
+        <button
+          onClick={handleRemoveFromSale}
+          disabled={selectedForSale.size === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: selectedForSale.size > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+            color: selectedForSale.size > 0 ? '#EF4444' : '#5A5A78',
+            border: selectedForSale.size > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 10, cursor: selectedForSale.size > 0 ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <X style={{ width: 15, height: 15 }} />
+          Убрать с продажи ({selectedForSale.size})
+        </button>
+        <button
+          onClick={handleSelectAll}
+          disabled={products.length === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: 'rgba(255,255,255,0.07)', color: '#8B8BAA',
+            border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, cursor: 'pointer', fontSize: 13,
+          }}
+        >
+          {selectedForSale.size === products.length && products.length > 0 ? (
+            <><CheckSquare style={{ width: 15, height: 15 }} /> {t.deselectAll}</>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
-              {filteredProducts.map((product) => {
-                const inCart = cart.find(i => i.productId === product.id);
-                const images = Array.isArray(product.images) ? product.images : [];
-                const imageUrl = images[0] ? (getImageUrl(images[0]) || images[0]) : null;
-                return (
-                  <div
-                    key={product.id}
-                    onClick={() => addToCart(product)}
-                    style={{
-                      background: 'var(--ax-card)',
-                      border: inCart ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)',
-                      borderRadius: 14,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: inCart ? '0 0 0 3px rgba(124,92,240,0.15)' : 'none',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = inCart ? '0 6px 20px rgba(124,92,240,0.3)' : '0 6px 20px rgba(0,0,0,0.3)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = inCart ? '0 0 0 3px rgba(124,92,240,0.15)' : 'none'; }}
-                  >
-                    {/* Image */}
-                    <div style={{ height: 130, background: 'rgba(255,255,255,0.04)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {imageUrl ? (
-                        <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      ) : (
-                        <Package style={{ width: 40, height: 40, color: '#5A5A78' }} />
-                      )}
-                      {inCart && (
-                        <div style={{
-                          position: 'absolute', top: 8, right: 8,
-                          background: '#7C5CF0', color: '#fff', borderRadius: 20,
-                          padding: '2px 8px', fontSize: 12, fontWeight: 700,
-                        }}>
-                          ×{inCart.quantity}
-                        </div>
-                      )}
-                    </div>
-                    {/* Info */}
-                    <div style={{ padding: '10px 12px' }}>
-                      <div style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 600, marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                        {product.name}
-                      </div>
-                      <div style={{ color: '#7C5CF0', fontWeight: 700, fontSize: 14 }}>
-                        {formatPrice(getPriceWithMarkup(product))}
-                      </div>
-                      <div style={{ color: '#8B8BAA', fontSize: 11, marginTop: 2 }}>
-                        {t.inStock}: {product.quantity} {t.pcs}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <><Square style={{ width: 15, height: 15 }} /> {t.selectAll}</>
           )}
+        </button>
+      </div>
 
-          {/* Manage Availability Section */}
-          <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 16, marginTop: 20 }}>
-            <div style={{ color: '#8B8BAA', fontSize: 13, marginBottom: 12 }}>Управление витриной</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <button
-                onClick={openSaleModal}
-                disabled={selectedForSale.size === 0}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                  background: selectedForSale.size > 0 ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                  color: '#FFFFFF', border: 'none', borderRadius: 10, cursor: selectedForSale.size > 0 ? 'pointer' : 'not-allowed', fontSize: 13,
-                }}
-              >
-                <Users style={{ width: 15, height: 15 }} />
-                {t.putOnSale} ({selectedForSale.size})
-              </button>
-              <button
-                onClick={handleSelectAll}
-                disabled={products.length === 0}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
-                  background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13,
-                }}
-              >
-                {selectedForSale.size === products.length && products.length > 0 ? (
-                  <><CheckSquare style={{ width: 15, height: 15 }} />{t.deselectAll}</>
-                ) : (
-                  <><Square style={{ width: 15, height: 15 }} />{t.selectAll}</>
-                )}
-              </button>
-            </div>
-            {/* Product selection for availability management */}
-            {selectedForSale.size > 0 && (
-              <div style={{ marginTop: 10, fontSize: 12, color: '#8B8BAA' }}>
-                Выбрано {selectedForSale.size} товар(ов) для управления витриной. Нажмите на товары в сетке для выбора.
-              </div>
-            )}
-          </div>
+      {/* Search */}
+      <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Search style={{ width: 18, height: 18, color: '#8B8BAA', flexShrink: 0 }} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={t.searchByName}
+          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--ax-text)', fontSize: 14 }}
+        />
+        {searchQuery && (
+          <span style={{ color: '#8B8BAA', fontSize: 12, whiteSpace: 'nowrap' }}>
+            {filteredProducts.length} найдено
+          </span>
+        )}
+      </div>
+
+      {/* Product Grid */}
+      {filteredProducts.length === 0 ? (
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 48, textAlign: 'center' }}>
+          <Package style={{ width: 48, height: 48, color: '#5A5A78', margin: '0 auto 12px' }} />
+          <p style={{ color: '#8B8BAA' }}>{t.noProductsInStock}</p>
         </div>
-
-        {/* RIGHT: Cart Sidebar */}
-        <div style={{ position: 'sticky', top: 20, background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
-          {/* Cart Header */}
-          <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'linear-gradient(135deg, rgba(124,92,240,0.15), rgba(91,61,212,0.1))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ShoppingCart style={{ width: 20, height: 20, color: '#7C5CF0' }} />
-                <span style={{ color: '#FFFFFF', fontWeight: 700, fontSize: 16 }}>Корзина</span>
-              </div>
-              {cart.length > 0 && (
-                <button
-                  onClick={() => setCart([])}
-                  style={{ color: '#8B8BAA', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  <X style={{ width: 14, height: 14 }} />
-                  Очистить
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Cart Items */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: cart.length > 0 ? '12px 16px' : 0 }}>
-            {cart.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center' }}>
-                <ShoppingCart style={{ width: 40, height: 40, color: '#2A2A4A', margin: '0 auto 12px' }} />
-                <p style={{ color: '#5A5A78', fontSize: 13 }}>Нажмите на товар чтобы добавить в корзину</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {cart.map((item) => (
-                  <div key={item.productId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 40, height: 40, background: 'rgba(255,255,255,0.07)', borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Package style={{ width: 20, height: 20, color: '#5A5A78' }} />
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: '#FFFFFF', fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                      <div style={{ color: '#8B8BAA', fontSize: 11 }}>{formatPrice(item.price)} × {item.quantity}</div>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                      <button
-                        onClick={() => updateCartQty(item.productId, item.quantity - 1)}
-                        style={{ width: 24, height: 24, background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 6, color: '#FFFFFF', cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >−</button>
-                      <span style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 700, minWidth: 20, textAlign: 'center' }}>{item.quantity}</span>
-                      <button
-                        onClick={() => updateCartQty(item.productId, item.quantity + 1)}
-                        disabled={item.quantity >= item.maxQty}
-                        style={{ width: 24, height: 24, background: item.quantity >= item.maxQty ? 'rgba(255,255,255,0.03)' : 'rgba(124,92,240,0.3)', border: 'none', borderRadius: 6, color: item.quantity >= item.maxQty ? '#5A5A78' : '#FFFFFF', cursor: item.quantity >= item.maxQty ? 'not-allowed' : 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >+</button>
-                    </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+          {filteredProducts.map((product) => {
+            const isSelected = selectedForSale.has(product.id);
+            const images = Array.isArray(product.images) ? product.images : [];
+            const imageUrl = images[0] ? (getImageUrl(images[0]) || images[0]) : null;
+            return (
+              <div
+                key={product.id}
+                onClick={() => toggleProductSelection(product.id)}
+                style={{
+                  background: 'var(--ax-card)',
+                  border: isSelected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: 14, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s',
+                  boxShadow: isSelected ? '0 0 0 3px rgba(124,92,240,0.15)' : 'none',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; }}
+              >
+                <div style={{ height: 130, background: 'rgba(255,255,255,0.04)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <Package style={{ width: 40, height: 40, color: '#5A5A78' }} />
+                  )}
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    {isSelected
+                      ? <CheckSquare style={{ width: 20, height: 20, color: '#7C5CF0' }} />
+                      : <Square style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.35)' }} />
+                    }
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Cart Footer */}
-          {cart.length > 0 && (
-            <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              {/* Subtotal */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13, color: '#8B8BAA' }}>
-                <span>Товаров: {cart.reduce((s, i) => s + i.quantity, 0)} шт</span>
-                <span>{cart.length} позиций</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, fontSize: 18, fontWeight: 800 }}>
-                <span style={{ color: '#FFFFFF' }}>Итого</span>
-                <span style={{ color: '#7C5CF0' }}>{formatPrice(cartTotal)}</span>
-              </div>
-
-              {/* Payment Method */}
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ color: '#8B8BAA', fontSize: 12, marginBottom: 8 }}>Способ оплаты</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <button
-                    onClick={() => setPaymentMethod('cash')}
-                    style={{
-                      padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-                      background: paymentMethod === 'cash' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.07)',
-                      color: paymentMethod === 'cash' ? '#FFFFFF' : '#8B8BAA',
-                    }}
-                  >
-                    💵 Наличные
-                  </button>
-                  <button
-                    onClick={() => setPaymentMethod('card')}
-                    style={{
-                      padding: '10px 0', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-                      background: paymentMethod === 'card' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.07)',
-                      color: paymentMethod === 'card' ? '#FFFFFF' : '#8B8BAA',
-                    }}
-                  >
-                    💳 Карта
-                  </button>
+                </div>
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 600, marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                    {product.name}
+                  </div>
+                  <div style={{ color: '#7C5CF0', fontWeight: 700, fontSize: 14 }}>
+                    {formatPrice(getPriceWithMarkup(product))}
+                  </div>
+                  <div style={{ color: '#8B8BAA', fontSize: 11, marginTop: 2 }}>
+                    {t.inStock}: {product.quantity} {t.pcs}
+                  </div>
+                  <div style={{ marginTop: 6, display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: 11, background: product.availableForCustomers ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.07)', color: product.availableForCustomers ? '#22C55E' : '#5A5A78' }}>
+                    {product.availableForCustomers ? (language === 'uz' ? 'Sotuvda' : 'В продаже') : (language === 'uz' ? "Sotuvda yo'q" : 'Не в продаже')}
+                  </div>
                 </div>
               </div>
-
-              {/* Checkout Button */}
-              <button
-                onClick={handlePOSCheckout}
-                style={{
-                  width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
-                  background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
-                  color: '#FFFFFF', fontSize: 16, fontWeight: 800, letterSpacing: '0.02em',
-                  boxShadow: '0 4px 20px rgba(124,92,240,0.4)',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = ''; }}
-              >
-                ✓ Провести продажу
-              </button>
-            </div>
-          )}
+            );
+          })}
         </div>
-      </div>
+      )}
 
       {/* Sale Confirmation Modal — keep as-is */}
       {showSaleModal && (
@@ -776,9 +598,14 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
               </div>
             </div>
             <div className="p-6 flex gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <button onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <ShoppingCart style={{ width: 18, height: 18 }} />
-                Добавить в корзину
+              <button
+                onClick={() => { toggleProductSelection(selectedProduct.id); setSelectedProduct(null); }}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: selectedForSale.has(selectedProduct.id) ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+              >
+                {selectedForSale.has(selectedProduct.id)
+                  ? <><Square style={{ width: 18, height: 18 }} /> Снять выбор</>
+                  : <><CheckSquare style={{ width: 18, height: 18 }} /> Выбрать для витрины</>
+                }
               </button>
               <button onClick={() => setSelectedProduct(null)} style={{ padding: '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', cursor: 'pointer' }}>
                 Закрыть

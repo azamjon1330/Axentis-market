@@ -1905,16 +1905,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       </button>
                       <button
                         onClick={() => {
-                          setShowPurchaseModal(true);
-                          setPurchasingProduct(product);
-                          setPurchaseForm({ quantity: '', purchasePrice: '' });
-                        }}
-                        style={{ padding: '6px 8px', borderRadius: 8, background: 'rgba(34,197,94,0.1)', border: 'none', color: '#22C55E', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
                           if (editingId === product.id) {
                             setEditingId(null);
                           } else {
@@ -1945,29 +1935,41 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                   {/* Edit form (if editing this product) */}
                   {isEditing && (
                     <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginTop: 12 }}>
-                        {[
-                          { key: 'name', label: t.productName, type: 'text' },
-                          { key: 'price', label: t.basePriceHeader, type: 'number' },
-                          { key: 'quantity', label: t.quantityHeader, type: 'number' },
-                          { key: 'markupPercent', label: language === 'uz' ? 'Naценка %' : 'Наценка %', type: 'number' },
-                          { key: 'category', label: t.categoryHeader, type: 'text' },
-                          { key: 'barcode', label: language === 'uz' ? 'Shtrix-kod' : 'Штрих-код', type: 'text' },
-                        ].map(({ key, label, type }) => (
-                          <div key={key}>
-                            <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{label}</label>
-                            <input
-                              type={type}
-                              value={(editForm as any)[key]}
-                              onChange={e => setEditForm(prev => ({ ...prev, [key]: type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value }))}
-                              style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                            />
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginTop: 12 }}>
+                        {/* Название */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.productName}</label>
+                          <input type="text" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any }} />
+                        </div>
+                        {/* Базовая цена */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.basePriceHeader}</label>
+                          <input type="number" value={editForm.price} onChange={e => setEditForm(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any }} />
+                        </div>
+                        {/* Количество - только просмотр */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.quantityHeader}</label>
+                          <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 8, color: '#5A5A78', fontSize: 13 }}>
+                            {product.quantity} {language === 'uz' ? 'dona' : 'шт'} <span style={{ fontSize: 10, opacity: 0.6 }}>(только просмотр)</span>
                           </div>
-                        ))}
+                        </div>
+                        {/* Категория - выпадающий список из глобальных категорий */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.categoryHeader}</label>
+                          <select value={editForm.category} onChange={e => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: editForm.category ? '#FFFFFF' : '#5A5A78', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any, cursor: 'pointer' }}>
+                            <option value="">— {language === 'uz' ? 'Kategoriya' : 'Категория'} —</option>
+                            {globalCategories.map(cat => (
+                              <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                         <button
-                          onClick={() => handleEdit(product.id)}
+                          onClick={() => handleSave(String(product.id))}
                           style={{ padding: '8px 16px', borderRadius: 8, background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
                         >
                           {t.save}
@@ -1978,17 +1980,6 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                         >
                           {t.cancel}
                         </button>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
-                          <input
-                            type="checkbox"
-                            checked={editForm.availableForCustomers}
-                            onChange={e => setEditForm(prev => ({ ...prev, availableForCustomers: e.target.checked }))}
-                            id={`avail-${product.id}`}
-                          />
-                          <label htmlFor={`avail-${product.id}`} style={{ fontSize: 12, color: '#8B8BAA', cursor: 'pointer' }}>
-                            {language === 'uz' ? 'Xaridorlar uchun' : 'Для покупателей'}
-                          </label>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -2013,34 +2004,89 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                             <p style={{ color: '#5A5A78', fontSize: 12, marginBottom: 8 }}>{language === 'uz' ? 'Variantlar yoʻq' : 'Вариантов нет'}</p>
                           </div>
                         );
+                        // Group variants by color for merged cells
+                        const colorGroups: { [color: string]: any[] } = {};
+                        variants.forEach((v: any) => {
+                          const c = v.color || '—';
+                          if (!colorGroups[c]) colorGroups[c] = [];
+                          colorGroups[c].push(v);
+                        });
                         return (
                           <div style={{ marginTop: 10, overflowX: 'auto' }}>
                             <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                  {['Цвет', 'Размер', 'Кол-во', 'Цена', 'Продажа', ''].map(h => (
-                                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B8BAA', fontWeight: 500 }}>{h}</th>
+                                  {['Цвет', 'Размер', 'Кол-во', 'Цена', 'Наценка%', 'Bar ID', 'Barcode', ''].map(h => (
+                                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B8BAA', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {variants.map((v: any) => (
-                                  <tr key={v.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <td style={{ padding: '7px 10px', color: '#FFFFFF' }}>{v.color || '—'}</td>
-                                    <td style={{ padding: '7px 10px', color: '#FFFFFF' }}>{v.size || '—'}</td>
-                                    <td style={{ padding: '7px 10px', color: '#FFFFFF' }}>{v.stockQuantity || 0}</td>
-                                    <td style={{ padding: '7px 10px', color: '#8B8BAA' }}>{(v.price || 0).toLocaleString()}</td>
-                                    <td style={{ padding: '7px 10px', color: '#7C5CF0' }}>{(v.sellingPrice || v.price || 0).toLocaleString()}</td>
-                                    <td style={{ padding: '7px 10px' }}>
-                                      <button
-                                        onClick={() => { setShowVariantPurchaseModal(true); setPurchasingVariant({ variant: v, product }); setVariantPurchaseForm({ quantity: '', purchasePrice: '' }); }}
-                                        style={{ padding: '3px 8px', borderRadius: 6, background: 'rgba(34,197,94,0.1)', color: '#22C55E', border: 'none', cursor: 'pointer', fontSize: 11 }}
-                                      >
-                                        + {language === 'uz' ? 'Zakupka' : 'Закупка'}
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
+                                {Object.entries(colorGroups).map(([color, colorVariants]) =>
+                                  colorVariants.map((v: any, vIdx: number) => {
+                                    const isEditingThisVariant = editingVariant?.productId === String(product.id) && editingVariant?.variantId === String(v.id);
+                                    return (
+                                      <tr key={v.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        {/* Color cell - merged for same color */}
+                                        {vIdx === 0 && (
+                                          <td rowSpan={colorVariants.length} style={{ padding: '7px 10px', color: '#FFFFFF', fontWeight: 600, verticalAlign: 'middle', borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(124,92,240,0.05)' }}>
+                                            {color}
+                                          </td>
+                                        )}
+                                        <td style={{ padding: '7px 10px', color: '#C4B5FD' }}>{v.size || '—'}</td>
+                                        <td style={{ padding: '7px 10px', color: '#FFFFFF' }}>{v.stockQuantity || 0}</td>
+                                        {isEditingThisVariant ? (
+                                          <>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm(prev => ({ ...prev, price: e.target.value }))}
+                                                style={{ width: 90, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm(prev => ({ ...prev, markupPercent: e.target.value }))}
+                                                style={{ width: 65, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <td style={{ padding: '7px 10px', color: '#8B8BAA' }}>{(v.price || 0).toLocaleString()}</td>
+                                            <td style={{ padding: '7px 10px', color: '#7C5CF0' }}>{v.markupPercent || 0}%</td>
+                                          </>
+                                        )}
+                                        <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11 }}>{v.barid || '—'}</td>
+                                        <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11, fontFamily: 'monospace' }}>{v.barcode || '—'}</td>
+                                        <td style={{ padding: '7px 6px', whiteSpace: 'nowrap' }}>
+                                          {isEditingThisVariant ? (
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button onClick={handleSaveVariant} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(124,92,240,0.3)', color: '#A78BFA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                <Check className="w-3 h-3" />
+                                              </button>
+                                              <button onClick={() => setEditingVariant(null)} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: '#8B8BAA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button
+                                                onClick={() => startEditVariant(String(product.id), v)}
+                                                style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(124,92,240,0.1)', color: '#A78BFA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                title={language === 'uz' ? 'Tahrirlash' : 'Редактировать'}
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                onClick={() => { setShowVariantPurchaseModal(true); setPurchasingVariant({ variant: v, product }); setVariantPurchaseForm({ quantity: '', purchasePrice: '' }); }}
+                                                style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(34,197,94,0.1)', color: '#22C55E', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                title={language === 'uz' ? 'Zakupka' : 'Закупка'}
+                                              >
+                                                <ShoppingCart className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
                               </tbody>
                             </table>
                           </div>
