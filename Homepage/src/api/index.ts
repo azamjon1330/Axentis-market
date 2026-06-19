@@ -411,4 +411,38 @@ export const setDefaultCard = async (id: number): Promise<void> => {
   await api.put(ENDPOINTS.paymentCardDefault(id));
 };
 
+// ─── Delivery Addresses ───────────────────────────────────────────────────────
+import { DeliveryAddress } from '../types';
+
+export const getUserAddresses = async (phone: string): Promise<DeliveryAddress[]> => {
+  const res = await api.get(`/users/${encodeURIComponent(phone)}/addresses`);
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const addUserAddress = async (
+  phone: string,
+  data: { title?: string; address: string; latitude?: number; longitude?: number; isDefault?: boolean },
+): Promise<DeliveryAddress> => {
+  const res = await api.post(`/users/${encodeURIComponent(phone)}/addresses`, data);
+  return res.data;
+};
+
+export const updateUserAddress = async (
+  phone: string,
+  id: number,
+  data: { title?: string; address?: string; latitude?: number; longitude?: number },
+): Promise<DeliveryAddress> => {
+  const res = await api.put(`/users/${encodeURIComponent(phone)}/addresses/${id}`, data);
+  return res.data;
+};
+
+export const deleteUserAddress = async (phone: string, id: number): Promise<void> => {
+  await api.delete(`/users/${encodeURIComponent(phone)}/addresses/${id}`);
+};
+
+export const setDefaultAddress = async (phone: string, id: number): Promise<DeliveryAddress> => {
+  const res = await api.put(`/users/${encodeURIComponent(phone)}/addresses/${id}/default`);
+  return res.data;
+};
+
 export default api;
