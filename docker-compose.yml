@@ -41,12 +41,19 @@ services:
     container_name: axentis-market-frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      - backend
     networks:
       - axentis-network
 
 volumes:
   postgres_data:
+  certbot_webroot:
 
 networks:
   axentis-network:
