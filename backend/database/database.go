@@ -250,7 +250,11 @@ func Migrate(db *sql.DB) error {
 		'referral_code VARCHAR(50)',
 		'referral_agent_id BIGINT',
 		'trial_started_at TIMESTAMPTZ',
-		'trial_end_date TIMESTAMPTZ'
+		'trial_end_date TIMESTAMPTZ',
+		'products_description TEXT',
+		'delivery_radius_km NUMERIC(10,2) DEFAULT 0',
+		'delivery_radius_lat DOUBLE PRECISION',
+		'delivery_radius_lng DOUBLE PRECISION'
 	];
 	col TEXT;
 	col_name TEXT;
@@ -266,15 +270,27 @@ func Migrate(db *sql.DB) error {
 		END LOOP;
 	END $$;
 
-	-- Add sold_count to products if not exists
+	-- Ensure all product columns exist on existing DBs (idempotent)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'sold_count INTEGER DEFAULT 0',
+		'description TEXT',
+		'brand TEXT',
+		'color TEXT',
+		'size TEXT'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_name = 'products' AND column_name = 'sold_count'
-		) THEN
-			ALTER TABLE products ADD COLUMN sold_count INTEGER DEFAULT 0;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'products' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE products ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	-- Company subscribers table
