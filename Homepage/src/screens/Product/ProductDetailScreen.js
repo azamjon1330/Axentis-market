@@ -149,7 +149,7 @@ export default function ProductDetailScreen() {
   const handleShare = async () => {
     if (!product) return;
     const price = (selectedVariant?.sellingPrice || selectedVariant?.price || product.sellingPrice || product.price || 0).toLocaleString('ru-RU');
-    const url = `https://axentis.uz/#product-${productId}`;
+    const url = `https://axentis.us/#product-${productId}`;
     await Share.share({
       title: product.name,
       message: `${product.name}\n${price} сум\n\n${url}`,
