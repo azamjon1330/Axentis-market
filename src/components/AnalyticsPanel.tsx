@@ -6,7 +6,7 @@ import PaymentHistoryForCompany from './PaymentHistoryForCompany';
 import AdvancedInsightsPanel from './AdvancedInsightsPanel';
 import PurchaseAnalytics from './PurchaseAnalytics';
 import CompactPeriodSelector from './CompactPeriodSelector';
-import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ComposedChart, Area } from 'recharts';
+import { ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, ComposedChart, Area, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -19,6 +19,7 @@ interface Product {
   markupPercent?: number;
   markupAmount?: number; // 💰 НОВОЕ: Сумма наценки в деньгах
   sellingPrice?: number; // 💰 НОВОЕ: Цена продажи с наценкой
+  category?: string;
 }
 
 interface AnalyticsPanelProps {
@@ -747,6 +748,39 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
     }));
   };
 
+  const getTopProductsData = () => {
+    const productRevenue: { [key: string]: number } = {};
+    ordersWithItems.forEach(order => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const name = item.name || 'Товар';
+          const priceVal = parseFloat(item.price_with_markup) || parseFloat(item.price) || 0;
+          const total = priceVal * (item.quantity || 0);
+          productRevenue[name] = (productRevenue[name] || 0) + total;
+        });
+      }
+    });
+    return Object.entries(productRevenue)
+      .map(([name, revenue]) => ({ name: name.length > 16 ? name.slice(0, 16) + '…' : name, revenue }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 7);
+  };
+
+  const getCategoryData = () => {
+    const catMap: { [key: string]: number } = {};
+    products.forEach(p => {
+      const cat = p.category || (language === 'uz' ? 'Boshqa' : 'Прочее');
+      catMap[cat] = (catMap[cat] || 0) + 1;
+    });
+    if (Object.keys(catMap).length === 0) return [];
+    return Object.entries(catMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  };
+
+  const PIE_COLORS = ['#7C5CF0', '#22C55E', '#F59E0B', '#EF4444', '#06B6D4', '#5B3DD4'];
+
   if (loading) {
     return <div className="text-center py-12">{t.loadingAnalytics}</div>;
   }
@@ -1042,6 +1076,77 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   )}
                 </ComposedChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* BarChart + PieChart row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, marginBottom: 24 }}>
+            {/* Bar Chart: Top Products by Revenue */}
+            <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <h3 style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
+                {language === 'uz' ? "Eng ko'p sotilgan mahsulotlar" : 'Топ продаваемых товаров'}
+              </h3>
+              {getTopProductsData().length > 0 ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={getTopProductsData()} margin={{ top: 0, right: 8, left: 0, bottom: 44 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fill: '#5A5A78', fontSize: 10 }} axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+                    <YAxis tick={{ fill: '#5A5A78', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={54} />
+                    <Tooltip
+                      contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 12, color: '#FFFFFF', fontSize: 13 }}
+                      formatter={(value: number) => [formatPrice(value), language === 'uz' ? 'Daromad' : 'Выручка']}
+                    />
+                    <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
+                      {getTopProductsData().map((_, index) => (
+                        <Cell key={index} fill={index === 0 ? '#7C5CF0' : index === 1 ? '#5B3DD4' : `rgba(124,92,240,${0.65 - index * 0.08})`} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#5A5A78' }}>
+                  <TrendingUp style={{ width: 36, height: 36, opacity: 0.3 }} />
+                  <span style={{ fontSize: 13 }}>{language === 'uz' ? "Maʼlumot yoʼq" : 'Нет данных о продажах'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Donut Chart: Category Distribution */}
+            <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <h3 style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+                {language === 'uz' ? 'Kategoriyalar' : 'Категории'}
+              </h3>
+              {getCategoryData().length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={140}>
+                    <PieChart>
+                      <Pie data={getCategoryData()} cx="50%" cy="50%" innerRadius={38} outerRadius={60} dataKey="value" strokeWidth={0}>
+                        {getCategoryData().map((_, index) => (
+                          <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 10, color: '#FFFFFF', fontSize: 12 }}
+                        formatter={(value: number, name: string) => [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, name]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    {getCategoryData().map((entry, index) => (
+                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[index % PIE_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ color: '#8B8BAA', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
+                        <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{entry.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#5A5A78' }}>
+                  <Package style={{ width: 36, height: 36, opacity: 0.3 }} />
+                  <span style={{ fontSize: 13 }}>{language === 'uz' ? "Mahsulot yoʼq" : 'Нет товаров'}</span>
+                </div>
+              )}
             </div>
           </div>
 
