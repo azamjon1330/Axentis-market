@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { addUserAddress } from '../../api';
 
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const navigation = useNavigation();
+  const route = useRoute();
+  const { returnTo } = route.params ?? {};
 
   const [locating, setLocating] = useState(false);
 
@@ -31,16 +36,37 @@ export default function MapLocationPickerScreen() {
           if (parts.length > 0) address = parts.join(', ');
         }
       } catch {}
-      navigation.navigate('Checkout', {
-        selectedCoords: { lat: latitude, lng: longitude },
-        selectedAddress: address,
-      });
+
+      if (returnTo === 'DeliveryAddresses') {
+        if (user?.phone) {
+          try {
+            await addUserAddress(user.phone, {
+              address,
+              latitude,
+              longitude,
+              isDefault: false,
+            });
+          } catch {
+            // silent — address may still save
+          }
+        }
+        navigation.navigate('DeliveryAddresses');
+      } else {
+        navigation.navigate('Checkout', {
+          selectedCoords: { lat: latitude, lng: longitude },
+          selectedAddress: address,
+        });
+      }
     } catch {
       Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
     } finally {
       setLocating(false);
     }
   };
+
+  const headerTitle = returnTo === 'DeliveryAddresses'
+    ? 'Новый адрес'
+    : 'Выберите адрес доставки';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -50,7 +76,7 @@ export default function MapLocationPickerScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Выберите адрес доставки</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{headerTitle}</Text>
         <View style={{ width: 40 }} />
       </View>
 
