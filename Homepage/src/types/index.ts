@@ -192,6 +192,17 @@ export interface Discount {
   product?: Product;
 }
 
+export interface DeliveryAddress {
+  id: number;
+  userPhone: string;
+  title?: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault: boolean;
+  createdAt: string;
+}
+
 // Navigation param types
 export type RootStackParamList = {
   LanguageSelection: undefined;
@@ -209,7 +220,11 @@ export type RootStackParamList = {
   PaymentCards: undefined;
   CompanyStore: { companyId: number };
   CompanyDetail: { companyId: number };
-  MapLocationPicker: { initialCoords?: { lat: number; lng: number } } | undefined;
+  MapLocationPicker: {
+    initialCoords?: { lat: number; lng: number };
+    returnTo?: 'Checkout' | 'DeliveryAddresses';
+  } | undefined;
+  DeliveryAddresses: undefined;
 };
 
 export type MainTabParamList = {

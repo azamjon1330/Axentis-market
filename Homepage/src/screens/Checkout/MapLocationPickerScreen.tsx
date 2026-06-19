@@ -9,7 +9,9 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { RootStackParamList } from '../../types';
+import { addUserAddress } from '../../api';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'MapLocationPicker'>;
@@ -88,6 +90,7 @@ async function resolveAddress(lat: number, lng: number): Promise<string> {
 
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const navigation = useNavigation<Nav>();
   const route = useRoute<RouteProps>();
   const webRef = useRef<any>(null);
@@ -95,6 +98,7 @@ export default function MapLocationPickerScreen() {
   const mapAvailable = useMemo(isWebViewAvailable, []);
 
   const initial = route.params?.initialCoords;
+  const returnTo = route.params?.returnTo ?? 'Checkout';
   const startLat = initial?.lat ?? DEFAULT_LAT;
   const startLng = initial?.lng ?? DEFAULT_LNG;
 
@@ -130,14 +134,31 @@ export default function MapLocationPickerScreen() {
     }
   };
 
+  const saveAndNavigate = async (lat: number, lng: number, address: string) => {
+    if (returnTo === 'DeliveryAddresses') {
+      if (!user?.phone) {
+        Alert.alert('Ошибка', 'Необходимо войти в аккаунт');
+        return;
+      }
+      try {
+        await addUserAddress(user.phone, { address, latitude: lat, longitude: lng });
+        navigation.navigate('DeliveryAddresses');
+      } catch {
+        Alert.alert('Ошибка', 'Не удалось сохранить адрес.');
+      }
+    } else {
+      navigation.navigate('Checkout', {
+        selectedCoords: { lat, lng },
+        selectedAddress: address,
+      });
+    }
+  };
+
   const confirm = async () => {
     setConfirming(true);
     const address = await resolveAddress(coords.lat, coords.lng);
     setConfirming(false);
-    navigation.navigate('Checkout', {
-      selectedCoords: { lat: coords.lat, lng: coords.lng },
-      selectedAddress: address,
-    });
+    await saveAndNavigate(coords.lat, coords.lng, address);
   };
 
   // Fallback flow used when the WebView native module is unavailable (e.g. OTA
@@ -153,10 +174,7 @@ export default function MapLocationPickerScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const { latitude, longitude } = loc.coords;
       const address = await resolveAddress(latitude, longitude);
-      navigation.navigate('Checkout', {
-        selectedCoords: { lat: latitude, lng: longitude },
-        selectedAddress: address,
-      });
+      await saveAndNavigate(latitude, longitude, address);
     } catch {
       Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
     } finally {
@@ -170,7 +188,7 @@ export default function MapLocationPickerScreen() {
         <Ionicons name="chevron-back" size={22} color={colors.text} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: colors.text }]}>
-        {mapAvailable ? 'Выберите на карте' : 'Адрес доставки'}
+        {returnTo === 'DeliveryAddresses' ? 'Новый адрес' : (mapAvailable ? 'Выберите на карте' : 'Адрес доставки')}
       </Text>
       <View style={{ width: 40 }} />
     </View>

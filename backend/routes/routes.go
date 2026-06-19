@@ -171,6 +171,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.GET("/:phone/subscription-status/:targetPhone", handlers.CheckSubscriptionStatus(db))
 			users.POST("/:phone/increment-views", handlers.IncrementProfileViews(db))
 			users.GET("/:phone/default-delivery-address", handlers.GetUserDefaultDeliveryAddress(db)) // 📍 Адрес доставки по умолчанию
+			// Delivery addresses (multiple saved locations)
+			users.GET("/:phone/addresses", handlers.GetUserAddresses(db))
+			users.POST("/:phone/addresses", handlers.AddUserAddress(db))
+			users.PUT("/:phone/addresses/:id", handlers.UpdateUserAddress(db))
+			users.DELETE("/:phone/addresses/:id", handlers.DeleteUserAddress(db))
+			users.PUT("/:phone/addresses/:id/default", handlers.SetDefaultAddress(db))
 		}
 
 		// Cart routes (🛒 Новый API для корзины с БД)
