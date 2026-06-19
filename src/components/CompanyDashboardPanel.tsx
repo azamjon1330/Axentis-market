@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  ShoppingCart, TrendingUp, Clock, RotateCcw, AlertTriangle,
+  ShoppingCart, TrendingUp, TrendingDown, Clock, RotateCcw, AlertTriangle,
   MessageCircleQuestion, Package, BarChart3, ArrowRight, CheckCircle2,
 } from 'lucide-react';
 import {
@@ -71,6 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function CompanyDashboardPanel({ companyId, onNavigate }: CompanyDashboardPanelProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [allOrders, setAllOrders] = useState<any[]>([]);
+  const [inventoryCost, setInventoryCost] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -78,11 +79,13 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     Promise.all([
       api.analytics.dashboard(companyId),
       api.orders.list({ companyId }).catch(() => []),
-    ]).then(([dashData, ordersData]) => {
+      api.analytics.company(companyId).catch(() => ({})),
+    ]).then(([dashData, ordersData, analyticsData]) => {
       if (!active) return;
       setData(dashData);
       const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.orders || []);
       setAllOrders(orders);
+      setInventoryCost(analyticsData.inventoryCost || analyticsData.inventoryValue || 0);
     }).catch((e) => console.error('Dashboard load failed:', e))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
@@ -172,10 +175,11 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
   if (!data) return <div style={{ padding: 20, color: '#F87171', textAlign: 'center' }}>{L.failed}</div>;
 
   const stats = [
-    { icon: <ShoppingCart size={20} />, label: L.todayOrders,  value: fmt(data.todayOrders),                      accent: '#7C5CF0', accentBg: 'rgba(124,92,240,0.15)', tab: 'orders' },
-    { icon: <TrendingUp size={20} />,   label: L.todayRevenue, value: `${fmt(data.todayRevenue)} ${L.sum}`,       accent: '#22C55E', accentBg: 'rgba(34,197,94,0.12)',   tab: 'analytics' },
-    { icon: <BarChart3 size={20} />,    label: L.totalRevenue, value: `${fmt(data.totalRevenue)} ${L.sum}`,       accent: '#38BDF8', accentBg: 'rgba(56,189,248,0.12)',  tab: 'analytics' },
-    { icon: <Package size={20} />,      label: L.soldUnits,    value: fmt(data.soldUnits),                        accent: '#FBBF24', accentBg: 'rgba(251,191,36,0.12)',  tab: 'warehouse' },
+    { icon: <ShoppingCart size={20} />,  label: L.todayOrders,  value: fmt(data.todayOrders),                      accent: '#7C5CF0', accentBg: 'rgba(124,92,240,0.15)', tab: 'orders' },
+    { icon: <TrendingUp size={20} />,    label: L.todayRevenue, value: `${fmt(data.todayRevenue)} ${L.sum}`,       accent: '#22C55E', accentBg: 'rgba(34,197,94,0.12)',   tab: 'analytics' },
+    { icon: <BarChart3 size={20} />,     label: L.totalRevenue, value: `${fmt(data.totalRevenue)} ${L.sum}`,       accent: '#38BDF8', accentBg: 'rgba(56,189,248,0.12)',  tab: 'analytics' },
+    { icon: <Package size={20} />,       label: L.soldUnits,    value: fmt(data.soldUnits),                        accent: '#FBBF24', accentBg: 'rgba(251,191,36,0.12)',  tab: 'warehouse' },
+    { icon: <TrendingDown size={20} />,  label: isUz ? 'Ombor qiymati' : 'Затраты (склад)', value: `${fmt(inventoryCost)} ${L.sum}`, accent: '#EF4444', accentBg: 'rgba(239,68,68,0.12)', tab: 'analytics' },
   ];
 
   const attentionItems = [

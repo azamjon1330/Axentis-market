@@ -1079,7 +1079,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             </div>
           </div>
 
-          {/* BarChart + PieChart row */}
+          {/* BarChart + Financial Pie row */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, marginBottom: 24 }}>
             {/* Bar Chart: Top Products by Revenue */}
             <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1111,43 +1111,57 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
               )}
             </div>
 
-            {/* Donut Chart: Category Distribution */}
-            <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <h3 style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
-                {language === 'uz' ? 'Kategoriyalar' : 'Категории'}
-              </h3>
-              {getCategoryData().length > 0 ? (
-                <>
-                  <ResponsiveContainer width="100%" height={140}>
-                    <PieChart>
-                      <Pie data={getCategoryData()} cx="50%" cy="50%" innerRadius={38} outerRadius={60} dataKey="value" strokeWidth={0}>
-                        {getCategoryData().map((_, index) => (
-                          <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+            {/* Financial Breakdown Pie */}
+            {(() => {
+              const totalExpenses = inventoryCost + customExpenses;
+              const netProfit = Math.max(companyEarnings - customExpenses, 0);
+              const financialPie = [
+                { name: language === 'uz' ? 'Xarajatlar (ombor)' : 'Затраты (склад)', value: totalExpenses, color: '#EF4444' },
+                { name: language === 'uz' ? 'Jami daromad' : 'Выручка (продажи)', value: totalRevenue, color: '#22C55E' },
+                { name: language === 'uz' ? 'Sof foyda' : 'Чистая прибыль', value: netProfit, color: '#7C5CF0' },
+              ].filter(d => d.value > 0);
+
+              return (
+                <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <h3 style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+                    {language === 'uz' ? 'Moliyaviy tahlil' : 'Финансовый разрез'}
+                  </h3>
+                  {financialPie.length > 0 ? (
+                    <>
+                      <ResponsiveContainer width="100%" height={140}>
+                        <PieChart>
+                          <Pie data={financialPie} cx="50%" cy="50%" innerRadius={38} outerRadius={60} dataKey="value" strokeWidth={0}>
+                            {financialPie.map((entry, index) => (
+                              <Cell key={index} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 10, color: '#FFFFFF', fontSize: 12 }}
+                            formatter={(value: number, name: string) => [formatPrice(value), name]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                        {financialPie.map((entry, index) => (
+                          <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: entry.color, flexShrink: 0 }} />
+                            <span style={{ color: '#8B8BAA', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
+                            <span style={{ color: entry.color, fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap' }}>
+                              {formatShortPrice(entry.value)}
+                            </span>
+                          </div>
                         ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 10, color: '#FFFFFF', fontSize: 12 }}
-                        formatter={(value: number, name: string) => [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, name]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                    {getCategoryData().map((entry, index) => (
-                      <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[index % PIE_COLORS.length], flexShrink: 0 }} />
-                        <span style={{ color: '#8B8BAA', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</span>
-                        <span style={{ color: '#FFFFFF', fontWeight: 600 }}>{entry.value}</span>
                       </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div style={{ height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#5A5A78' }}>
-                  <Package style={{ width: 36, height: 36, opacity: 0.3 }} />
-                  <span style={{ fontSize: 13 }}>{language === 'uz' ? "Mahsulot yoʼq" : 'Нет товаров'}</span>
+                    </>
+                  ) : (
+                    <div style={{ height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#5A5A78' }}>
+                      <Package style={{ width: 36, height: 36, opacity: 0.3 }} />
+                      <span style={{ fontSize: 13 }}>{language === 'uz' ? "Maʼlumot yoʼq" : 'Нет данных'}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
 
           <AdvancedInsightsPanel
