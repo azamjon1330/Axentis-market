@@ -69,6 +69,7 @@ func GetUserByPhone(db *sql.DB) gin.HandlerFunc {
 			FROM users
 			WHERE phone = $1
 		`, phone).Scan(&user.ID, &user.Phone, &user.Name, &user.Role, &user.AvatarURL)
+		// Note: 'role' column added in base schema; defaults to 'user' for customers.
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})

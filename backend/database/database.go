@@ -127,20 +127,25 @@ func Migrate(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 	CREATE INDEX IF NOT EXISTS idx_orders_code ON orders(order_code);
 
-	-- Users table (for customers)
+	-- Users table (for customers) — all columns declared upfront so fresh
+	-- deployments work without needing every incremental migration file.
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL PRIMARY KEY,
 		phone VARCHAR(20) UNIQUE NOT NULL,
 		name VARCHAR(255),
 		surname VARCHAR(255),
 		password_hash VARCHAR(255),
-		mode VARCHAR(10) DEFAULT 'public' CHECK (mode IN ('public', 'private')),
+		mode VARCHAR(10) DEFAULT 'public',
+		role VARCHAR(20) DEFAULT 'user',
 		private_company_id BIGINT,
 		avatar_url TEXT,
 		default_delivery_address TEXT,
 		default_delivery_coordinates TEXT,
 		default_recipient_name TEXT,
 		expo_push_token TEXT,
+		followers_count INTEGER DEFAULT 0,
+		following_count INTEGER DEFAULT 0,
+		profile_views INTEGER DEFAULT 0,
 		cart JSONB DEFAULT '{}'::jsonb,
 		likes JSONB DEFAULT '[]'::jsonb,
 		receipts JSONB DEFAULT '[]'::jsonb,
@@ -148,18 +153,22 @@ func Migrate(db *sql.DB) error {
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
-	-- Ensure all user columns exist (idempotent — safe to re-run on existing DBs)
+	-- Ensure ALL user columns exist on existing databases (idempotent).
 	DO $$
 	DECLARE cols TEXT[] := ARRAY[
 		'surname VARCHAR(255)',
 		'password_hash VARCHAR(255)',
 		'mode VARCHAR(10) DEFAULT ''public''',
+		'role VARCHAR(20) DEFAULT ''user''',
 		'private_company_id BIGINT',
 		'avatar_url TEXT',
 		'default_delivery_address TEXT',
 		'default_delivery_coordinates TEXT',
 		'default_recipient_name TEXT',
-		'expo_push_token TEXT'
+		'expo_push_token TEXT',
+		'followers_count INTEGER DEFAULT 0',
+		'following_count INTEGER DEFAULT 0',
+		'profile_views INTEGER DEFAULT 0'
 	];
 	col TEXT;
 	col_name TEXT;
@@ -206,15 +215,32 @@ func Migrate(db *sql.DB) error {
 
 	CREATE INDEX IF NOT EXISTS idx_custom_expenses_company_id ON custom_expenses(company_id);
 
-	-- Add view_count to companies if not exists
+	-- Ensure all company columns exist on existing DBs (idempotent)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'view_count INTEGER DEFAULT 0',
+		'followers_count INTEGER DEFAULT 0',
+		'is_enabled BOOLEAN DEFAULT TRUE',
+		'delivery_enabled BOOLEAN DEFAULT FALSE',
+		'delivery_radius NUMERIC(10,2) DEFAULT 5000',
+		'private_code VARCHAR(50)',
+		'referral_code VARCHAR(50)',
+		'referral_agent_id BIGINT',
+		'trial_started_at TIMESTAMPTZ',
+		'trial_end_date TIMESTAMPTZ'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_name = 'companies' AND column_name = 'view_count'
-		) THEN
-			ALTER TABLE companies ADD COLUMN view_count INTEGER DEFAULT 0;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'companies' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE companies ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	-- Add sold_count to products if not exists
@@ -271,6 +297,88 @@ func Migrate(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_notifications_user_phone ON notifications(user_phone);
 	CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 	CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+	-- Cart items table
+	CREATE TABLE IF NOT EXISTS cart_items (
+		id BIGSERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW(),
+		UNIQUE(user_phone, product_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_cart_items_phone ON cart_items(user_phone);
+
+	-- User favorites table
+	CREATE TABLE IF NOT EXISTS user_favorites (
+		id BIGSERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		UNIQUE(user_phone, product_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_user_favorites_phone ON user_favorites(user_phone);
+
+	-- Product variants table
+	CREATE TABLE IF NOT EXISTS product_variants (
+		id BIGSERIAL PRIMARY KEY,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		color VARCHAR(50),
+		size VARCHAR(50),
+		price NUMERIC(12,2) NOT NULL DEFAULT 0,
+		markup_percent NUMERIC(5,2) DEFAULT 0,
+		selling_price NUMERIC(12,2) GENERATED ALWAYS AS (price + (price * markup_percent / 100)) STORED,
+		stock_quantity INTEGER DEFAULT 0,
+		barcode VARCHAR(100),
+		sku VARCHAR(100),
+		barid VARCHAR(100),
+		description TEXT,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
+
+	-- Product purchases table
+	CREATE TABLE IF NOT EXISTS product_purchases (
+		id BIGSERIAL PRIMARY KEY,
+		company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+		product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+		variant_id BIGINT REFERENCES product_variants(id) ON DELETE SET NULL,
+		quantity INTEGER NOT NULL,
+		unit_cost NUMERIC(12,2) NOT NULL,
+		total_cost NUMERIC(12,2) NOT NULL,
+		purchased_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_product_purchases_company ON product_purchases(company_id);
+	CREATE INDEX IF NOT EXISTS idx_product_purchases_product ON product_purchases(product_id);
+
+	-- Subscriptions table (user→user and user→company follows)
+	CREATE TABLE IF NOT EXISTS subscriptions (
+		id BIGSERIAL PRIMARY KEY,
+		user_id BIGINT NOT NULL,
+		company_id BIGINT,
+		subscribed_user_id BIGINT,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user_company
+		ON subscriptions(user_id, company_id) WHERE company_id IS NOT NULL;
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user_target
+		ON subscriptions(user_id, subscribed_user_id) WHERE subscribed_user_id IS NOT NULL;
+	CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+
+	-- User delivery addresses table
+	CREATE TABLE IF NOT EXISTS user_delivery_addresses (
+		id SERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		title VARCHAR(100),
+		address TEXT NOT NULL,
+		latitude DOUBLE PRECISION,
+		longitude DOUBLE PRECISION,
+		is_default BOOLEAN NOT NULL DEFAULT FALSE,
+		created_at TIMESTAMP NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_user_delivery_addresses_phone ON user_delivery_addresses(user_phone);
 	`
 
 	_, err := db.Exec(schema)
