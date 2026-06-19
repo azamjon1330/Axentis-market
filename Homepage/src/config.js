@@ -1,4 +1,4 @@
-const API_HOST = 'https://axentis.us';
+const API_HOST = 'https://axentis.uz';
 
 export const API_BASE_URL = `${API_HOST}/api`;
 export const UPLOADS_BASE_URL = `${API_HOST}/uploads`;
@@ -13,5 +13,5 @@ export const APP_CONFIG = {
   currency: 'сум',
   phonePrefix: '+998',
   supportPhone: '+998712345678',
-  supportEmail: 'support@axentis.us',
+  supportEmail: 'support@axentis.uz',
 };

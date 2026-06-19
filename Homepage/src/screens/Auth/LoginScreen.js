@@ -101,7 +101,7 @@ export default function LoginScreen() {
         // Нет ответа от сервера — проблема сети или сервер недоступен
         Alert.alert(
           'Нет связи с сервером',
-          `Не удалось подключиться к axentis.us.\n\nПроверьте интернет или попробуйте позже.\n\n(${err?.message || 'Network Error'})`,
+          `Не удалось подключиться к axentis.uz.\n\nПроверьте интернет или попробуйте позже.\n\n(${err?.message || 'Network Error'})`,
         );
       } else if (status === 404) {
         Alert.alert(t('userNotFound'), t('userNotRegistered'), [
@@ -141,7 +141,7 @@ export default function LoginScreen() {
       const status = err?.response?.status;
       const serverMsg = err?.response?.data?.error;
       if (!err?.response) {
-        Alert.alert('Нет связи с сервером', `Не удалось подключиться к axentis.us.\n\n(${err?.message || 'Network Error'})`);
+        Alert.alert('Нет связи с сервером', `Не удалось подключиться к axentis.uz.\n\n(${err?.message || 'Network Error'})`);
       } else {
         Alert.alert(`Ошибка${status ? ` ${status}` : ''}`, serverMsg || t('registerError'));
       }
