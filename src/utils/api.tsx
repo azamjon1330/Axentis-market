@@ -597,11 +597,6 @@ export const orders = {
     });
   },
 
-  // Courier: get all shipped delivery orders
-  getShippedDeliveries: async () => {
-    return apiCall('/orders/courier/shipped', { requiresAuth: false });
-  },
-
   // Courier: mark an order as delivered (completed)
   markDelivered: async (id: number | string) => {
     return apiCall(`/orders/${id}/mark-delivered`, {
@@ -609,6 +604,38 @@ export const orders = {
       requiresAuth: false,
     });
   },
+};
+
+// ============================================================================
+// COURIERS API
+// ============================================================================
+export const couriers = {
+  login: async (phone: string, password: string) =>
+    apiCall('/couriers/login', { method: 'POST', body: { phone, password }, requiresAuth: false }),
+
+  list: async (companyId?: number | string) =>
+    apiCall(`/couriers${companyId ? `?company_id=${companyId}` : ''}`, { requiresAuth: false }),
+
+  create: async (data: {
+    company_id?: number | null;
+    name: string;
+    surname: string;
+    phone: string;
+    password: string;
+    passport_id?: string;
+  }) => apiCall('/couriers', { method: 'POST', body: data, requiresAuth: false }),
+
+  delete: async (id: number | string) =>
+    apiCall(`/couriers/${id}`, { method: 'DELETE', requiresAuth: false }),
+
+  setStatus: async (id: number | string, is_online: boolean) =>
+    apiCall(`/couriers/${id}/status`, { method: 'PUT', body: { is_online }, requiresAuth: false }),
+
+  updateLocation: async (id: number | string, lat: number, lng: number) =>
+    apiCall(`/couriers/${id}/location`, { method: 'PUT', body: { lat, lng }, requiresAuth: false }),
+
+  getOrders: async (id: number | string) =>
+    apiCall(`/couriers/${id}/orders`, { requiresAuth: false }),
 };
 
 // ============================================================================

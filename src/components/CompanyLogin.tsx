@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Phone, Lock, Ticket, Truck } from 'lucide-react';
+import { Building2, Phone, Lock, Ticket } from 'lucide-react';
 import api from '../utils/api';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -159,15 +159,15 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
             </button>
           </form>
 
-          {/* Courier Login */}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <button
-              onClick={() => onLogin({ isCourier: true })}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+          {/* Courier login link */}
+          <div className="mt-4 pt-4 border-t border-gray-100 text-center">
+            <a
+              href="#courier-login"
+              onClick={(e) => { e.preventDefault(); onLogin({ goCourierLogin: true }); }}
+              className="text-sm text-gray-400 hover:text-purple-600 transition-colors"
             >
-              <Truck className="w-4 h-4" />
-              Войти как курьер
-            </button>
+              Войти как курьер →
+            </a>
           </div>
 
         </div>

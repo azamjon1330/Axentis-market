@@ -11,6 +11,7 @@ import SettingsPage from './components/SettingsPage';
 import AdminPanel from './components/AdminPanel';
 import ReferralAgentPanel from './components/ReferralAgentPanel'; // 👥 Панель реферальных агентов
 import CourierPanel from './components/CourierPanel'; // 🚚 Панель курьера
+import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
 import CompanyPanel from './components/CompanyPanel';
 import LoadingScreen from './components/LoadingScreen';
 import PaymentPage from './components/PaymentPage';
@@ -34,7 +35,8 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent' | 'courier'>(() => {
+  const [currentCourier, setCurrentCourier] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent' | 'courier' | 'courierLogin'>(() => {
     // 🔄 Восстановление страницы при загрузке
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
@@ -51,6 +53,7 @@ function AppContent() {
       if (hash === 'warehouse' || hash === 'sales' || hash === 'orders' || hash === 'analytics') return 'company';
       if (hash === 'cart' || hash === 'catalog' || hash.startsWith('product-') || hash.startsWith('company-')) return 'home';
       if (hash === 'courier') return 'courier';
+      if (hash === 'courier-login') return 'courierLogin';
     }
     return 'companyLogin'; // 🎯 Дефолтная страница - вход для компаний/админа
   });
@@ -302,8 +305,9 @@ function AppContent() {
             setLoading(false);
             console.log('✅ [App] Referral agent session restored successfully!');
             return;
-          } else if (session.userType === 'courier') {
+          } else if (session.userType === 'courier' && session.courierData) {
             console.log('🚚 [App] Restoring courier session...');
+            setCurrentCourier(session.courierData);
             await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
             navigateTo('courier', true);
             setLoading(false);
@@ -595,10 +599,9 @@ function AppContent() {
     try {
       console.log('🔐 Company login with data:', companyData);
 
-      // 🚚 Courier login (no auth needed)
-      if (companyData?.isCourier) {
-        localStorage.setItem('userSession', JSON.stringify({ userType: 'courier' }));
-        navigateTo('courier', true);
+      // 🚚 Redirect to courier login page
+      if (companyData?.goCourierLogin) {
+        navigateTo('courierLogin', true);
         return true;
       }
 
@@ -856,11 +859,25 @@ function AppContent() {
               userPhone={pendingUser?.phone}
             />
           )}
-          {currentPage === 'courier' && (
-            <CourierPanel onLogout={() => {
-              localStorage.removeItem('userSession');
-              navigateTo('companyLogin', true);
-            }} />
+          {currentPage === 'courierLogin' && (
+            <CourierLoginPage
+              onLogin={(data) => {
+                setCurrentCourier(data);
+                localStorage.setItem('userSession', JSON.stringify({ userType: 'courier', courierData: data }));
+                navigateTo('courier', true);
+              }}
+              onBack={() => navigateTo('companyLogin', true)}
+            />
+          )}
+          {currentPage === 'courier' && currentCourier && (
+            <CourierPanel
+              courierData={currentCourier}
+              onLogout={() => {
+                setCurrentCourier(null);
+                localStorage.removeItem('userSession');
+                navigateTo('companyLogin', true);
+              }}
+            />
           )}
 
         </>

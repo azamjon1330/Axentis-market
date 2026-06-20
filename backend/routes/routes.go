@@ -148,13 +148,24 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		orders := api.Group("/orders")
 		{
 			orders.GET("", handlers.GetOrders(db))
-			orders.GET("/courier/shipped", handlers.GetShippedDeliveryOrders(db)) // 🚚 Курьер: активные доставки
-			orders.GET("/:id", handlers.GetOrderByID(db)) // 🔍 Один заказ (детали) — фикс «заказ не найден»
+			orders.GET("/:id", handlers.GetOrderByID(db))
 			orders.POST("", handlers.CreateOrder(db))
 			orders.POST("/:id/confirm", handlers.ConfirmOrder(db))
-			orders.PATCH("/:id", handlers.UpdateOrderStatus(db)) // For cancel/status updates
+			orders.PATCH("/:id", handlers.UpdateOrderStatus(db))
 			orders.PUT("/:id/status", handlers.UpdateOrderStatus(db))
-			orders.PUT("/:id/mark-delivered", handlers.MarkOrderDelivered(db)) // 🚚 Курьер помечает заказ доставленным
+			orders.PUT("/:id/mark-delivered", handlers.MarkOrderDelivered(db))
+		}
+
+		// Courier routes
+		couriers := api.Group("/couriers")
+		{
+			couriers.POST("/login", handlers.LoginCourier(db))
+			couriers.GET("", handlers.GetCouriers(db))
+			couriers.POST("", handlers.CreateCourier(db))
+			couriers.DELETE("/:id", handlers.DeleteCourier(db))
+			couriers.PUT("/:id/status", handlers.UpdateCourierStatus(db))
+			couriers.PUT("/:id/location", handlers.UpdateCourierLocation(db))
+			couriers.GET("/:id/orders", handlers.GetCourierShippedOrders(db))
 		}
 
 		// Users routes

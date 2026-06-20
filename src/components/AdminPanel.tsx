@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket } from 'lucide-react';
+import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck } from 'lucide-react';
 import api from '../utils/api';
 // TODO: Main company management not yet in new API
 import CompanyManagement from './CompanyManagement';
@@ -13,6 +13,7 @@ import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
 import AdminPromoCodesPanel from './AdminPromoCodesPanel';
 import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
+import CouriersManagementPanel from './CouriersManagementPanel'; // 🚚 Курьеры
 import { broadcastReload } from '../utils/reloadBroadcast';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 
@@ -21,7 +22,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -460,6 +461,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               <Ticket className="w-5 h-5" />
               <span className="font-medium">Реферальные агенты</span>
             </button>
+
+            <button
+              onClick={() => handleNavigate('couriers')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'couriers'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Truck className="w-5 h-5" />
+              <span className="font-medium">Курьеры</span>
+            </button>
           </nav>
 
         {/* Logout Button - using relative positioning at bottom */}
@@ -780,6 +793,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <AdminReferralPanel />
           ) : activeTab === 'promo' ? (
             <AdminPromoCodesPanel />
+          ) : activeTab === 'couriers' ? (
+            <CouriersManagementPanel />
           ) : (
             <AdminAdsPanel />
           )}

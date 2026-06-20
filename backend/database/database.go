@@ -474,6 +474,36 @@ func Migrate(db *sql.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_admin_delivery_revenue_order ON admin_delivery_revenue(order_id);
 	CREATE INDEX IF NOT EXISTS idx_admin_delivery_revenue_company ON admin_delivery_revenue(company_id);
+
+	-- Couriers table: company_id NULL = admin courier (sees all orders)
+	CREATE TABLE IF NOT EXISTS couriers (
+		id BIGSERIAL PRIMARY KEY,
+		company_id BIGINT REFERENCES companies(id) ON DELETE CASCADE,
+		name VARCHAR(100) NOT NULL,
+		surname VARCHAR(100) NOT NULL,
+		phone VARCHAR(20) UNIQUE NOT NULL,
+		password_hash VARCHAR(255) NOT NULL,
+		passport_id VARCHAR(20),
+		is_online BOOLEAN NOT NULL DEFAULT FALSE,
+		last_lat DOUBLE PRECISION,
+		last_lng DOUBLE PRECISION,
+		location_updated_at TIMESTAMPTZ,
+		current_order_id BIGINT,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_couriers_company ON couriers(company_id);
+	CREATE INDEX IF NOT EXISTS idx_couriers_phone ON couriers(phone);
+
+	-- Add courier_id to orders (idempotent via DO block below)
+	DO $$
+	BEGIN
+		IF NOT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'orders' AND column_name = 'courier_id'
+		) THEN
+			ALTER TABLE orders ADD COLUMN courier_id BIGINT;
+		END IF;
+	END $$;
 	`
 
 	_, err := db.Exec(schema)
