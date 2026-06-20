@@ -5,9 +5,10 @@ interface DeliveryMapProps {
   companyCoords: { lat: number; lng: number };
   deliveryCoords?: { lat: number; lng: number } | null;
   companyAddress?: string;
+  deliveryAddress?: string;
 }
 
-export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddress }: DeliveryMapProps) {
+export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddress, deliveryAddress }: DeliveryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const routeLayerRef = useRef<Polyline | GeoJSON | null>(null);
@@ -23,7 +24,6 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
       if (destroyed || !containerRef.current) return;
       const L = Lmod.default;
 
-      // Leaflet CSS
       if (!document.getElementById('leaflet-css')) {
         const link = document.createElement('link');
         link.id = 'leaflet-css';
@@ -65,7 +65,7 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
     };
   }, []);
 
-  // Draw / update OSRM route when deliveryCoords changes
+  // Draw / update route when deliveryCoords or deliveryAddress changes
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -84,8 +84,30 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         deliveryMarkerRef.current = null;
       }
 
-      if (!deliveryCoords) {
-        // Reset view to company
+      // Determine delivery location: use coords if available, else geocode address
+      let coords = deliveryCoords;
+      let geocodedLabel = 'Адрес доставки';
+
+      if (!coords && deliveryAddress && deliveryAddress.trim()) {
+        try {
+          const query = encodeURIComponent(deliveryAddress.trim());
+          const resp = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+            { headers: { 'Accept-Language': 'ru' } }
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data[0]) {
+              coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+              geocodedLabel = deliveryAddress;
+            }
+          }
+        } catch {
+          // Geocoding failed — leave coords null
+        }
+      }
+
+      if (!coords) {
         map.setView([companyCoords.lat, companyCoords.lng], 13);
         return;
       }
@@ -97,13 +119,13 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       });
-      deliveryMarkerRef.current = L.marker([deliveryCoords.lat, deliveryCoords.lng], { icon: deliveryIcon })
+      deliveryMarkerRef.current = L.marker([coords.lat, coords.lng], { icon: deliveryIcon })
         .addTo(map)
-        .bindPopup('Адрес доставки');
+        .bindPopup(geocodedLabel);
 
       // Fetch OSRM driving route
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${companyCoords.lng},${companyCoords.lat};${deliveryCoords.lng},${deliveryCoords.lat}?geometries=geojson&overview=full`;
+        const url = `https://router.project-osrm.org/route/v1/driving/${companyCoords.lng},${companyCoords.lat};${coords.lng},${coords.lat}?geometries=geojson&overview=full`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('OSRM request failed');
         const data = await resp.json();
@@ -115,10 +137,9 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
           }).addTo(map);
           routeLayerRef.current = layer as any;
 
-          // Fit bounds to show full route
           const bounds = L.latLngBounds(
             [companyCoords.lat, companyCoords.lng],
-            [deliveryCoords.lat, deliveryCoords.lng]
+            [coords.lat, coords.lng]
           );
           map.fitBounds(bounds, { padding: [40, 40] });
         } else {
@@ -129,7 +150,7 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         const line = L.polyline(
           [
             [companyCoords.lat, companyCoords.lng],
-            [deliveryCoords.lat, deliveryCoords.lng],
+            [coords.lat, coords.lng],
           ],
           { color: '#7C5CF0', weight: 3, dashArray: '8,6', opacity: 0.75 }
         ).addTo(map);
@@ -137,12 +158,12 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
 
         const bounds = L.latLngBounds(
           [companyCoords.lat, companyCoords.lng],
-          [deliveryCoords.lat, deliveryCoords.lng]
+          [coords.lat, coords.lng]
         );
         map.fitBounds(bounds, { padding: [40, 40] });
       }
     });
-  }, [deliveryCoords]);
+  }, [deliveryCoords, deliveryAddress]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 300 }} />

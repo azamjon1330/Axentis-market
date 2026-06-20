@@ -581,6 +581,72 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 
 	log.Printf("💰 CreateOrder: Calculated markup_profit: %.2f", markupProfit)
 
+	// Soft stock pre-check — reject if a specific variant clearly has insufficient stock.
+	// This gives the customer an immediate error before the order is even created.
+	// The hard check with FOR UPDATE locks happens again at confirmation time.
+	for _, item := range itemsArray {
+		var productId int64
+		if pid, ok := item["productId"].(float64); ok {
+			productId = int64(pid)
+		} else if pid, ok := item["product_id"].(float64); ok {
+			productId = int64(pid)
+		} else if pid, ok := item["id"].(float64); ok {
+			productId = int64(pid)
+		}
+		if productId == 0 {
+			continue
+		}
+		qty := 0
+		if q, ok := item["quantity"].(float64); ok {
+			qty = int(q)
+		}
+		if qty <= 0 {
+			continue
+		}
+		itemColor, _ := item["color"].(string)
+		if itemColor == "Любой" || itemColor == "любой" {
+			itemColor = ""
+		}
+		itemSize, _ := item["size"].(string)
+
+		if itemColor != "" || itemSize != "" {
+			// Check variant-level stock
+			var variantStock sql.NullInt64
+			_ = db.QueryRow(`
+				SELECT COALESCE(SUM(stock_quantity), 0) FROM product_variants
+				WHERE product_id = $1
+				  AND ($2 = '' OR color = $2)
+				  AND ($3 = '' OR size  = $3)
+			`, productId, itemColor, itemSize).Scan(&variantStock)
+
+			if variantStock.Valid && int(variantStock.Int64) < qty {
+				var pName string
+				_ = db.QueryRow(`SELECT name FROM products WHERE id = $1`, productId).Scan(&pName)
+				log.Printf("🚫 CreateOrder: insufficient variant stock for product %d (%s), need %d, have %d",
+					productId, pName, qty, variantStock.Int64)
+				c.JSON(http.StatusConflict, gin.H{
+					"error":   fmt.Sprintf("Недостаточно товара на складе: %s (доступно %d шт.)", pName, variantStock.Int64),
+					"product": pName,
+				})
+				return
+			}
+		} else {
+			// No variant specified — check total product quantity
+			var productQty sql.NullInt64
+			var pName string
+			_ = db.QueryRow(`SELECT quantity, name FROM products WHERE id = $1`, productId).Scan(&productQty, &pName)
+			if productQty.Valid && int(productQty.Int64) < qty {
+				log.Printf("🚫 CreateOrder: insufficient product stock for product %d (%s), need %d, have %d",
+					productId, pName, qty, productQty.Int64)
+				c.JSON(http.StatusConflict, gin.H{
+					"error":   fmt.Sprintf("Недостаточно товара на складе: %s (доступно %d шт.)", pName, productQty.Int64),
+					"product": pName,
+				})
+				return
+			}
+		}
+	}
+
 	// Generate unique order code
 	var orderCode string
 	var exists bool

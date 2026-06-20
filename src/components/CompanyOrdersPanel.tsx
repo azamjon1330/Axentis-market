@@ -71,6 +71,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   // Selected delivery coords for map (right panel)
   const [mapDeliveryCoords, setMapDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [mapOrderCode, setMapOrderCode] = useState<string | null>(null);
+  const [mapDeliveryAddress, setMapDeliveryAddress] = useState<string | null>(null);
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   const { isMobile } = useResponsive();
   const responsive = useResponsiveClasses();
@@ -224,16 +226,27 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     const newId = expandedOrderId === order.id ? null : order.id;
     setExpandedOrderId(newId);
 
-    if (newId && order.delivery_type === 'delivery' && order.delivery_coordinates && companyCoords) {
-      const coords = parseDeliveryCoords(order.delivery_coordinates);
-      if (coords) {
-        setMapDeliveryCoords(coords);
+    if (newId && order.delivery_type === 'delivery' && companyCoords) {
+      if (order.delivery_coordinates) {
+        const coords = parseDeliveryCoords(order.delivery_coordinates);
+        if (coords) {
+          setMapDeliveryCoords(coords);
+          setMapDeliveryAddress(order.delivery_address || null);
+          setMapOrderCode(order.order_code);
+          return;
+        }
+      }
+      // No coords but has text address — let DeliveryMap geocode it
+      if (order.delivery_address) {
+        setMapDeliveryCoords(null);
+        setMapDeliveryAddress(order.delivery_address);
         setMapOrderCode(order.order_code);
         return;
       }
     }
     if (!newId) {
       setMapDeliveryCoords(null);
+      setMapDeliveryAddress(null);
       setMapOrderCode(null);
     }
   };
@@ -407,7 +420,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           </div>
         )}
 
-        <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex gap-3">
           <div className="flex-1 relative">
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 ${responsive.iconSmall}`} />
             <input
@@ -419,28 +432,77 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-            {(['all', 'pending', 'confirmed', 'shipped', 'cancelled'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setStatusFilter(f)}
-                className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+          {/* Single filter button → dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilterDropdown(v => !v)}
+              className={`${responsive.buttonSmall} font-medium whitespace-nowrap flex items-center gap-1.5 transition-colors`}
+              style={{
+                borderRadius: 10,
+                background: statusFilter !== 'all' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                color: statusFilter !== 'all' ? '#FFFFFF' : '#8B8BAA',
+                border: statusFilter !== 'all' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+                minWidth: 100,
+              }}
+            >
+              <span>
+                {statusFilter === 'all' ? (language === 'uz' ? 'Filtr' : 'Фильтр')
+                 : statusFilter === 'pending' ? t.waitingOrders
+                 : statusFilter === 'confirmed' ? t.confirmedOrders
+                 : statusFilter === 'shipped' ? t.shippedOrders
+                 : t.cancelledOrders}
+              </span>
+              <span style={{ fontSize: 10 }}>▼</span>
+            </button>
+
+            {showFilterDropdown && (
+              <div
+                className="absolute right-0 mt-1 rounded-xl overflow-hidden z-50"
                 style={{
-                  borderRadius: 20,
-                  background: statusFilter === f ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                  color: statusFilter === f ? '#FFFFFF' : '#8B8BAA',
-                  border: statusFilter === f ? 'none' : '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--ax-card)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  minWidth: 170,
+                  top: '100%',
                 }}
               >
-                {f === 'all' ? t.all
-                 : f === 'pending' ? t.waitingOrders
-                 : f === 'confirmed' ? t.confirmedOrders
-                 : f === 'shipped' ? t.shippedOrders
-                 : t.cancelledOrders}
-              </button>
-            ))}
+                {/* Status options */}
+                <div style={{ padding: '8px 0' }}>
+                  <div style={{ padding: '4px 12px 6px', fontSize: 10, color: 'var(--ax-text-2)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>
+                    {language === 'uz' ? 'Holat' : 'Статус'}
+                  </div>
+                  {(['all', 'pending', 'confirmed', 'shipped', 'cancelled'] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => { setStatusFilter(f); setShowFilterDropdown(false); }}
+                      className="w-full text-left flex items-center gap-2 transition-colors"
+                      style={{
+                        padding: '8px 14px',
+                        background: statusFilter === f ? 'rgba(124,92,240,0.2)' : 'transparent',
+                        color: statusFilter === f ? '#A78BFA' : 'var(--ax-text)',
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        border: 'none',
+                      }}
+                    >
+                      {statusFilter === f && <span style={{ fontSize: 10 }}>✓</span>}
+                      {f === 'all' ? t.all
+                       : f === 'pending' ? t.waitingOrders
+                       : f === 'confirmed' ? t.confirmedOrders
+                       : f === 'shipped' ? t.shippedOrders
+                       : t.cancelledOrders}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Click outside to close dropdown */}
+        {showFilterDropdown && (
+          <div className="fixed inset-0 z-40" onClick={() => setShowFilterDropdown(false)} />
+        )}
       </div>
 
       {/* Orders List */}
@@ -453,7 +515,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         ) : (
           filteredOrders.map((order) => {
             const isExpanded = expandedOrderId === order.id;
-            const hasDelivery = order.delivery_type === 'delivery' && !!order.delivery_coordinates;
+            const hasDelivery = order.delivery_type === 'delivery' && (!!order.delivery_coordinates || !!order.delivery_address);
 
             return (
               <div
@@ -732,11 +794,16 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
       </div>
 
       {/* Hint when no order selected */}
-      {!mapDeliveryCoords && (
+      {!mapDeliveryCoords && !mapDeliveryAddress && (
         <div className="px-4 py-2 text-xs" style={{ color: 'var(--ax-text-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           {language === 'uz'
             ? '💡 Yetkazib berish buyurtmasini bosing — OSRM yo\'nalish chiziladi'
-            : '💡 Нажмите на заказ с доставкой — будет нарисован OSRM маршрут'}
+            : '💡 Нажмите на заказ с доставкой — маршрут будет нарисован автоматически'}
+        </div>
+      )}
+      {!mapDeliveryCoords && mapDeliveryAddress && (
+        <div className="px-4 py-2 text-xs" style={{ color: '#F59E0B', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          🔍 {language === 'uz' ? 'Manzil boyicha qidirilmoqda...' : `Геокодирование адреса: ${mapDeliveryAddress}`}
         </div>
       )}
 
@@ -751,6 +818,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             companyCoords={companyCoords}
             deliveryCoords={mapDeliveryCoords}
             companyAddress={companyAddress}
+            deliveryAddress={mapDeliveryAddress || undefined}
           />
         </Suspense>
       </div>
@@ -771,7 +839,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         <div className="flex gap-4 items-start">
           <div className="flex-1 min-w-0">{orderListPanel}</div>
           {mapPanel && (
-            <div style={{ width: 380, flexShrink: 0, alignSelf: 'stretch' }}>
+            <div style={{ width: 520, flexShrink: 0, alignSelf: 'stretch' }}>
               {mapPanel}
             </div>
           )}

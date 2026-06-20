@@ -2016,7 +2016,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                             <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                  {['Цвет', 'Размер', 'Кол-во', 'Цена', 'Наценка%', 'Bar ID', 'Barcode', ''].map(h => (
+                                  {['Цвет', 'Размер', 'Кол-во', 'Цена', 'Наценка%', 'Цена продажи', 'Bar ID', 'Barcode', ''].map(h => (
                                     <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B8BAA', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
                                   ))}
                                 </tr>
@@ -2025,6 +2025,9 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                 {Object.entries(colorGroups).map(([color, colorVariants]) =>
                                   colorVariants.map((v: any, vIdx: number) => {
                                     const isEditingThisVariant = editingVariant?.productId === String(product.id) && editingVariant?.variantId === String(v.id);
+                                    const sellingPrice = isEditingThisVariant
+                                      ? (parseFloat(editVariantForm.price) || 0) * (1 + (parseFloat(editVariantForm.markupPercent) || 0) / 100)
+                                      : (v.sellingPrice || (v.price || 0) * (1 + (v.markupPercent || 0) / 100));
                                     return (
                                       <tr key={v.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                         {/* Color cell - merged for same color */}
@@ -2039,21 +2042,35 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                                           <>
                                             <td style={{ padding: '4px 6px' }}>
                                               <input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm(prev => ({ ...prev, price: e.target.value }))}
-                                                style={{ width: 90, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                                style={{ width: 80, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
                                             </td>
                                             <td style={{ padding: '4px 6px' }}>
                                               <input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm(prev => ({ ...prev, markupPercent: e.target.value }))}
-                                                style={{ width: 65, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                                style={{ width: 55, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '7px 10px', color: '#22C55E', fontWeight: 600 }}>
+                                              {sellingPrice.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="text" value={editVariantForm.barid} onChange={e => setEditVariantForm(prev => ({ ...prev, barid: e.target.value }))}
+                                                placeholder="Bar ID"
+                                                style={{ width: 60, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="text" value={editVariantForm.barcode} onChange={e => setEditVariantForm(prev => ({ ...prev, barcode: e.target.value }))}
+                                                placeholder="Barcode"
+                                                style={{ width: 90, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none', fontFamily: 'monospace' }} />
                                             </td>
                                           </>
                                         ) : (
                                           <>
                                             <td style={{ padding: '7px 10px', color: '#8B8BAA' }}>{(v.price || 0).toLocaleString()}</td>
                                             <td style={{ padding: '7px 10px', color: '#7C5CF0' }}>{v.markupPercent || 0}%</td>
+                                            <td style={{ padding: '7px 10px', color: '#22C55E', fontWeight: 600 }}>{sellingPrice.toLocaleString()}</td>
+                                            <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11 }}>{v.barid || '—'}</td>
+                                            <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11, fontFamily: 'monospace' }}>{v.barcode || '—'}</td>
                                           </>
                                         )}
-                                        <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11 }}>{v.barid || '—'}</td>
-                                        <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11, fontFamily: 'monospace' }}>{v.barcode || '—'}</td>
                                         <td style={{ padding: '7px 6px', whiteSpace: 'nowrap' }}>
                                           {isEditingThisVariant ? (
                                             <div style={{ display: 'flex', gap: 4 }}>
