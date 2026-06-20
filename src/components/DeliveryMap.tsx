@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { Map as LeafletMap, Polyline, GeoJSON, Marker } from 'leaflet';
 
 interface DeliveryMapProps {
-  companyCoords: { lat: number; lng: number };
+  companyCoords?: { lat: number; lng: number } | null;
   deliveryCoords?: { lat: number; lng: number } | null;
   companyAddress?: string;
   deliveryAddress?: string;
@@ -32,26 +32,30 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         document.head.appendChild(link);
       }
 
+      // Default to Tashkent if no company coords
+      const defaultCenter = companyCoords || { lat: 41.2995, lng: 69.2401 };
       const map = L.map(containerRef.current!, {
         zoomControl: true,
         attributionControl: true,
-      }).setView([companyCoords.lat, companyCoords.lng], 13);
+      }).setView([defaultCenter.lat, defaultCenter.lng], 13);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
         maxZoom: 19,
       }).addTo(map);
 
-      // Company marker (blue dot)
-      const companyIcon = L.divIcon({
-        html: `<div style="width:16px;height:16px;background:#2563EB;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>`,
-        className: '',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-      L.marker([companyCoords.lat, companyCoords.lng], { icon: companyIcon })
-        .addTo(map)
-        .bindPopup(companyAddress || 'Склад / Компания');
+      // Company marker (blue dot) — only when company coords are available
+      if (companyCoords) {
+        const companyIcon = L.divIcon({
+          html: `<div style="width:16px;height:16px;background:#2563EB;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4)"></div>`,
+          className: '',
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        });
+        L.marker([companyCoords.lat, companyCoords.lng], { icon: companyIcon })
+          .addTo(map)
+          .bindPopup(companyAddress || 'Склад / Компания');
+      }
 
       mapRef.current = map;
     });
@@ -108,7 +112,8 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
       }
 
       if (!coords) {
-        map.setView([companyCoords.lat, companyCoords.lng], 13);
+        const fallbackCenter = companyCoords || { lat: 41.2995, lng: 69.2401 };
+        map.setView([fallbackCenter.lat, fallbackCenter.lng], 13);
         return;
       }
 
@@ -123,44 +128,49 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         .addTo(map)
         .bindPopup(geocodedLabel);
 
-      // Fetch OSRM driving route
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${companyCoords.lng},${companyCoords.lat};${coords.lng},${coords.lat}?geometries=geojson&overview=full`;
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('OSRM request failed');
-        const data = await resp.json();
+      // Draw route only when both company and delivery coords are available
+      if (companyCoords) {
+        try {
+          const url = `https://router.project-osrm.org/route/v1/driving/${companyCoords.lng},${companyCoords.lat};${coords.lng},${coords.lat}?geometries=geojson&overview=full`;
+          const resp = await fetch(url);
+          if (!resp.ok) throw new Error('OSRM request failed');
+          const data = await resp.json();
 
-        if (data.code === 'Ok' && data.routes?.[0]) {
-          const geojson = data.routes[0].geometry;
-          const layer = L.geoJSON(geojson, {
-            style: { color: '#7C5CF0', weight: 5, opacity: 0.85 },
-          }).addTo(map);
-          routeLayerRef.current = layer as any;
+          if (data.code === 'Ok' && data.routes?.[0]) {
+            const geojson = data.routes[0].geometry;
+            const layer = L.geoJSON(geojson, {
+              style: { color: '#7C5CF0', weight: 5, opacity: 0.85 },
+            }).addTo(map);
+            routeLayerRef.current = layer as any;
+
+            const bounds = L.latLngBounds(
+              [companyCoords.lat, companyCoords.lng],
+              [coords.lat, coords.lng]
+            );
+            map.fitBounds(bounds, { padding: [40, 40] });
+          } else {
+            throw new Error('No route found');
+          }
+        } catch {
+          // Fallback: straight dashed line
+          const line = L.polyline(
+            [
+              [companyCoords.lat, companyCoords.lng],
+              [coords.lat, coords.lng],
+            ],
+            { color: '#7C5CF0', weight: 3, dashArray: '8,6', opacity: 0.75 }
+          ).addTo(map);
+          routeLayerRef.current = line;
 
           const bounds = L.latLngBounds(
             [companyCoords.lat, companyCoords.lng],
             [coords.lat, coords.lng]
           );
           map.fitBounds(bounds, { padding: [40, 40] });
-        } else {
-          throw new Error('No route found');
         }
-      } catch {
-        // Fallback: straight dashed line
-        const line = L.polyline(
-          [
-            [companyCoords.lat, companyCoords.lng],
-            [coords.lat, coords.lng],
-          ],
-          { color: '#7C5CF0', weight: 3, dashArray: '8,6', opacity: 0.75 }
-        ).addTo(map);
-        routeLayerRef.current = line;
-
-        const bounds = L.latLngBounds(
-          [companyCoords.lat, companyCoords.lng],
-          [coords.lat, coords.lng]
-        );
-        map.fitBounds(bounds, { padding: [40, 40] });
+      } else {
+        // No company coords — just zoom to delivery location
+        map.setView([coords.lat, coords.lng], 15);
       }
     });
   }, [deliveryCoords, deliveryAddress]);
