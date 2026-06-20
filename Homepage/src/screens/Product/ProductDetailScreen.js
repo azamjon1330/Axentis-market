@@ -126,7 +126,11 @@ export default function ProductDetailScreen() {
     }
     setIsAddingToCart(true);
     try {
-      await addItem(productId, 1, selectedVariant?.color || selectedColor || undefined);
+      await addItem(
+        productId, 1,
+        selectedVariant?.color || selectedColor || undefined,
+        selectedVariant?.size || selectedSize || undefined,
+      );
       setAddedToCart(true);
       setTimeout(() => setAddedToCart(false), 2000);
     } catch (err) {
@@ -138,12 +142,23 @@ export default function ProductDetailScreen() {
 
   const handleBuyNow = async () => {
     if (!product || !user) return;
+    if (hasVariants && !selectedVariant) {
+      Alert.alert('Выберите вариант', uniqueColors.length > 0 ? 'Выберите цвет и размер' : 'Выберите размер');
+      return;
+    }
     if (!inCart) {
       try {
-        await addItem(productId, 1, selectedColor || undefined);
-      } catch {}
+        await addItem(
+          productId, 1,
+          selectedVariant?.color || selectedColor || undefined,
+          selectedVariant?.size || selectedSize || undefined,
+        );
+      } catch (err) {
+        Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось добавить в корзину');
+        return;
+      }
     }
-    navigation.navigate('Checkout');
+    navigation.navigate('Main', { screen: 'Cart' });
   };
 
   const handleShare = async () => {
@@ -584,9 +599,16 @@ export default function ProductDetailScreen() {
                 <View key={review.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.reviewHeader}>
                     <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
-                      <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
-                        {review.userName?.charAt(0).toUpperCase()}
-                      </Text>
+                      {review.userAvatarUrl ? (
+                        <Image
+                          source={{ uri: getImageUrl(review.userAvatarUrl) || '' }}
+                          style={styles.reviewAvatarImg}
+                        />
+                      ) : (
+                        <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
+                          {review.userName?.charAt(0).toUpperCase()}
+                        </Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.reviewName, { color: colors.text }]}>{review.userName}</Text>
@@ -772,7 +794,8 @@ const styles = StyleSheet.create({
   noReviews: { fontSize: 14, marginTop: 4 },
   reviewCard: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 10 },
   reviewHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  reviewAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  reviewAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  reviewAvatarImg: { width: 36, height: 36, borderRadius: 18 },
   reviewAvatarText: { fontSize: 16, fontWeight: '700' },
   reviewName: { fontSize: 14, fontWeight: '600' },
   reviewStars: { flexDirection: 'row', gap: 2, marginTop: 2 },

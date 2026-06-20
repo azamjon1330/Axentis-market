@@ -208,6 +208,8 @@ export default function CheckoutScreen() {
           price: i.product?.price || 0,
           price_with_markup: i.product?.sellingPrice || i.product?.price || 0,
           imageUrl: i.product?.images?.[0] || undefined,
+          color: i.selected_color || undefined,
+          size: i.selected_size || undefined,
         })),
         totalAmount: total + deliveryCost,
         deliveryType: 'delivery',
@@ -596,9 +598,16 @@ export default function CheckoutScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Ваш заказ</Text>
               {items.map(item => (
                 <View key={item.id} style={styles.orderItemRow}>
-                  <Text style={[styles.orderItemName, { color: colors.text }]} numberOfLines={2}>
-                    {item.product?.name}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.orderItemName, { color: colors.text }]} numberOfLines={2}>
+                      {item.product?.name}
+                    </Text>
+                    {(item.selected_color || item.selected_size) && (
+                      <Text style={[styles.orderItemVariant, { color: colors.textMuted }]}>
+                        {[item.selected_color, item.selected_size].filter(Boolean).join(' / ')}
+                      </Text>
+                    )}
+                  </View>
                   <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>× {item.quantity}</Text>
                   <Text style={[styles.orderItemPrice, { color: colors.text }]}>
                     {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} сум
@@ -815,7 +824,8 @@ const styles = StyleSheet.create({
   },
   savedBadgeText: { fontSize: 14, fontWeight: '600' },
   orderItemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  orderItemName: { flex: 1, fontSize: 14, lineHeight: 20 },
+  orderItemName: { fontSize: 14, lineHeight: 20 },
+  orderItemVariant: { fontSize: 12, marginTop: 2 },
   orderItemQty: { fontSize: 13, marginTop: 2 },
   orderItemPrice: { fontSize: 14, fontWeight: '600' },
   confirmRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
