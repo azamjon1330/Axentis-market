@@ -20,7 +20,7 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 		rows, err := db.Query(`
 			SELECT r.id, r.product_id, r.user_phone, r.user_name, r.rating, r.comment, r.created_at,
 			       COALESCE(r.likes, 0) as likes, COALESCE(r.dislikes, 0) as dislikes,
-			       COALESCE(u.avatar_url, '') as avatar_url
+			       COALESCE(u.avatar_url, '') as user_avatar_url
 			FROM reviews r
 			LEFT JOIN users u ON u.phone = r.user_phone
 			WHERE r.product_id = $1
@@ -36,16 +36,16 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 		reviews := make([]map[string]interface{}, 0)
 		for rows.Next() {
 			var review struct {
-				ID        int64
-				ProductID int64
-				UserPhone string
-				UserName  string
-				Rating    int
-				Comment   string
-				CreatedAt string
-				Likes     int
-				Dislikes  int
-				AvatarURL string
+				ID            int64
+				ProductID     int64
+				UserPhone     string
+				UserName      string
+				Rating        int
+				Comment       string
+				CreatedAt     string
+				Likes         int
+				Dislikes      int
+				UserAvatarURL string
 			}
 
 			err := rows.Scan(
@@ -58,7 +58,7 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 				&review.CreatedAt,
 				&review.Likes,
 				&review.Dislikes,
-				&review.AvatarURL,
+				&review.UserAvatarURL,
 			)
 			if err != nil {
 				log.Printf("❌ GetProductReviews scan error: %v", err)
@@ -66,16 +66,16 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 			}
 
 			reviewData := map[string]interface{}{
-				"id":         review.ID,
-				"product_id": review.ProductID,
-				"user_phone": review.UserPhone,
-				"user_name":  review.UserName,
-				"rating":     review.Rating,
-				"comment":    review.Comment,
-				"created_at": review.CreatedAt,
-				"likes":      review.Likes,
-				"dislikes":   review.Dislikes,
-				"avatar_url": review.AvatarURL,
+				"id":              review.ID,
+				"product_id":      review.ProductID,
+				"user_phone":      review.UserPhone,
+				"user_name":       review.UserName,
+				"rating":          review.Rating,
+				"comment":         review.Comment,
+				"created_at":      review.CreatedAt,
+				"likes":           review.Likes,
+				"dislikes":        review.Dislikes,
+				"user_avatar_url": review.UserAvatarURL,
 			}
 
 			// Если передан телефон пользователя, проверяем его голос

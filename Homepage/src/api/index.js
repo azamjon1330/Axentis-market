@@ -42,6 +42,7 @@ const mapReview = (r) => ({
   productId: r.productId ?? r.product_id,
   userPhone: r.userPhone ?? r.user_phone,
   userName: r.userName ?? r.user_name,
+  userAvatarUrl: r.userAvatarUrl ?? r.user_avatar_url ?? null,
   rating: r.rating,
   comment: r.comment,
   likes: r.likes ?? 0,
@@ -118,6 +119,7 @@ const mapCartItem = (item) => {
     quantity: item.quantity,
     selected_color: item.selected_color ?? item.selectedColor ?? undefined,
     selected_size: item.selected_size ?? item.selectedSize ?? undefined,
+    stockQuantity: item.stock_quantity ?? item.stockQuantity ?? undefined,
     product,
   };
 };
