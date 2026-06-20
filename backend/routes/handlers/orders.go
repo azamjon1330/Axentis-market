@@ -735,6 +735,111 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// MarkOrderDelivered is called by the courier panel to mark a shipped delivery
+// order as completed. It reuses the full UpdateOrderStatus pipeline so cashback,
+// notifications, and push are all fired exactly once.
+func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		// Verify the order exists and is in 'shipped' state with delivery_type='delivery'
+		var currentStatus, customerPhone string
+		var companyID sql.NullInt64
+		var totalAmount float64
+		var orderCode sql.NullString
+		var itemsJSON []byte
+		if err := db.QueryRow(`
+			SELECT status, customer_phone, company_id, total_amount, order_code, items
+			FROM orders WHERE id = $1
+		`, id).Scan(&currentStatus, &customerPhone, &companyID, &totalAmount, &orderCode, &itemsJSON); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+
+		if currentStatus != "shipped" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Only shipped orders can be marked as delivered"})
+			return
+		}
+
+		tx, err := db.Begin()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+
+		if _, err := tx.Exec(`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`, id); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+			return
+		}
+
+		// Award cashback on delivery (once per order).
+		if oid, perr := strconv.ParseInt(id, 10, 64); perr == nil {
+			awardCashback(tx, customerPhone, oid, totalAmount)
+		}
+
+		notifyOrderStatus(tx, customerPhone, companyID, orderCode.String, "completed")
+
+		if err := tx.Commit(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit"})
+			return
+		}
+
+		sendOrderStatusPush(db, customerPhone, orderCode.String, "completed")
+		log.Printf("✅ MarkOrderDelivered: order %s marked as completed", id)
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	}
+}
+
+// GetShippedDeliveryOrders returns all orders with status=shipped and delivery_type=delivery
+// for the courier panel.
+func GetShippedDeliveryOrders(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rows, err := db.Query(`
+			SELECT id, customer_name, customer_phone, delivery_address, delivery_coordinates,
+			       total_amount, order_code, created_at
+			FROM orders
+			WHERE status = 'shipped' AND delivery_type = 'delivery'
+			ORDER BY created_at ASC
+		`)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+			return
+		}
+		defer rows.Close()
+
+		result := make([]map[string]interface{}, 0)
+		for rows.Next() {
+			var o struct {
+				ID          int64
+				CustomerName string
+				CustomerPhone string
+				DeliveryAddress sql.NullString
+				DeliveryCoordinates sql.NullString
+				TotalAmount float64
+				OrderCode   sql.NullString
+				CreatedAt   string
+			}
+			if err := rows.Scan(&o.ID, &o.CustomerName, &o.CustomerPhone,
+				&o.DeliveryAddress, &o.DeliveryCoordinates,
+				&o.TotalAmount, &o.OrderCode, &o.CreatedAt); err != nil {
+				continue
+			}
+			result = append(result, map[string]interface{}{
+				"id":                   o.ID,
+				"customer_name":        o.CustomerName,
+				"customer_phone":       o.CustomerPhone,
+				"delivery_address":     o.DeliveryAddress.String,
+				"delivery_coordinates": o.DeliveryCoordinates.String,
+				"total_amount":         o.TotalAmount,
+				"order_code":           o.OrderCode.String,
+				"created_at":           o.CreatedAt,
+			})
+		}
+		c.JSON(http.StatusOK, result)
+	}
+}
+
 // Update Order Status
 func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {

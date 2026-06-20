@@ -1320,26 +1320,33 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       
       {/* �🟢 NEW HEADER (FIXED & SAFE AREA) */}
       {!showCart && !selectedProduct && !showCatalog && !viewingCompanyId && !viewingUserProfile && (
-        <header className={`sticky top-0 z-40 transition-colors duration-500 shadow-sm ${
-          isNight ? 'bg-[#1a0b16] border-b border-[#2d1222]' : 'bg-transparent'
-        }`}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        <header
+          className={`sticky top-0 z-40 transition-colors duration-300 ${
+            isNight
+              ? 'bg-[#120a0f]/95 border-b border-white/5'
+              : 'bg-white/95 border-b border-gray-100'
+          }`}
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
         >
           {/* Location selector row */}
           <div className="px-4 pt-2 pb-0 relative">
             <button
               onClick={() => setShowRegionPicker(prev => !prev)}
-              className={`flex items-center gap-1 text-xs font-medium transition-colors ${
-                isNight ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+              className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               <span className="text-sm">📍</span>
               <span className="max-w-[160px] truncate">{selectedRegion}</span>
-              <span className="text-[10px] opacity-60">▾</span>
+              <span className="text-[10px] opacity-50">▾</span>
             </button>
             {showRegionPicker && (
-              <div className={`absolute left-4 right-4 top-full mt-1 z-50 rounded-2xl shadow-xl border overflow-hidden ${
-                isNight ? 'bg-[#2d1222] border-[#4a2040]' : 'bg-white border-gray-100'
+              <div className={`absolute left-4 right-4 top-full mt-2 z-50 rounded-2xl shadow-2xl border overflow-hidden ${
+                isNight ? 'bg-[#1c0e19] border-white/10' : 'bg-white border-gray-100'
               }`}>
                 {UZ_REGIONS.map(region => (
                   <button
@@ -1351,7 +1358,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                     }}
                     className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center gap-2 ${
                       selectedRegion === region
-                        ? isNight ? 'bg-purple-900 text-purple-200 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold'
+                        ? isNight ? 'bg-indigo-900/60 text-indigo-300 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold'
                         : isNight ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -1363,29 +1370,31 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             )}
           </div>
 
-          <div className="px-4 py-2 flex items-center gap-3 bg-[rgba(255,255,255,0)]">
+          <div className="px-4 py-2.5 flex items-center gap-3">
             {/* Menu Button */}
             <button
               onClick={() => showCatalog ? handleCloseCatalog() : handleOpenCatalog()}
-              className={`p-2 rounded-lg transition-colors ${
-                isNight ? 'bg-[#C0BCBC] text-[#1a0b16] hover:bg-[#C0BCBC]/90' : 'bg-[#C0BCBC] text-black hover:bg-[#a0a0a0]'
+              className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${
+                isNight
+                  ? 'bg-white/10 text-white hover:bg-white/15'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
 
             {/* Search Bar */}
-            <div className={`flex-1 flex items-center px-4 py-2.5 rounded-xl transition-colors ${
-              isNight ? 'bg-[#C0BCBC]' : 'bg-[#C0BCBC]'
+            <div className={`flex-1 flex items-center px-3.5 py-2.5 rounded-xl transition-colors gap-2 ${
+              isNight ? 'bg-white/10 border border-white/10' : 'bg-gray-100 border border-transparent'
             }`}>
-              <Search className={`w-5 h-5 ${isNight ? 'text-[#1a0b16]' : 'text-black'}`} />
+              <Search className={`w-4 h-4 flex-shrink-0 ${isNight ? 'text-gray-400' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder="Search products"
+                placeholder="Qidirish..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full ml-3 bg-transparent outline-none ${
-                  isNight ? 'text-[#1a0b16] placeholder-[#1a0b16]/60' : 'text-black placeholder-black/60'
+                className={`w-full bg-transparent outline-none text-sm ${
+                  isNight ? 'text-white placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'
                 }`}
               />
             </div>
@@ -1463,25 +1472,25 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         <>
             {/* ── DEMO BANNER CAROUSEL ── */}
             {!searchQuery && !activeCategory && (
-              <div className="mb-4 relative overflow-hidden rounded-2xl" style={{ height: 160 }}>
+              <div className="mb-5 relative overflow-hidden rounded-3xl" style={{ height: 152 }}>
                 {DEMO_BANNERS.map((banner, idx) => (
                   <div
                     key={idx}
-                    className="absolute inset-0 flex items-center px-6 transition-opacity duration-700"
+                    className="absolute inset-0 flex items-center px-5 transition-opacity duration-600"
                     style={{
                       background: banner.bg,
                       opacity: idx === bannerIndex ? 1 : 0,
                       pointerEvents: idx === bannerIndex ? 'auto' : 'none',
                     }}
                   >
-                    <div className="flex-1">
-                      <p className="text-white text-xl font-bold leading-tight mb-1">{banner.title}</p>
-                      <p className="text-white/70 text-sm mb-3">{banner.subtitle}</p>
-                      <button className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-lg font-bold leading-tight mb-0.5">{banner.title}</p>
+                      <p className="text-white/65 text-xs mb-3">{banner.subtitle}</p>
+                      <button className="bg-white/25 hover:bg-white/35 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors backdrop-blur-sm">
                         Ko'rish →
                       </button>
                     </div>
-                    <span className="text-7xl select-none ml-4">{banner.emoji}</span>
+                    <span className="text-6xl select-none ml-3 flex-shrink-0">{banner.emoji}</span>
                   </div>
                 ))}
                 {/* Dot indicators */}
@@ -1520,7 +1529,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               </div>
             )}
 
-            {/* ── CATEGORY ICONS ROW ── */}
+            {/* ── CATEGORY CHIPS ROW ── */}
             {!loading && uniqueCategories.length > 0 && (() => {
               const ICONS: Record<string, string> = {
                 'электроника': '📱', 'electronics': '📱',
@@ -1538,43 +1547,31 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               };
               const getIcon = (cat: string) => ICONS[cat.toLowerCase()] || '📦';
               return (
-                <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-5" style={{ scrollbarWidth: 'none' }}>
-                  <div className="flex gap-4 pb-1" style={{ width: 'max-content' }}>
+                <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-4" style={{ scrollbarWidth: 'none' }}>
+                  <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
                     <button
                       onClick={() => setActiveCategory(null)}
-                      className="flex flex-col items-center gap-1.5 shrink-0"
-                    >
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                         activeCategory === null
-                          ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
-                          : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
-                      }`}>
-                        🏪
-                      </div>
-                      <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] ${
-                        activeCategory === null ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        Все
-                      </span>
+                          ? 'bg-gray-900 text-white shadow-sm'
+                          : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="text-base">🏪</span>
+                      <span>Barchasi</span>
                     </button>
                     {uniqueCategories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                        className="flex flex-col items-center gap-1.5 shrink-0"
-                      >
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                           activeCategory === cat
-                            ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
-                            : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
-                        }`}>
-                          {getIcon(cat)}
-                        </div>
-                        <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] truncate ${
-                          activeCategory === cat ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                          {cat}
-                        </span>
+                            ? 'bg-gray-900 text-white shadow-sm'
+                            : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <span className="text-base">{getIcon(cat)}</span>
+                        <span className="max-w-[80px] truncate">{cat}</span>
                       </button>
                     ))}
                   </div>
@@ -1597,12 +1594,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               return (
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
-                      🔥 Популярное
+                    <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Ommabop
                     </h2>
-                    <span className={`text-xs font-medium ${isNight ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                      Смотреть все →
-                    </span>
                   </div>
                   <div
                     className="-mx-4 px-4 overflow-x-auto scrollbar-none"
@@ -1621,8 +1615,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                           <button
                             key={product.id}
                             onClick={() => handleOpenProduct(product)}
-                            className={`shrink-0 w-36 rounded-2xl overflow-hidden text-left transition-transform active:scale-95 ${
-                              isNight ? 'bg-white/8' : 'bg-white shadow-sm'
+                            className={`shrink-0 w-36 rounded-2xl overflow-hidden text-left transition-transform active:scale-[0.97] ${
+                              isNight ? 'bg-white/6' : 'bg-white shadow-[0_1px_8px_rgba(0,0,0,0.07)]'
                             }`}
                           >
                             {/* Image */}
@@ -1635,22 +1629,22 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-3xl">
-                                  📦
+                                <div className={`w-full h-full flex items-center justify-center ${isNight ? 'text-gray-600' : 'text-gray-300'}`}>
+                                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
                               )}
                               {inCart && (
-                                <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                                <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center">
                                   <span className="text-white text-[9px] font-bold">{cart[product.id]}</span>
                                 </div>
                               )}
                             </div>
                             {/* Info */}
                             <div className="p-2.5">
-                              <p className={`text-xs font-medium line-clamp-2 leading-tight mb-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                              <p className={`text-xs font-medium line-clamp-2 leading-tight mb-1.5 ${isNight ? 'text-gray-200' : 'text-gray-800'}`}>
                                 {product.name}
                               </p>
-                              <p className="text-xs font-bold text-indigo-600">
+                              <p className={`text-xs font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                 {formatPrice(price)}
                               </p>
                             </div>
@@ -1663,36 +1657,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               );
             })()}
 
-            {/* ── CATEGORY PILLS (фильтр) ── */}
-            {!loading && uniqueCategories.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-                <button
-                  onClick={() => setActiveCategory(null)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                    activeCategory === null
-                      ? 'bg-indigo-600 text-white'
-                      : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
-                  }`}
-                >
-                  Все
-                </button>
-                {uniqueCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      activeCategory === cat
-                        ? 'bg-indigo-600 text-white'
-                        : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+            {/* ── PRODUCT GRID ── */}
+            {!loading && filteredProducts.length > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
+                  {activeCategory || 'Barcha mahsulotlar'}
+                </h2>
+                <span className={`text-xs ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {filteredProducts.length} ta
+                </span>
               </div>
             )}
-
-            {/* ── PRODUCT GRID ── */}
             {loading ? (
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (

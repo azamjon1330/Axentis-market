@@ -347,17 +347,25 @@ export default function ProductCard({
           </div>
         )}
 
+        {/* Bottom fade gradient */}
+        {images.length > 0 && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-10"
+            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.18) 0%, transparent 100%)' }}
+          />
+        )}
+
         {/* Like Button — top right */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onToggleLike(product.id);
           }}
-          className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md transition-transform active:scale-90 z-20 ${
-            isNight ? 'bg-black/50' : 'bg-white/90'
+          className={`absolute top-2 right-2 rounded-full p-1.5 shadow-md transition-transform active:scale-90 z-20 backdrop-blur-sm ${
+            isNight ? 'bg-black/50' : 'bg-white/85'
           }`}
         >
-          <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-400' : 'text-gray-400'}`} />
+          <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-300' : 'text-gray-400'}`} />
         </button>
 
         {/* Top-left badge stack: status badges (🔥 Хит / Новинка / Осталось N) + cart quantity */}
@@ -388,16 +396,16 @@ export default function ProductCard({
       </div>
 
       {/* Product info — OUTSIDE the card, on the transparent page background */}
-      <div className="pt-2 px-0.5">
-        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
+      <div className="pt-2 px-0.5 pb-1">
+        <h3 className={`text-[12px] leading-snug line-clamp-2 mb-1.5 font-medium ${isNight ? 'text-gray-200' : 'text-gray-800'}`}>
           {product.name}
         </h3>
-        <div className="text-[13px] font-bold tracking-tight text-[#FF5722]">
+        <div className={`text-[14px] font-bold tracking-tight ${isNight ? 'text-white' : 'text-gray-900'}`}>
           {formatPrice(getPriceWithMarkup(product))}
         </div>
         {soldCount > 0 && (
-          <div className={`text-[10px] mt-0.5 ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
-            Продано {soldCount}
+          <div className={`text-[10px] mt-0.5 font-medium ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+            {soldCount} sotildi
           </div>
         )}
       </div>
