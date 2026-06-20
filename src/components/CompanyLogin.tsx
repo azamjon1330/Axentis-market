@@ -159,17 +159,6 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
             </button>
           </form>
 
-          {/* Courier login link */}
-          <div className="mt-4 pt-4 border-t border-gray-100 text-center">
-            <a
-              href="#courier-login"
-              onClick={(e) => { e.preventDefault(); onLogin({ goCourierLogin: true }); }}
-              className="text-sm text-gray-400 hover:text-purple-600 transition-colors"
-            >
-              Войти как курьер →
-            </a>
-          </div>
-
         </div>
       </div>
     </div>

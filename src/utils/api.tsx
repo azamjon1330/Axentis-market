@@ -611,7 +611,7 @@ export const orders = {
 // ============================================================================
 export const couriers = {
   login: async (phone: string, password: string) =>
-    apiCall('/couriers/login', { method: 'POST', body: { phone, password }, requiresAuth: false }),
+    apiCall('/couriers/login', { method: 'POST', body: JSON.stringify({ phone, password }), requiresAuth: false }),
 
   list: async (companyId?: number | string) =>
     apiCall(`/couriers${companyId ? `?company_id=${companyId}` : ''}`, { requiresAuth: false }),
@@ -623,16 +623,16 @@ export const couriers = {
     phone: string;
     password: string;
     passport_id?: string;
-  }) => apiCall('/couriers', { method: 'POST', body: data, requiresAuth: false }),
+  }) => apiCall('/couriers', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
 
   delete: async (id: number | string) =>
     apiCall(`/couriers/${id}`, { method: 'DELETE', requiresAuth: false }),
 
   setStatus: async (id: number | string, is_online: boolean) =>
-    apiCall(`/couriers/${id}/status`, { method: 'PUT', body: { is_online }, requiresAuth: false }),
+    apiCall(`/couriers/${id}/status`, { method: 'PUT', body: JSON.stringify({ is_online }), requiresAuth: false }),
 
   updateLocation: async (id: number | string, lat: number, lng: number) =>
-    apiCall(`/couriers/${id}/location`, { method: 'PUT', body: { lat, lng }, requiresAuth: false }),
+    apiCall(`/couriers/${id}/location`, { method: 'PUT', body: JSON.stringify({ lat, lng }), requiresAuth: false }),
 
   getOrders: async (id: number | string) =>
     apiCall(`/couriers/${id}/orders`, { requiresAuth: false }),

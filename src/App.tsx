@@ -39,20 +39,24 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent' | 'courier' | 'courierLogin'>(() => {
     // 🔄 Восстановление страницы при загрузке
     if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/^\//, '');
       const hash = window.location.hash.replace('#', '');
       const state = window.history.state;
-      
+
+      // Direct URL routes: axentis.uz/courier → courier login
+      if (pathname === 'courier') return 'courierLogin';
+
       if (state && state.page) {
         return state.page;
       }
-      
-      // Попытка определить по хешу
+
+      // Hash-based routing
       if (hash === 'home') return 'home';
       if (hash === 'admin') return 'admin';
       if (hash === 'company') return 'company';
       if (hash === 'warehouse' || hash === 'sales' || hash === 'orders' || hash === 'analytics') return 'company';
       if (hash === 'cart' || hash === 'catalog' || hash.startsWith('product-') || hash.startsWith('company-')) return 'home';
-      if (hash === 'courier') return 'courier';
+      if (hash === 'courier') return 'courierLogin';
       if (hash === 'courier-login') return 'courierLogin';
     }
     return 'companyLogin'; // 🎯 Дефолтная страница - вход для компаний/админа
