@@ -10,6 +10,7 @@ import LikesPage from './components/LikesPage';
 import SettingsPage from './components/SettingsPage';
 import AdminPanel from './components/AdminPanel';
 import ReferralAgentPanel from './components/ReferralAgentPanel'; // 👥 Панель реферальных агентов
+import CourierPanel from './components/CourierPanel'; // 🚚 Панель курьера
 import CompanyPanel from './components/CompanyPanel';
 import LoadingScreen from './components/LoadingScreen';
 import PaymentPage from './components/PaymentPage';
@@ -33,7 +34,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent'>(() => {
+  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent' | 'courier'>(() => {
     // 🔄 Восстановление страницы при загрузке
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.replace('#', '');
@@ -49,6 +50,7 @@ function AppContent() {
       if (hash === 'company') return 'company';
       if (hash === 'warehouse' || hash === 'sales' || hash === 'orders' || hash === 'analytics') return 'company';
       if (hash === 'cart' || hash === 'catalog' || hash.startsWith('product-') || hash.startsWith('company-')) return 'home';
+      if (hash === 'courier') return 'courier';
     }
     return 'companyLogin'; // 🎯 Дефолтная страница - вход для компаний/админа
   });
@@ -287,13 +289,19 @@ function AppContent() {
           } else if (session.userType === 'referralAgent' && session.agentData) {
             console.log('👥 [App] Restoring referral agent session...');
             setCurrentReferralAgent(session.agentData);
-            
+
             // ⏱️ Ждем минимальное время загрузки
             await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
-            
+
             navigateTo('referralAgent', true);
             setLoading(false);
             console.log('✅ [App] Referral agent session restored successfully!');
+            return;
+          } else if (session.userType === 'courier') {
+            console.log('🚚 [App] Restoring courier session...');
+            await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
+            navigateTo('courier', true);
+            setLoading(false);
             return;
           } else {
             console.log('⚠️ [App] Invalid session data, clearing...');
@@ -581,7 +589,14 @@ function AppContent() {
   const handleCompanyLogin = async (companyData: any) => {
     try {
       console.log('🔐 Company login with data:', companyData);
-      
+
+      // 🚚 Courier login (no auth needed)
+      if (companyData?.isCourier) {
+        localStorage.setItem('userSession', JSON.stringify({ userType: 'courier' }));
+        navigateTo('courier', true);
+        return true;
+      }
+
       // 👥 Проверка на реферального агента
       if (companyData?.isReferralAgent && companyData?.agent) {
         console.log('👥 Referral agent detected, redirecting to agent panel...');
@@ -829,12 +844,18 @@ function AppContent() {
             />
           )}
           {currentPage === 'payment' && (
-            <PaymentPage 
+            <PaymentPage
               onBackToHome={() => setCurrentPage('home')}
               onLogout={handleLogout}
               userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
               userPhone={pendingUser?.phone}
             />
+          )}
+          {currentPage === 'courier' && (
+            <CourierPanel onLogout={() => {
+              localStorage.removeItem('userSession');
+              navigateTo('companyLogin', true);
+            }} />
           )}
 
         </>

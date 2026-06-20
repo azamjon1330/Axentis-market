@@ -596,6 +596,19 @@ export const orders = {
       method: 'DELETE',
     });
   },
+
+  // Courier: get all shipped delivery orders
+  getShippedDeliveries: async () => {
+    return apiCall('/orders/courier/shipped', { requiresAuth: false });
+  },
+
+  // Courier: mark an order as delivered (completed)
+  markDelivered: async (id: number | string) => {
+    return apiCall(`/orders/${id}/mark-delivered`, {
+      method: 'PUT',
+      requiresAuth: false,
+    });
+  },
 };
 
 // ============================================================================
