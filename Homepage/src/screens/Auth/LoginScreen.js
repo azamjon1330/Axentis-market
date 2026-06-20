@@ -94,14 +94,27 @@ export default function LoginScreen() {
       const phone = getCleanPhone(loginPhone);
       await login(phone, loginPassword);
     } catch (err) {
-      const msg = err?.response?.data?.error || err?.message || t('loginError');
-      if (err?.response?.status === 404) {
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.error;
+
+      if (!err?.response) {
+        // Нет ответа от сервера — проблема сети или сервер недоступен
+        Alert.alert(
+          'Нет связи с сервером',
+          `Не удалось подключиться к axentis.uz.\n\nПроверьте интернет или попробуйте позже.\n\n(${err?.message || 'Network Error'})`,
+        );
+      } else if (status === 404) {
         Alert.alert(t('userNotFound'), t('userNotRegistered'), [
           { text: t('register'), onPress: () => switchTab('register') },
           { text: 'OK', style: 'cancel' },
         ]);
+      } else if (status === 401) {
+        Alert.alert('Неверные данные', serverMsg || 'Неверный телефон или пароль');
       } else {
-        Alert.alert(t('error'), msg);
+        Alert.alert(
+          `Ошибка${status ? ` ${status}` : ''}`,
+          serverMsg || err?.message || t('loginError'),
+        );
       }
     } finally {
       setLoginLoading(false);
@@ -125,7 +138,13 @@ export default function LoginScreen() {
       const phone = getCleanPhone(regPhone);
       await register(phone, regName.trim(), regSurname.trim(), regPassword);
     } catch (err) {
-      Alert.alert(t('error'), err?.response?.data?.error || t('registerError'));
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.error;
+      if (!err?.response) {
+        Alert.alert('Нет связи с сервером', `Не удалось подключиться к axentis.uz.\n\n(${err?.message || 'Network Error'})`);
+      } else {
+        Alert.alert(`Ошибка${status ? ` ${status}` : ''}`, serverMsg || t('registerError'));
+      }
     } finally {
       setRegLoading(false);
     }

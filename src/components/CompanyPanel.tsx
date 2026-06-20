@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, RotateCcw, LayoutDashboard, MessageCircleQuestion } from 'lucide-react';
+import CompanyDashboardPanel from './CompanyDashboardPanel';
+import CompanyQuestionsPanel from './CompanyQuestionsPanel';
 import { DigitalWarehouse } from './DigitalWarehouse';
 import SalesPanel from './SalesPanel';
 import CompanyOrdersPanel from './CompanyOrdersPanel';
@@ -7,6 +9,7 @@ import AnalyticsPanel from './AnalyticsPanel';
 import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
 import CompanyDiscountsManager from './CompanyDiscountsManager';
+import CompanyReturnsPanel from './CompanyReturnsPanel';
 import CompanyInboxPanel from './CompanyInboxPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
@@ -27,7 +30,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
 
-  const [activeTab, setActiveTab] = useState<'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts'>('warehouse');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -88,8 +91,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs: Array<typeof activeTab> = ['warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts'];
-    const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'warehouse';
+    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions'];
+    const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'dashboard';
 
     const currentState = window.history.state || {};
     window.history.replaceState({ ...currentState, tab: initialTab, page: 'company' }, '', `#${initialTab}`);
@@ -121,6 +124,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
   console.log('[CompanyPanel] Rendered with:', { companyId, companyName, type: typeof companyId });
 
   const navItems = [
+    { key: 'dashboard' as const,  icon: LayoutDashboard, label: language === 'uz' ? 'Boshqaruv' : 'Дашборд' },
     { key: 'warehouse' as const,  icon: Package,      label: t.inventory },
     { key: 'sales' as const,      icon: ShoppingCart, label: t.salesPanel },
     { key: 'orders' as const,     icon: Receipt,      label: t.orders },
@@ -128,6 +132,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'barcode' as const,    icon: Barcode,      label: t.searchByBarcode },
     { key: 'smm' as const,        icon: Megaphone,    label: t.smm },
     { key: 'discounts' as const,  icon: Tag,          label: t.discountsManagement },
+    { key: 'returns' as const,    icon: RotateCcw,    label: language === 'uz' ? 'Qaytarishlar' : 'Возвраты' },
+    { key: 'questions' as const,  icon: MessageCircleQuestion, label: language === 'uz' ? 'Savollar' : 'Вопросы' },
   ];
 
   return (
@@ -162,7 +168,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           style={{
             padding: isMobile ? '14px' : '16px',
             borderBottom: '1px solid rgba(255,255,255,0.15)',
-            background: 'var(--ax-primary)',
+            background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
           }}
         >
           <div className="flex items-center gap-2.5 min-w-0">
@@ -201,14 +207,19 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 onClick={() => handleNavigate(key)}
                 className="w-full flex items-center gap-2.5 transition-all duration-200"
                 style={{
-                  padding: isMobile ? '9px 12px' : '10px 14px',
+                  padding: isMobile
+                    ? (active ? '9px 9px' : '9px 12px')
+                    : (active ? '10px 11px' : '10px 14px'),
                   marginBottom: 2,
-                  borderRadius: 10,
-                  background: active ? 'var(--ax-primary)' : 'transparent',
+                  borderRadius: 12,
+                  background: active
+                    ? 'linear-gradient(135deg, rgba(124,92,240,0.9), rgba(91,61,212,0.9))'
+                    : 'transparent',
                   color: active ? '#fff' : 'var(--ax-text-2)',
                   fontWeight: active ? 600 : 500,
                   fontSize: isMobile ? 13 : 14,
                   border: 'none',
+                  borderLeft: active ? '3px solid rgba(255,255,255,0.6)' : '3px solid transparent',
                   cursor: 'pointer',
                   textAlign: 'left',
                 }}
@@ -227,7 +238,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {/* Theme toggle */}
           <div
             className="flex items-center justify-between rounded-xl mb-2"
-            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+            style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}
           >
             <Sun className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
             <div className="flex gap-1">
@@ -266,7 +277,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {/* Language toggle */}
           <div
             className="flex items-center justify-between rounded-xl mb-2"
-            style={{ padding: '6px 10px', background: 'var(--ax-primary-pale)' }}
+            style={{ padding: '6px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 12 }}
           >
             <Globe className="w-3.5 h-3.5" style={{ color: 'var(--ax-text-3)', flexShrink: 0 }} />
             <div className="flex gap-1">
@@ -331,8 +342,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
         <header
           className="sticky top-0 z-10"
           style={{
-            background: 'var(--ax-surface)',
-            borderBottom: '1px solid var(--ax-border)',
+            background: 'var(--ax-sidebar)',
+            borderBottom: '1px solid rgba(124,92,240,0.15)',
           }}
         >
           <div
@@ -365,6 +376,9 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'barcode' && t.searchByBarcode}
                 {activeTab === 'smm' && t.smm}
                 {activeTab === 'discounts' && t.discountsManagement}
+                {activeTab === 'dashboard' && (language === 'uz' ? 'Boshqaruv' : 'Дашборд')}
+                {activeTab === 'returns' && (language === 'uz' ? 'Qaytarishlar' : 'Возвраты')}
+                {activeTab === 'questions' && (language === 'uz' ? 'Savollar' : 'Вопросы')}
               </h1>
             </div>
 
@@ -409,6 +423,9 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'barcode' && <BarcodeSearchPanel companyId={companyId} />}
           {activeTab === 'smm' && <CompanySMMPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'discounts' && <CompanyDiscountsManager companyId={companyId} products={[]} />}
+          {activeTab === 'dashboard' && <CompanyDashboardPanel companyId={companyId} onNavigate={(tab) => handleNavigate(tab as typeof activeTab)} />}
+          {activeTab === 'returns' && <CompanyReturnsPanel companyId={companyId} />}
+          {activeTab === 'questions' && <CompanyQuestionsPanel companyId={companyId} companyName={companyName} />}
         </div>
       </main>
 

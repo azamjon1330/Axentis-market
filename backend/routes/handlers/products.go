@@ -420,6 +420,13 @@ func CreateProduct(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// SECURITY: bind the product to the authenticated company, not whatever
+		// companyId the client put in the body — prevents creating products in
+		// another shop. (companyId is set by RequireCompany from the JWT.)
+		if tokenCompanyID := c.GetInt64("companyId"); tokenCompanyID != 0 {
+			input.CompanyID = tokenCompanyID
+		}
+
 		// 🔍 DEBUG: Логируем входящие данные
 		log.Printf("🔍 CreateProduct request - CompanyID: %d, Name: %s, Price: %.2f, Category: %s, Brand: %s, Color: %s, Size: %s", 
 			input.CompanyID, input.Name, input.Price, input.Category, input.Brand, input.Color, input.Size)

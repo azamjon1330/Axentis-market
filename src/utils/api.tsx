@@ -223,6 +223,11 @@ export const products = {
     return apiCall(`/products?${query}`, { requiresAuth: false });
   },
 
+  // 🔍 Typo-tolerant relevance search (pg_trgm)
+  search: async (q: string, limit = 30) => {
+    return apiCall(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}`, { requiresAuth: false });
+  },
+
   // Get product by ID
   get: async (id: string) => {
     return apiCall(`/products/${id}`, { requiresAuth: false });
@@ -318,8 +323,11 @@ export const products = {
   },
 
   // ── Variant endpoints ──────────────────────────────────────────────────────
-  getVariants: async (productId: string | number) => {
-    return apiCall(`/products/${productId}/variants`, { requiresAuth: false });
+  // inStock=true hides out-of-stock variants (customer view); the seller
+  // warehouse calls without it to see every variant.
+  getVariants: async (productId: string | number, inStock = false) => {
+    const q = inStock ? '?inStock=true' : '';
+    return apiCall(`/products/${productId}/variants${q}`, { requiresAuth: false });
   },
 
   createVariant: async (productId: string | number, data: {
@@ -554,6 +562,11 @@ export const orders = {
     return apiCall(`/orders/${id}`);
   },
 
+  // List orders for a specific customer (buyer's own orders)
+  listByCustomer: async (phone: string) => {
+    return apiCall(`/orders?customer_phone=${encodeURIComponent(phone)}`, { requiresAuth: false });
+  },
+
   // Update order status (company only)
   updateStatus: async (id: string, status: string) => {
     return apiCall(`/orders/${id}/status`, {
@@ -600,6 +613,11 @@ export const companies = {
   }) => {
     const query = new URLSearchParams(params as any).toString();
     return apiCall(`/companies?${query}`, { requiresAuth: false });
+  },
+
+  // ⭐ Top / "hit" shops for the recommended-shops row
+  top: async () => {
+    return apiCall('/companies/top', { requiresAuth: false });
   },
 
   // Get company by ID
@@ -666,6 +684,20 @@ export const companies = {
       body: JSON.stringify(expenses),
     });
   },
+
+  // ⭐ Rate a company (customer)
+  rate: async (id: string | number, userPhone: string, rating: number) =>
+    apiCall(`/companies/${id}/rate`, {
+      method: 'POST',
+      body: JSON.stringify({ user_phone: userPhone, rating }),
+      requiresAuth: false,
+    }),
+
+  // 🔔 Subscribe / unsubscribe to a company (customer)
+  subscribe: async (id: string | number, userPhone: string) =>
+    apiCall(`/companies/${id}/subscribe`, { method: 'POST', body: JSON.stringify({ userPhone }), requiresAuth: false }),
+  unsubscribe: async (id: string | number, userPhone: string) =>
+    apiCall(`/companies/${id}/unsubscribe`, { method: 'POST', body: JSON.stringify({ userPhone }), requiresAuth: false }),
 };
 
 // ============================================================================
@@ -839,10 +871,10 @@ export const users = {
   },
 
   // Set exact quantity for a cart item (upsert). quantity=0 removes the item. Single API call, no GET.
-  setCartQty: async (phone: string, productId: number, quantity: number) => {
+  setCartQty: async (phone: string, productId: number, quantity: number, selectedColor?: string, selectedSize?: string) => {
     return apiCall('/cart/set', {
       method: 'POST',
-      body: JSON.stringify({ user_phone: phone, product_id: productId, quantity }),
+      body: JSON.stringify({ user_phone: phone, product_id: productId, quantity, selected_color: selectedColor || '', selected_size: selectedSize || '' }),
       requiresAuth: false,
     });
   },
@@ -860,6 +892,17 @@ export const users = {
   getReceipts: async (phone: string) => {
     return apiCall(`/users/${phone}/receipts`, { requiresAuth: false });
   },
+
+  // 👤 Public profile / stats / reviews / subscriptions
+  getProfile: async (phone: string) => apiCall(`/users/${phone}/profile`, { requiresAuth: false }),
+  getStats: async (phone: string) => apiCall(`/users/${phone}/stats`, { requiresAuth: false }),
+  getReviews: async (phone: string) => apiCall(`/users/${phone}/reviews`, { requiresAuth: false }),
+  incrementViews: async (phone: string) =>
+    apiCall(`/users/${phone}/increment-views`, { method: 'POST', requiresAuth: false }),
+  toggleSubscription: async (phone: string, targetPhone: string) =>
+    apiCall(`/users/${phone}/subscribe`, { method: 'POST', body: JSON.stringify({ targetPhone }), requiresAuth: false }),
+  subscriptionStatus: async (phone: string, targetPhone: string) =>
+    apiCall(`/users/${phone}/subscription-status/${targetPhone}`, { requiresAuth: false }),
 
   // List all users (admin only)
   list: async (params?: { limit?: number; offset?: number }) => {
@@ -1209,6 +1252,11 @@ export const analytics = {
     return apiCall(`/analytics/company/${companyId}?${query}`);
   },
 
+  // 📊 Unified seller dashboard snapshot
+  dashboard: async (companyId: string | number) => {
+    return apiCall(`/analytics/company/${companyId}/dashboard`);
+  },
+
   // Get top products
   topProducts: async (params?: { companyId?: string; limit?: number }) => {
     const query = new URLSearchParams(params as any).toString();
@@ -1430,6 +1478,73 @@ export const referrals = {
   },
 };
 
+// ============================================================================
+// 🎟️ Promo codes API (промокоды)
+// ============================================================================
+
+export const promoCodes = {
+  create: (data: any) =>
+    apiCall('/promo-codes', { method: 'POST', body: JSON.stringify(data) }),
+  listByCompany: (companyId: number | string) =>
+    apiCall(`/promo-codes/company/${companyId}`),
+  listAll: () => apiCall('/promo-codes/all'),
+  validate: (data: { code: string; userPhone?: string; companyId?: number | null; orderAmount: number }) =>
+    apiCall('/promo-codes/validate', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  redeem: (data: { promoId: number; userPhone?: string; orderId?: number | null; discount: number }) =>
+    apiCall('/promo-codes/redeem', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  toggle: (id: number | string, isActive: boolean) =>
+    apiCall(`/promo-codes/${id}/toggle`, { method: 'PUT', body: JSON.stringify({ isActive }) }),
+  delete: (id: number | string) =>
+    apiCall(`/promo-codes/${id}`, { method: 'DELETE' }),
+};
+
+// ============================================================================
+// ↩️ Returns / refunds API (возвраты)
+// ============================================================================
+
+export const returns = {
+  create: (data: any) =>
+    apiCall('/returns', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  listByCompany: (companyId: number | string) =>
+    apiCall(`/returns?companyId=${companyId}`),
+  listByCustomer: (phone: string) =>
+    apiCall(`/returns?customerPhone=${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  get: (id: number | string) =>
+    apiCall(`/returns/${id}`),
+  updateStatus: (id: number | string, status: string, comment?: string) =>
+    apiCall(`/returns/${id}/status`, { method: 'PUT', body: JSON.stringify({ status, comment }) }),
+};
+
+// ============================================================================
+// ❓ Product questions API (вопросы к товару)
+// ============================================================================
+
+export const productQuestions = {
+  ask: (productId: number | string, data: { userPhone: string; userName?: string; question: string }) =>
+    apiCall(`/products/${productId}/questions`, { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+  listByProduct: (productId: number | string) =>
+    apiCall(`/products/${productId}/questions`, { requiresAuth: false }),
+  listByCompany: (companyId: number | string, unansweredOnly = false) =>
+    apiCall(`/questions/company/${companyId}${unansweredOnly ? '?unanswered=true' : ''}`),
+  answer: (questionId: number | string, data: { answer: string; answeredBy?: string }) =>
+    apiCall(`/questions/${questionId}/answer`, { method: 'POST', body: JSON.stringify(data) }),
+  delete: (questionId: number | string) =>
+    apiCall(`/questions/${questionId}`, { method: 'DELETE' }),
+};
+
+// ============================================================================
+// ⭐ Loyalty / cashback API (баллы и кэшбэк)
+// ============================================================================
+
+export const loyalty = {
+  get: (phone: string) =>
+    apiCall(`/loyalty/${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  earn: (data: { userPhone: string; points: number; orderId?: number | null; description?: string }) =>
+    apiCall('/loyalty/earn', { method: 'POST', body: JSON.stringify(data) }),
+  redeem: (data: { userPhone: string; points: number; orderId?: number | null; description?: string }) =>
+    apiCall('/loyalty/redeem', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
+};
+
 export default {
   baseURL: API_BASE.replace('/api', ''), // 🔗 Base URL для прямых fetch запросов
   auth,
@@ -1448,6 +1563,10 @@ export default {
   reviews,
   discounts,
   referrals, // 👥 Реферальная система
+  promoCodes, // 🎟️ Промокоды
+  returns, // ↩️ Возвраты
+  productQuestions, // ❓ Вопросы к товару
+  loyalty, // ⭐ Баллы и кэшбэк
   checkServerHealth,
   getAuthToken,
   setAuthToken,

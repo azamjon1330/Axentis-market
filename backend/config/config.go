@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"log"
+	"os"
+)
 
 type Config struct {
 	Port          string
@@ -14,6 +17,9 @@ type Config struct {
 	JWTSecret     string
 	JWTExpiration string
 	AllowedOrigins string
+	CardEncryptionKey string
+	AdminPhone     string
+	AdminCode      string
 }
 
 func Load() *Config {
@@ -29,6 +35,11 @@ func Load() *Config {
 		JWTSecret:     getEnv("JWT_SECRET", "your_jwt_secret"),
 		JWTExpiration: getEnv("JWT_EXPIRATION", "168h"),
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "http://localhost:5173"),
+		CardEncryptionKey: getEnv("CARD_ENCRYPTION_KEY", ""),
+		// Admin login credentials (kept as the project's existing hardcoded
+		// values by default; override via env in production).
+		AdminPhone: getEnv("ADMIN_PHONE", "914751330"),
+		AdminCode:  getEnv("ADMIN_CODE", "15051"),
 	}
 }
 
@@ -37,4 +48,27 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// Validate logs loud warnings for insecure default configuration. It never
+// aborts startup (so existing deployments keep running), but it makes a
+// misconfigured production server impossible to miss in the logs.
+func (c *Config) Validate() {
+	switch c.JWTSecret {
+	case "", "your_jwt_secret", "your_very_strong_jwt_secret_key_here_change_in_production":
+		log.Println("🚨 SECURITY: JWT_SECRET is using an insecure default value. " +
+			"Set a long random JWT_SECRET environment variable in production — " +
+			"anyone who knows this value can forge authentication tokens.")
+	}
+
+	switch c.DBPassword {
+	case "", "your_secure_password_here":
+		log.Println("🚨 SECURITY: DB_PASSWORD is using a placeholder/empty value. " +
+			"Set a real DB_PASSWORD environment variable in production.")
+	}
+
+	if c.GinMode != "release" {
+		log.Println("⚠️  GIN_MODE is not 'release'. Set GIN_MODE=release in production " +
+			"to avoid leaking stack traces and debug details to clients.")
+	}
 }

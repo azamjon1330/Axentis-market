@@ -94,7 +94,7 @@ export default function ProfileScreen() {
       id: 'address',
       icon: 'location-outline',
       label: t('deliveryAddresses'),
-      onPress: () => Alert.alert(t('comingSoon'), t('inDevelopment')),
+      onPress: () => navigation.navigate('DeliveryAddresses'),
     },
     {
       id: 'cards',

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { X, MapPin, Package, Star, Heart, UserPlus, UserCheck, Users, TrendingUp, Navigation } from 'lucide-react';
 import api, { getImageUrl } from '../utils/api';
-// TODO: Company rating/subscriptions not yet in new API
-const rateCompany = async (data: any) => ({ success: true });
+// Wired to the existing backend POST /api/companies/:id/rate.
+const rateCompany = async (companyId: any, userPhone: string, rating: number) =>
+  api.companies.rate(companyId, userPhone, rating);
 
 import { useCompanyProfile, useCompanyProducts, invalidateCompanyProfile } from '../utils/cache';
 import ProductCardSimple from './ProductCardSimple';
@@ -145,7 +146,6 @@ export default function CompanyProfile({ companyId, customerId, onClose, onProdu
         {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ customer_id: customerId, action })

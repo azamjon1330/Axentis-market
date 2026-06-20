@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, Smartphone, PenTool, Shirt, Baby, Gamepad2, Search, X, Tag, Package } from 'lucide-react';
 import ProductCard from './ProductCard';
+import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
 interface Product {
   id: number;
@@ -72,6 +73,15 @@ export default function CatalogPanel({
 }: CatalogPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
+  // 🌍 Localization — react to the global language switch.
+  const [language, setLanguage] = useState<Language>(getCurrentLanguage());
+  const t = useTranslation(language);
+  useEffect(() => {
+    const onLang = (e: any) => setLanguage(e.detail);
+    window.addEventListener('languageChange', onLang as EventListener);
+    return () => window.removeEventListener('languageChange', onLang as EventListener);
+  }, []);
 
   useEffect(() => {
     if (isOpen && inputRef.current && !selectedCategory) {
@@ -183,7 +193,7 @@ export default function CatalogPanel({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск товаров..."
+              placeholder={t.searchProducts}
               className={`flex-1 bg-transparent text-sm outline-none ${textPrimary} placeholder:${textSecondary}`}
             />
             {searchQuery && (
@@ -223,7 +233,7 @@ export default function CatalogPanel({
         ) : showCategories ? (
           <div className="p-4">
             <p className={`text-xs font-medium uppercase tracking-wide mb-4 ${textSecondary}`}>
-              Категории
+              {language === 'uz' ? 'Kategoriyalar' : 'Категории'}
             </p>
             <div className="space-y-1">
               {categories.length === 0 ? (

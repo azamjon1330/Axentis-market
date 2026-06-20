@@ -1,7 +1,9 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag } from 'lucide-react';
+import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import CartItemImage from './CartItemImage';
+import HitCompanies from './HitCompanies';
 import BottomNavigation from './BottomNavigation';
 import LoadingAnimation from './LoadingAnimation'; // 🎨 Анимация загрузки
 import CompanyProfile from './CompanyProfile'; // 🏢 НОВОЕ: Профиль компании
@@ -94,8 +96,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [internalCart, setInternalCart] = useState<{ [key: number]: number }>({});
-  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({}); 
-  
+  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({});
+  const [selectedSizes, setSelectedSizes] = useState<{ [key: number]: string }>({});
+
   const cart = externalCart !== undefined ? externalCart : internalCart;
   const selectedColors = externalSelectedColors !== undefined ? externalSelectedColors : internalSelectedColors;
   const setSelectedColors = externalSetSelectedColors !== undefined ? externalSetSelectedColors : setInternalSelectedColors;
@@ -192,6 +195,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [checkoutDeliveryAddress, setCheckoutDeliveryAddress] = useState('');
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [savedPaymentCards, setSavedPaymentCards] = useState<any[]>([]);
+  // 🎟️ Promo code + ⭐ loyalty points at checkout
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ id: number; code: string; discount: number } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [showAddCardForm, setShowAddCardForm] = useState(false);
   const [newCard, setNewCard] = useState({ number: '', expiry: '', firstName: '', lastName: '', cvc: '', type: '' });
@@ -807,8 +816,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
     // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
-      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty})`);
-      api.users.setCartQty(userPhone, productId, newQty)
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, newQty, color, size)
         .then(() => console.log(`✅ [addToCart] API call successful`))
         .catch((err) => console.error(`❌ [addToCart] API call failed:`, err));
     }
@@ -828,8 +839,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     setCart(newCart);
     // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)})`);
-      api.users.setCartQty(userPhone, productId, Math.max(0, newQty))
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, Math.max(0, newQty), color, size)
         .then(() => console.log(`✅ [removeFromCart] API call successful`))
         .catch((err) => console.error(`❌ [removeFromCart] API call failed:`, err));
     } else {
@@ -898,6 +911,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       const markupPercent = product.markupPercent || 0;
       const markupAmount = priceWithMarkup - product.price;
       totalAmount += priceWithMarkup * purchasedQty;
+      const itemColor = product.hasColorOptions ? (selectedColors[productId] || null) : null;
+      const itemSize = selectedSizes[productId] || null;
       purchasedItems.push({
         id: product.id,
         name: product.name,
@@ -907,13 +922,20 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         markupPercent,
         markupAmount,
         total: priceWithMarkup * purchasedQty,
-        color: product.hasColorOptions ? (selectedColors[productId] || 'Любой') : null,
+        color: itemColor,
+        size: itemSize,
         image_url: product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null,
         company_id: product.company_id
       });
     }
 
     if (purchasedItems.length === 0) { setIsCheckingOut(false); return; }
+
+    // 🎟️⭐ Apply promo code and loyalty points to the charged total.
+    const promoDisc = appliedPromo?.discount || 0;
+    const afterPromo = Math.max(0, totalAmount - promoDisc);
+    const pointsDisc = usePoints ? Math.min(loyaltyBalance, afterPromo) : 0;
+    const finalTotal = Math.max(0, afterPromo - pointsDisc);
 
     try {
       const firstPurchasedItem = purchasedItems[0];
@@ -927,7 +949,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         customerName: userName || 'Гость',
         customerPhone: userPhone || '',
         items: purchasedItems,
-        totalAmount,
+        totalAmount: finalTotal,
         deliveryType: checkoutDeliveryType,
         deliveryAddress: checkoutDeliveryType === 'delivery' ? checkoutDeliveryAddress : undefined,
         paymentMethod: checkoutPaymentMethod,
@@ -937,12 +959,23 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       const orderCode = result.orderCode || result.order_code || `ORD-${result.id}`;
       const orderId = result.id;
 
+      // Record promo-code use and redeem loyalty points against this order.
+      if (appliedPromo && promoDisc > 0) {
+        api.promoCodes.redeem({ promoId: appliedPromo.id, userPhone: userPhone || '', orderId, discount: promoDisc }).catch(() => {});
+      }
+      if (pointsDisc > 0) {
+        api.loyalty.redeem({ userPhone: userPhone || '', points: pointsDisc, orderId, description: 'Оплата баллами' }).catch(() => {});
+      }
+      setAppliedPromo(null);
+      setPromoInput('');
+      setUsePoints(false);
+
       setMyOrders(prev => [{
         code: orderCode,
-        total: totalAmount,
+        total: finalTotal,
         itemsCount: purchasedItems.length,
         date: getUzbekistanISOString(),
-        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color })),
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color, size: item.size })),
         status: 'pending',
         orderId
       }, ...prev]);
@@ -1033,6 +1066,51 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     return Object.values(cart).reduce((sum, qty) => sum + qty, 0);
   };
 
+  // 🎟️⭐ Checkout discount helpers (promo code + loyalty points).
+  const getCartCompanyId = (): number | null => {
+    const firstId = Object.keys(cart)[0];
+    if (!firstId) return null;
+    const p = products.find((pr: Product) => pr.id === Number(firstId));
+    return (p as any)?.company_id ?? null;
+  };
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) return;
+    setPromoChecking(true);
+    try {
+      const res = await api.promoCodes.validate({
+        code,
+        userPhone: userPhone || '',
+        companyId: getCartCompanyId(),
+        orderAmount: getTotalCart(),
+      });
+      if (res.valid) {
+        setAppliedPromo({ id: res.promoId, code: res.code, discount: res.discount });
+      } else {
+        setAppliedPromo(null);
+        alert(res.message || 'Промокод недействителен');
+      }
+    } catch (e) {
+      console.error('Promo validate failed:', e);
+      alert('Не удалось проверить промокод');
+    } finally {
+      setPromoChecking(false);
+    }
+  };
+
+  const promoDiscountValue = appliedPromo?.discount || 0;
+  const afterPromoTotal = Math.max(0, getTotalCart() - promoDiscountValue);
+  const pointsDiscountValue = usePoints ? Math.min(loyaltyBalance, afterPromoTotal) : 0;
+  const finalCheckoutTotal = Math.max(0, afterPromoTotal - pointsDiscountValue);
+
+  // Load the loyalty balance when the cart is opened.
+  useEffect(() => {
+    if (showCart && userPhone) {
+      api.loyalty.get(userPhone).then((d: any) => setLoyaltyBalance(d?.pointsBalance || 0)).catch(() => {});
+    }
+  }, [showCart, userPhone]);
+
   const toggleLike = (productId: number) => {
     if (isTogglingLike || !setLikedProductIds) return;
     setIsTogglingLike(true);
@@ -1067,16 +1145,36 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         o.code === order.code ? { ...o, status: 'cancelled' } : o
       );
       setMyOrders(updatedOrders);
-      
-      // TODO: API call when cancelOrder endpoint is ready
-      // if (order.orderId) {
-      //   await cancelOrder(order.orderId);
-      // }
-      
+
+      // Persist the cancellation. The backend restores stock for a
+      // previously-confirmed order and notifies the customer.
+      if (order.orderId) {
+        await api.orders.cancel(order.orderId);
+      }
+
       alert('Заказ отменен');
     } catch (error) {
       console.error('Error cancelling order:', error);
       alert('Ошибка при отмене заказа');
+    }
+  };
+
+  const handleReturnOrder = async (order: any) => {
+    const reason = prompt('Опишите причину возврата:');
+    if (reason === null) return; // user cancelled the prompt
+    try {
+      await api.returns.create({
+        orderId: order.orderId || null,
+        companyId: order.companyId || order.company_id || null,
+        customerPhone: userPhone,
+        reason: reason || '',
+        items: order.items || [],
+        refundAmount: order.totalAmount || order.total_amount || 0,
+      });
+      alert('Заявка на возврат отправлена продавцу');
+    } catch (error) {
+      console.error('Error requesting return:', error);
+      alert('Не удалось отправить заявку на возврат');
     }
   };
 
@@ -1462,11 +1560,16 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               );
             })()}
 
+            {/* ── ХИТОВЫЕ МАГАЗИНЫ — горизонтальный скролл ── */}
+            {!loading && !searchQuery && !activeCategory && (
+              <HitCompanies isNight={isNight} onOpenCompany={(companyId) => handleOpenCompany(companyId)} />
+            )}
+
             {/* ── ПОПУЛЯРНОЕ — горизонтальный скролл ── */}
             {!loading && !searchQuery && !activeCategory && products.length > 0 && (() => {
               const popular = [...products]
                 .filter(p => p.availableForCustomers !== false)
-                .sort((a: any, b: any) => (b.soldCount || 0) - (a.soldCount || 0))
+                .sort((a: any, b: any) => (b.soldCount || b.sold_count || 0) - (a.soldCount || a.sold_count || 0))
                 .slice(0, 12);
               if (popular.length < 2) return null;
               return (
@@ -1869,10 +1972,62 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                         </div>
                       )}
 
-                      <div className={`py-3 px-4 rounded-xl mb-4 ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
-                        <div className="flex justify-between items-center">
+                      {/* 🎟️ Promo code */}
+                      <div className="mb-3">
+                        {appliedPromo ? (
+                          <div className={`flex items-center justify-between py-2.5 px-4 rounded-xl ${isNight ? 'bg-green-900/30' : 'bg-green-50'}`}>
+                            <span className="text-sm text-green-600 font-medium">🎟️ {appliedPromo.code} −{formatPrice(appliedPromo.discount)}</span>
+                            <button onClick={() => { setAppliedPromo(null); setPromoInput(''); }} className="text-xs text-red-500">убрать</button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              value={promoInput}
+                              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                              placeholder="Промокод"
+                              className={`flex-1 px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                            />
+                            <button onClick={applyPromo} disabled={promoChecking || !promoInput.trim()}
+                              className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-medium disabled:opacity-50">
+                              {promoChecking ? '...' : 'Применить'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ⭐ Pay with loyalty points */}
+                      {loyaltyBalance > 0 && (
+                        <label className={`flex items-center justify-between py-2.5 px-4 rounded-xl mb-3 cursor-pointer ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                          <span className={`text-sm ${isNight ? 'text-gray-300' : 'text-gray-600'}`}>
+                            ⭐ Списать баллы (доступно {loyaltyBalance})
+                          </span>
+                          <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} />
+                        </label>
+                      )}
+
+                      {/* Totals breakdown */}
+                      <div className={`py-3 px-4 rounded-xl mb-4 space-y-1 ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                        {(promoDiscountValue > 0 || pointsDiscountValue > 0) && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className={isNight ? 'text-gray-400' : 'text-gray-500'}>Сумма:</span>
+                              <span className={isNight ? 'text-gray-300' : 'text-gray-700'}>{formatPrice(getTotalCart())}</span>
+                            </div>
+                            {promoDiscountValue > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Промокод:</span><span>−{formatPrice(promoDiscountValue)}</span>
+                              </div>
+                            )}
+                            {pointsDiscountValue > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Баллы:</span><span>−{formatPrice(pointsDiscountValue)}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <div className="flex justify-between items-center pt-1">
                           <span className={`text-sm ${isNight ? 'text-gray-300' : 'text-gray-600'}`}>Итого:</span>
-                          <span className={`text-lg font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>{formatPrice(getTotalCart())}</span>
+                          <span className={`text-lg font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>{formatPrice(finalCheckoutTotal)}</span>
                         </div>
                       </div>
 
@@ -1899,13 +2054,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             <div key={productId} className={`p-3 rounded-xl flex gap-3 ${
                               isNight ? 'bg-slate-700' : 'bg-gray-50'
                             }`}>
-                              {/* Image Thumbnail */}
+                              {/* Image Thumbnail (auto-rotates through photos every 3s) */}
                               <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                                {product.images && product.images.length > 0 ? (
-                                  <img src={getImageUrl(product.images[0]) || ''} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Нет фото</div>
-                                )}
+                                <CartItemImage images={product.images} name={product.name} />
                               </div>
                               
                               <div className="flex-1">
@@ -2019,6 +2170,15 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             >
                               <X className="w-4 h-4" />
                               Отменить заказ
+                            </button>
+                          )}
+                          {(order.status === 'delivered' || order.status === 'completed') && (
+                            <button
+                              onClick={() => handleReturnOrder(order)}
+                              className="w-full py-2.5 rounded-xl border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              Вернуть товар
                             </button>
                           )}
                         </div>

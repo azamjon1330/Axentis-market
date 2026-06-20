@@ -18,11 +18,18 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Customers pass ?inStock=true to hide out-of-stock variants; the seller
+		// (warehouse) omits it and sees every variant, including zero stock.
+		stockFilter := ""
+		if c.Query("inStock") == "true" {
+			stockFilter = " AND stock_quantity > 0"
+		}
+
 		rows, err := db.Query(`
 			SELECT id, product_id, color, size, price, markup_percent,
 			       selling_price, stock_quantity, barcode, sku, barid, description, created_at, updated_at
 			FROM product_variants
-			WHERE product_id = $1
+			WHERE product_id = $1`+stockFilter+`
 			ORDER BY id ASC
 		`, productID)
 		if err != nil {

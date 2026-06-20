@@ -27,6 +27,7 @@ import CompanyStoreScreen from '../screens/Company/CompanyStoreScreen';
 import PaymentCardsScreen from '../screens/Profile/PaymentCardsScreen';
 import LanguageSelectionScreen from '../screens/Language/LanguageSelectionScreen';
 import MapLocationPickerScreen from '../screens/Checkout/MapLocationPickerScreen';
+import DeliveryAddressesScreen from '../screens/Profile/DeliveryAddressesScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -163,6 +164,7 @@ export default function Navigation() {
             <Stack.Screen name="CompanyStore" component={CompanyStoreScreen} />
             <Stack.Screen name="PaymentCards" component={PaymentCardsScreen} />
             <Stack.Screen name="MapLocationPicker" component={MapLocationPickerScreen} />
+            <Stack.Screen name="DeliveryAddresses" component={DeliveryAddressesScreen} />
           </>
         )}
       </Stack.Navigator>

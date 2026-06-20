@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"azaton-backend/config"
+	"azaton-backend/middleware"
 	"database/sql"
 	"log"
 	"math/rand"
@@ -9,9 +10,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// userConfig is set once by the router setup so user auth handlers can issue tokens.
+var userCfg *config.Config
+
+// InitUserConfig must be called once at startup with the application config.
+func InitUserConfig(cfg *config.Config) {
+	userCfg = cfg
+}
 
 // generateAccessKey создает 30-значный ключ доступа из цифр
 func generateAccessKey() string {
@@ -104,19 +112,29 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		response := gin.H{
-			"success": true,
-			"user": gin.H{
-				"id":      userID,
-				"phone":   req.Phone,
-				"name":    fullName,
-				"surname": req.Surname,
-				"mode":    req.Mode,
-			},
+		userObj := gin.H{
+			"id":      userID,
+			"phone":   req.Phone,
+			"name":    fullName,
+			"surname": req.Surname,
+			"mode":    req.Mode,
 		}
 		if privateCompanyID != nil {
-			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
+			userObj["privateCompanyId"] = *privateCompanyID
 		}
+
+		response := gin.H{
+			"success": true,
+			"user":    userObj,
+		}
+
+		// Issue a JWT so the mobile client can make authenticated requests.
+		if userCfg != nil {
+			if tok, err := middleware.GenerateToken(userCfg, userID, req.Phone, "user"); err == nil {
+				response["token"] = tok
+			}
+		}
+
 		log.Printf("✅ User registered: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}
@@ -198,19 +216,28 @@ func LoginUser(db *sql.DB) gin.HandlerFunc {
 		_, _ = db.Exec(`UPDATE users SET mode = $1, private_company_id = $2, updated_at = NOW() WHERE id = $3`,
 			req.Mode, privateCompanyID, userID)
 
-		response := gin.H{
-			"success": true,
-			"user": gin.H{
-				"id":      userID,
-				"phone":   req.Phone,
-				"name":    name.String,
-				"surname": surname.String,
-				"mode":    req.Mode,
-			},
+		userObj := gin.H{
+			"id":      userID,
+			"phone":   req.Phone,
+			"name":    name.String,
+			"surname": surname.String,
+			"mode":    req.Mode,
 		}
 		if privateCompanyID != nil {
-			response["user"].(gin.H)["privateCompanyId"] = *privateCompanyID
+			userObj["privateCompanyId"] = *privateCompanyID
 		}
+
+		response := gin.H{
+			"success": true,
+			"user":    userObj,
+		}
+
+		if userCfg != nil {
+			if tok, err := middleware.GenerateToken(userCfg, userID, req.Phone, "user"); err == nil {
+				response["token"] = tok
+			}
+		}
+
 		log.Printf("✅ User logged in: ID=%d, Phone=%s", userID, req.Phone)
 		c.JSON(http.StatusOK, response)
 	}
@@ -283,7 +310,7 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 
 		if err != nil {
 			log.Println("❌ Error creating company:", err.Error())
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company", "details": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create company"})
 			return
 		}
 
@@ -317,13 +344,7 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		}
 
 		// Generate JWT token
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"companyId": companyID,
-			"phone":     req.Phone,
-			"exp":       time.Now().Add(168 * time.Hour).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte(cfg.JWTSecret))
+		tokenString, err := middleware.GenerateToken(cfg, companyID, req.Phone, "company")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return
@@ -339,6 +360,43 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 				"mode":   req.Mode,
 				"status": "pending",
 			},
+		})
+	}
+}
+
+// LoginAdmin authenticates the platform administrator and issues a JWT with
+// the "admin" role. Credentials come from config (ADMIN_PHONE / ADMIN_CODE),
+// defaulting to the project's existing values. This replaces the previous
+// frontend-only admin check (which issued no token at all).
+func LoginAdmin(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Phone    string `json:"phone"`
+			Code     string `json:"code"`
+			Password string `json:"password"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		// Accept the secret in either "code" or "password" for client flexibility.
+		secret := req.Code
+		if secret == "" {
+			secret = req.Password
+		}
+		if req.Phone != cfg.AdminPhone || secret != cfg.AdminCode {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid admin credentials"})
+			return
+		}
+		token, err := middleware.GenerateToken(cfg, 0, req.Phone, "admin")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"token":   token,
+			"admin":   gin.H{"phone": req.Phone, "role": "admin"},
 		})
 	}
 }
@@ -371,18 +429,32 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			SELECT id, name, password_hash, mode, status, is_enabled, referral_agent_id
 			FROM companies WHERE phone = $1
 		`, req.Phone).Scan(&company.ID, &company.Name, &company.PasswordHash, &company.Mode, &company.Status, &company.IsEnabled, &company.ReferralAgentID)
-		// Проверяем пароль - сначала plain text (для простых паролей), потом bcrypt hash
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ LoginCompany: Database error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Ошибка входа"})
+			return
+		}
+		// Проверяем пароль - сначала plain text (для legacy паролей), потом bcrypt hash.
+		// SECURITY: never log the password or the stored hash.
 		passwordValid := false
-		log.Printf("🔐 Login attempt - Phone: %s, Input: %s, DB Hash: %s", 
-			req.Phone, req.Password, company.PasswordHash)
-		
-		// Сначала проверяем plain text (если пароль не хешированный)
+		log.Printf("🔐 Login attempt - Phone: %s", req.Phone)
+
+		// Legacy plain-text password support: if it matches, transparently
+		// upgrade the stored value to a bcrypt hash so the plaintext is gone
+		// after the first successful login (no action required from the user).
 		if company.PasswordHash == req.Password {
 			passwordValid = true
-			log.Println("✅ Plain text password match")
+			if hashed, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost); hErr == nil {
+				if _, uErr := db.Exec(`UPDATE companies SET password_hash = $1 WHERE id = $2`, string(hashed), company.ID); uErr == nil {
+					log.Printf("🔒 Upgraded legacy plaintext password to bcrypt for company %d", company.ID)
+				}
+			}
 		} else if err := bcrypt.CompareHashAndPassword([]byte(company.PasswordHash), []byte(req.Password)); err == nil {
 			passwordValid = true
-			log.Println("✅ Hashed password match")
 		}
 
 		if !passwordValid {
@@ -433,14 +505,13 @@ func LoginCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			log.Printf("ℹ️ Company %d already has referral agent %d, ignoring new code", company.ID, *company.ReferralAgentID)
 		}
 
-		// Generate JWT token
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"companyId": company.ID,
-			"phone":     req.Phone,
-			"exp":       time.Now().Add(168 * time.Hour).Unix(),
-		})
-
-		tokenString, err := token.SignedString([]byte(cfg.JWTSecret))
+		// Generate JWT token. The platform admin (matched by phone) gets the
+		// "admin" role so admin-only endpoints accept this token too.
+		role := "company"
+		if req.Phone == cfg.AdminPhone {
+			role = "admin"
+		}
+		tokenString, err := middleware.GenerateToken(cfg, company.ID, req.Phone, role)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 			return

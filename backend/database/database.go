@@ -108,30 +108,67 @@ func Migrate(db *sql.DB) error {
 		address TEXT,
 		items JSONB NOT NULL,
 		total_amount NUMERIC(12, 2) NOT NULL CHECK (total_amount >= 0),
+		delivery_cost NUMERIC(12, 2) DEFAULT 0,
+		delivery_type VARCHAR(20) DEFAULT 'pickup',
+		recipient_name VARCHAR(100),
+		delivery_address TEXT,
+		delivery_coordinates VARCHAR(50),
+		markup_profit NUMERIC(12, 2) DEFAULT 0,
 		status VARCHAR(20) DEFAULT 'pending',
 		comment TEXT,
+		order_code VARCHAR(6) UNIQUE,
 		created_at TIMESTAMPTZ DEFAULT NOW(),
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
-	-- Add order_code column if it doesn't exist
+	-- Ensure all order columns exist on existing databases (idempotent)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'delivery_cost NUMERIC(12,2) DEFAULT 0',
+		'delivery_type VARCHAR(20) DEFAULT ''pickup''',
+		'recipient_name VARCHAR(100)',
+		'delivery_address TEXT',
+		'delivery_coordinates VARCHAR(50)',
+		'markup_profit NUMERIC(12,2) DEFAULT 0',
+		'order_code VARCHAR(6)'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-		               WHERE table_name='orders' AND column_name='order_code') THEN
-			ALTER TABLE orders ADD COLUMN order_code VARCHAR(6) UNIQUE;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'orders' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE orders ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	CREATE INDEX IF NOT EXISTS idx_orders_company_id ON orders(company_id);
 	CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 	CREATE INDEX IF NOT EXISTS idx_orders_code ON orders(order_code);
 
-	-- Users table (for customers)
+	-- Users table (for customers) — all columns declared upfront so fresh
+	-- deployments work without needing every incremental migration file.
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL PRIMARY KEY,
 		phone VARCHAR(20) UNIQUE NOT NULL,
 		name VARCHAR(255),
+		surname VARCHAR(255),
+		password_hash VARCHAR(255),
+		mode VARCHAR(10) DEFAULT 'public',
+		role VARCHAR(20) DEFAULT 'user',
+		private_company_id BIGINT,
+		avatar_url TEXT,
+		default_delivery_address TEXT,
+		default_delivery_coordinates TEXT,
+		default_recipient_name TEXT,
+		expo_push_token TEXT,
+		followers_count INTEGER DEFAULT 0,
+		following_count INTEGER DEFAULT 0,
+		profile_views INTEGER DEFAULT 0,
 		cart JSONB DEFAULT '{}'::jsonb,
 		likes JSONB DEFAULT '[]'::jsonb,
 		receipts JSONB DEFAULT '[]'::jsonb,
@@ -139,13 +176,35 @@ func Migrate(db *sql.DB) error {
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
-	-- Add avatar_url column if it doesn't exist
+	-- Ensure ALL user columns exist on existing databases (idempotent).
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'surname VARCHAR(255)',
+		'password_hash VARCHAR(255)',
+		'mode VARCHAR(10) DEFAULT ''public''',
+		'role VARCHAR(20) DEFAULT ''user''',
+		'private_company_id BIGINT',
+		'avatar_url TEXT',
+		'default_delivery_address TEXT',
+		'default_delivery_coordinates TEXT',
+		'default_recipient_name TEXT',
+		'expo_push_token TEXT',
+		'followers_count INTEGER DEFAULT 0',
+		'following_count INTEGER DEFAULT 0',
+		'profile_views INTEGER DEFAULT 0'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-		               WHERE table_name='users' AND column_name='avatar_url') THEN
-			ALTER TABLE users ADD COLUMN avatar_url TEXT;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'users' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE users ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
@@ -179,26 +238,59 @@ func Migrate(db *sql.DB) error {
 
 	CREATE INDEX IF NOT EXISTS idx_custom_expenses_company_id ON custom_expenses(company_id);
 
-	-- Add view_count to companies if not exists
+	-- Ensure all company columns exist on existing DBs (idempotent)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'view_count INTEGER DEFAULT 0',
+		'followers_count INTEGER DEFAULT 0',
+		'is_enabled BOOLEAN DEFAULT TRUE',
+		'delivery_enabled BOOLEAN DEFAULT FALSE',
+		'delivery_radius NUMERIC(10,2) DEFAULT 5000',
+		'private_code VARCHAR(50)',
+		'referral_code VARCHAR(50)',
+		'referral_agent_id BIGINT',
+		'trial_started_at TIMESTAMPTZ',
+		'trial_end_date TIMESTAMPTZ',
+		'products_description TEXT',
+		'delivery_radius_km NUMERIC(10,2) DEFAULT 0',
+		'delivery_radius_lat DOUBLE PRECISION',
+		'delivery_radius_lng DOUBLE PRECISION'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_name = 'companies' AND column_name = 'view_count'
-		) THEN
-			ALTER TABLE companies ADD COLUMN view_count INTEGER DEFAULT 0;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'companies' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE companies ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
-	-- Add sold_count to products if not exists
+	-- Ensure all product columns exist on existing DBs (idempotent)
 	DO $$
+	DECLARE cols TEXT[] := ARRAY[
+		'sold_count INTEGER DEFAULT 0',
+		'description TEXT',
+		'brand TEXT',
+		'color TEXT',
+		'size TEXT'
+	];
+	col TEXT;
+	col_name TEXT;
 	BEGIN
-		IF NOT EXISTS (
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_name = 'products' AND column_name = 'sold_count'
-		) THEN
-			ALTER TABLE products ADD COLUMN sold_count INTEGER DEFAULT 0;
-		END IF;
+		FOREACH col IN ARRAY cols LOOP
+			col_name := split_part(col, ' ', 1);
+			IF NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'products' AND column_name = col_name
+			) THEN
+				EXECUTE 'ALTER TABLE products ADD COLUMN ' || col;
+			END IF;
+		END LOOP;
 	END $$;
 
 	-- Company subscribers table
@@ -244,6 +336,144 @@ func Migrate(db *sql.DB) error {
 	CREATE INDEX IF NOT EXISTS idx_notifications_user_phone ON notifications(user_phone);
 	CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 	CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+	-- Cart items table
+	CREATE TABLE IF NOT EXISTS cart_items (
+		id BIGSERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+		selected_color VARCHAR(50) NOT NULL DEFAULT '',
+		selected_size VARCHAR(50) NOT NULL DEFAULT '',
+		added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW(),
+		UNIQUE(user_phone, product_id, selected_color, selected_size)
+	);
+	CREATE INDEX IF NOT EXISTS idx_cart_items_phone ON cart_items(user_phone);
+
+	-- Fix cart_items columns and unique constraint on existing databases (idempotent)
+	DO $$
+	DECLARE
+		con_name TEXT;
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'selected_color') THEN
+			ALTER TABLE cart_items ADD COLUMN selected_color VARCHAR(50) NOT NULL DEFAULT '';
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'selected_size') THEN
+			ALTER TABLE cart_items ADD COLUMN selected_size VARCHAR(50) NOT NULL DEFAULT '';
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'cart_items' AND column_name = 'added_at') THEN
+			ALTER TABLE cart_items ADD COLUMN added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+		END IF;
+		-- Upgrade 2-column unique constraint to 4-column if needed
+		IF NOT EXISTS (
+			SELECT 1 FROM information_schema.table_constraints tc
+			JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
+			WHERE tc.table_name = 'cart_items' AND tc.constraint_type = 'UNIQUE'
+			AND kcu.column_name = 'selected_color'
+		) THEN
+			SELECT tc.constraint_name INTO con_name
+			FROM information_schema.table_constraints tc
+			WHERE tc.table_name = 'cart_items' AND tc.constraint_type = 'UNIQUE'
+			LIMIT 1;
+			IF con_name IS NOT NULL THEN
+				EXECUTE 'ALTER TABLE cart_items DROP CONSTRAINT ' || quote_ident(con_name);
+			END IF;
+			ALTER TABLE cart_items ADD CONSTRAINT cart_items_phone_product_color_size_key
+				UNIQUE(user_phone, product_id, selected_color, selected_size);
+		END IF;
+	END $$;
+
+	-- User favorites table
+	CREATE TABLE IF NOT EXISTS user_favorites (
+		id BIGSERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		UNIQUE(user_phone, product_id)
+	);
+	CREATE INDEX IF NOT EXISTS idx_user_favorites_phone ON user_favorites(user_phone);
+
+	-- Add added_at to user_favorites on existing databases (idempotent)
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_favorites' AND column_name = 'added_at') THEN
+			ALTER TABLE user_favorites ADD COLUMN added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+		END IF;
+	END $$;
+
+	-- Product variants table
+	CREATE TABLE IF NOT EXISTS product_variants (
+		id BIGSERIAL PRIMARY KEY,
+		product_id BIGINT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+		color VARCHAR(50),
+		size VARCHAR(50),
+		price NUMERIC(12,2) NOT NULL DEFAULT 0,
+		markup_percent NUMERIC(5,2) DEFAULT 0,
+		selling_price NUMERIC(12,2) GENERATED ALWAYS AS (price + (price * markup_percent / 100)) STORED,
+		stock_quantity INTEGER DEFAULT 0,
+		barcode VARCHAR(100),
+		sku VARCHAR(100),
+		barid VARCHAR(100),
+		description TEXT,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
+
+	-- Product purchases table
+	CREATE TABLE IF NOT EXISTS product_purchases (
+		id BIGSERIAL PRIMARY KEY,
+		company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+		product_id BIGINT REFERENCES products(id) ON DELETE SET NULL,
+		variant_id BIGINT REFERENCES product_variants(id) ON DELETE SET NULL,
+		quantity INTEGER NOT NULL,
+		unit_cost NUMERIC(12,2) NOT NULL,
+		total_cost NUMERIC(12,2) NOT NULL,
+		purchased_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_product_purchases_company ON product_purchases(company_id);
+	CREATE INDEX IF NOT EXISTS idx_product_purchases_product ON product_purchases(product_id);
+
+	-- Subscriptions table (user→user and user→company follows)
+	CREATE TABLE IF NOT EXISTS subscriptions (
+		id BIGSERIAL PRIMARY KEY,
+		user_id BIGINT NOT NULL,
+		company_id BIGINT,
+		subscribed_user_id BIGINT,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user_company
+		ON subscriptions(user_id, company_id) WHERE company_id IS NOT NULL;
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_subscriptions_user_target
+		ON subscriptions(user_id, subscribed_user_id) WHERE subscribed_user_id IS NOT NULL;
+	CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+
+	-- User delivery addresses table
+	CREATE TABLE IF NOT EXISTS user_delivery_addresses (
+		id SERIAL PRIMARY KEY,
+		user_phone VARCHAR(20) NOT NULL REFERENCES users(phone) ON DELETE CASCADE,
+		title VARCHAR(100),
+		address TEXT NOT NULL,
+		latitude DOUBLE PRECISION,
+		longitude DOUBLE PRECISION,
+		is_default BOOLEAN NOT NULL DEFAULT FALSE,
+		created_at TIMESTAMP NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_user_delivery_addresses_phone ON user_delivery_addresses(user_phone);
+
+	-- Admin delivery revenue tracking table
+	CREATE TABLE IF NOT EXISTS admin_delivery_revenue (
+		id BIGSERIAL PRIMARY KEY,
+		order_id BIGINT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+		company_id BIGINT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+		delivery_cost NUMERIC(12, 2) NOT NULL DEFAULT 0,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_admin_delivery_revenue_order ON admin_delivery_revenue(order_id);
+	CREATE INDEX IF NOT EXISTS idx_admin_delivery_revenue_company ON admin_delivery_revenue(company_id);
 	`
 
 	_, err := db.Exec(schema)
@@ -299,12 +529,20 @@ func runMigrationFiles(db *sql.DB, dir string) error {
 
 		_, err = db.Exec(sqlContent)
 		if err != nil {
-			// Skip "already exists" errors — idempotent migrations
 			errMsg := err.Error()
-			if strings.Contains(errMsg, "already exists") || strings.Contains(errMsg, "duplicate") {
-				log.Printf("⚠️  Skipping migration %s (already applied): %v", fileName, err)
+			// Always skip "already exists" / "duplicate" errors — idempotent migrations.
+			// Also skip permission-related errors (e.g. CREATE EXTENSION on managed PG)
+			// so the server doesn't crash on hosting providers that restrict extensions.
+			if strings.Contains(errMsg, "already exists") ||
+				strings.Contains(errMsg, "duplicate") ||
+				strings.Contains(errMsg, "permission denied") ||
+				strings.Contains(errMsg, "must be superuser") ||
+				strings.Contains(errMsg, "must be owner") {
+				log.Printf("⚠️  Skipping migration %s: %v", fileName, err)
 			} else {
-				return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
+				log.Printf("❌ Migration %s failed: %v", fileName, err)
+				// Non-fatal: log the error and continue so the rest of the migrations
+				// and the server startup are not blocked by a single bad file.
 			}
 		}
 

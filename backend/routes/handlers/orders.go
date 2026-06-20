@@ -13,6 +13,63 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// checkStockAvailable locks the relevant stock rows inside the transaction and
+// verifies enough quantity is available to fulfil `qty` of a product line.
+//
+// The FOR UPDATE locks serialize concurrent order confirmations: the second
+// transaction blocks until the first commits, then sees the reduced stock — so
+// the same unit can no longer be sold twice (the overselling race).
+//
+// It is intentionally conservative: it only reports a shortage when it can
+// positively measure one (matching variant rows, or a product-level quantity).
+// If it cannot determine the stock for a line, it returns ok=true so legitimate
+// orders are never falsely blocked.
+func checkStockAvailable(tx *sql.Tx, productID int64, color, size string, qty int) (ok bool, productName string) {
+	if color == "Любой" || color == "любой" {
+		color = ""
+	}
+
+	// Prefer variant-level stock when matching variants exist. Lock the rows
+	// first (FOR UPDATE is not allowed alongside SUM), then total them in Go.
+	rows, err := tx.Query(`
+		SELECT stock_quantity FROM product_variants
+		WHERE product_id = $1
+		  AND ($2 = '' OR color = $2)
+		  AND ($3 = '' OR size  = $3)
+		FOR UPDATE
+	`, productID, color, size)
+	if err == nil {
+		variantCount := 0
+		variantStock := 0
+		for rows.Next() {
+			var s sql.NullInt64
+			if err := rows.Scan(&s); err == nil {
+				variantCount++
+				variantStock += int(s.Int64)
+			}
+		}
+		rows.Close()
+		if variantCount > 0 {
+			if variantStock < qty {
+				var name string
+				tx.QueryRow(`SELECT name FROM products WHERE id = $1`, productID).Scan(&name)
+				return false, name
+			}
+			return true, ""
+		}
+	}
+
+	// Fall back to product-level quantity (products without variants).
+	var productQty sql.NullInt64
+	var name string
+	if err := tx.QueryRow(`SELECT quantity, name FROM products WHERE id = $1 FOR UPDATE`, productID).Scan(&productQty, &name); err == nil {
+		if productQty.Valid && int(productQty.Int64) < qty {
+			return false, name
+		}
+	}
+	return true, ""
+}
+
 // Get Orders
 func GetOrders(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -172,6 +229,99 @@ func GetOrders(db *sql.DB) gin.HandlerFunc {
 
 	c.JSON(http.StatusOK, orders)
 	}
+}
+
+// GetOrderByID returns a single order. The mobile app's order-detail screen
+// calls GET /orders/:id; without this route it 404'd and showed "Заказ не
+// найден". Returns the same shape as the list items.
+func GetOrderByID(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+
+		var o struct {
+			ID                  int64
+			CustomerName        string
+			CustomerPhone       string
+			Address             sql.NullString
+			Items               []byte
+			TotalAmount         float64
+			DeliveryCost        float64
+			DeliveryType        sql.NullString
+			RecipientName       sql.NullString
+			DeliveryAddress     sql.NullString
+			DeliveryCoordinates sql.NullString
+			MarkupProfit        float64
+			Status              string
+			Comment             sql.NullString
+			OrderCode           sql.NullString
+			CreatedAt           string
+		}
+
+		err := db.QueryRow(`
+			SELECT id, customer_name, customer_phone, address, items,
+			       total_amount, delivery_cost, delivery_type, recipient_name,
+			       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
+			FROM orders WHERE id = $1
+		`, id).Scan(&o.ID, &o.CustomerName, &o.CustomerPhone, &o.Address, &o.Items,
+			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType, &o.RecipientName,
+			&o.DeliveryAddress, &o.DeliveryCoordinates, &o.MarkupProfit, &o.Status, &o.Comment, &o.OrderCode, &o.CreatedAt)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+		if err != nil {
+			log.Printf("❌ GetOrderByID: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch order"})
+			return
+		}
+
+		// Parse items (handles direct array and double-encoded string).
+		var itemsArray []map[string]interface{}
+		if len(o.Items) > 0 {
+			if err := json.Unmarshal(o.Items, &itemsArray); err != nil {
+				var itemsString string
+				if err2 := json.Unmarshal(o.Items, &itemsString); err2 == nil {
+					json.Unmarshal([]byte(itemsString), &itemsArray)
+				}
+			}
+		}
+		if itemsArray == nil {
+			itemsArray = []map[string]interface{}{}
+		}
+
+		order := map[string]interface{}{
+			"id":            o.ID,
+			"customerName":  o.CustomerName,
+			"customerPhone": o.CustomerPhone,
+			"items":         itemsArray,
+			"delivery_cost": o.DeliveryCost,
+			"deliveryCost":  o.DeliveryCost,
+			"total_amount":  o.TotalAmount,
+			"totalAmount":   o.TotalAmount,
+			"markup_profit": o.MarkupProfit,
+			"markupProfit":  o.MarkupProfit,
+			"status":        o.Status,
+			"created_at":    o.CreatedAt,
+			"createdAt":     o.CreatedAt,
+			"deliveryType":  ternStr(o.DeliveryType, "pickup"),
+			"recipientName": o.RecipientName.String,
+			"deliveryAddress": o.DeliveryAddress.String,
+			"deliveryCoordinates": o.DeliveryCoordinates.String,
+			"address":       o.Address.String,
+			"comment":       o.Comment.String,
+			"orderCode":     o.OrderCode.String,
+			"order_code":    o.OrderCode.String,
+		}
+		c.JSON(http.StatusOK, order)
+	}
+}
+
+// ternStr returns the NullString value or a fallback when null/empty.
+func ternStr(s sql.NullString, fallback string) string {
+	if s.Valid && s.String != "" {
+		return s.String
+	}
+	return fallback
 }
 
 // Create Order
@@ -538,10 +688,17 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		// Read current status and items before updating
+		// Read current status and order data before updating
 		var currentStatus string
 		var itemsJSON []byte
-		if err := tx.QueryRow(`SELECT status, items FROM orders WHERE id = $1`, id).Scan(&currentStatus, &itemsJSON); err != nil {
+		var customerPhone string
+		var companyID sql.NullInt64
+		var totalAmount float64
+		var orderCode sql.NullString
+		if err := tx.QueryRow(`
+			SELECT status, items, customer_phone, company_id, total_amount, order_code
+			FROM orders WHERE id = $1
+		`, id).Scan(&currentStatus, &itemsJSON, &customerPhone, &companyID, &totalAmount, &orderCode); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 			return
 		}
@@ -552,14 +709,18 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Parse items once — used by both the decrement and the cancel-restore paths.
+		var parsedItems []map[string]interface{}
+		_ = json.Unmarshal(itemsJSON, &parsedItems)
+
 		// Decrement stock once: only when transitioning from pending → any confirmed state
 		confirmedStatuses := map[string]bool{
 			"confirmed": true, "processing": true,
 			"shipped": true, "delivered": true, "completed": true,
 		}
 		if currentStatus == "pending" && confirmedStatuses[req.Status] {
-			var items []map[string]interface{}
-			if err := json.Unmarshal(itemsJSON, &items); err == nil {
+			{
+				items := parsedItems
 				for _, item := range items {
 					var productId int64
 					quantity := 1
@@ -580,6 +741,19 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 							color = ""
 						}
 						size, _ := item["size"].(string)
+
+						// Lock stock rows and reject if there is not enough to
+						// fulfil this line — prevents overselling under concurrent
+						// confirmations.
+						if available, name := checkStockAvailable(tx, productId, color, size, quantity); !available {
+							log.Printf("🚫 UpdateOrderStatus: insufficient stock for product %d (%s), need %d", productId, name, quantity)
+							c.JSON(http.StatusConflict, gin.H{
+								"error":   "Недостаточно товара на складе: " + name,
+								"product": name,
+							})
+							return
+						}
+
 						variantDecremented := false
 						if color != "" || size != "" {
 							res, err := tx.Exec(`
@@ -625,9 +799,34 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 			}
 		}
 
+		// 🔄 Cancelling a previously-confirmed order: put the stock back.
+		if req.Status == "cancelled" && confirmedStatuses[currentStatus] {
+			restoreStockForItems(tx, parsedItems)
+			log.Printf("↩️ UpdateOrderStatus: stock restored for cancelled order %s", id)
+		}
+
+		// ⭐ Cashback on delivery/completion (once per order).
+		if (req.Status == "delivered" || req.Status == "completed") &&
+			currentStatus != "delivered" && currentStatus != "completed" {
+			if oid, perr := strconv.ParseInt(id, 10, 64); perr == nil {
+				awardCashback(tx, customerPhone, oid, totalAmount)
+			}
+		}
+
+		// 🔔 Notify the customer about the status change.
+		if req.Status != currentStatus {
+			notifyOrderStatus(tx, customerPhone, companyID, orderCode.String, req.Status)
+		}
+
 		if err := tx.Commit(); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 			return
+		}
+
+		// 📲 Real push to the customer's phone (Expo), after the commit so the
+		// network call never blocks the transaction or the API response.
+		if req.Status != currentStatus {
+			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true})

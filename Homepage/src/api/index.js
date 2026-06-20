@@ -304,4 +304,29 @@ export const setDefaultCard = async (id) => {
   await api.put(ENDPOINTS.paymentCardDefault(id));
 };
 
+// ─── Delivery Addresses ────────────────────────────────────────────────────────
+export const getUserAddresses = async (phone) => {
+  const res = await api.get(ENDPOINTS.userAddresses(phone));
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const addUserAddress = async (phone, data) => {
+  const res = await api.post(ENDPOINTS.userAddresses(phone), data);
+  return res.data;
+};
+
+export const updateUserAddress = async (phone, id, data) => {
+  const res = await api.put(ENDPOINTS.userAddressDetail(phone, id), data);
+  return res.data;
+};
+
+export const deleteUserAddress = async (phone, id) => {
+  await api.delete(ENDPOINTS.userAddressDetail(phone, id));
+};
+
+export const setDefaultAddress = async (phone, id) => {
+  const res = await api.put(ENDPOINTS.userAddressDefault(phone, id));
+  return res.data;
+};
+
 export default api;

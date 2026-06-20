@@ -16,6 +16,10 @@ interface Product {
   images?: ProductImage[];
   company_name?: string;
   company_id?: number;
+  sold_count?: number;
+  soldCount?: number;
+  created_at?: string;
+  createdAt?: string;
 }
 
 interface ProductCardProps {
@@ -223,22 +227,36 @@ export default function ProductCard({
 
   const isNight = displayMode === 'night';
 
+  // 🏷️ Auto badges derived from existing product data (max 2 to avoid clutter).
+  const productBadges: Array<{ label: string; cls: string }> = [];
+  const soldCount = product.sold_count ?? product.soldCount ?? 0;
+  const createdAt = product.created_at ?? product.createdAt;
+  if (soldCount >= 50) {
+    productBadges.push({ label: '🔥 Хит', cls: 'bg-red-500 text-white' });
+  }
+  if (createdAt && Date.now() - new Date(createdAt).getTime() < 14 * 24 * 60 * 60 * 1000) {
+    productBadges.push({ label: 'Новинка', cls: 'bg-green-500 text-white' });
+  }
+  if (productBadges.length < 2 && product.quantity > 0 && product.quantity <= 5) {
+    productBadges.push({ label: `Осталось ${product.quantity}`, cls: 'bg-orange-500 text-white' });
+  }
+  const visibleBadges = productBadges.slice(0, 2);
+
   return (
     <div
       key={product.id}
       id={`product-${product.id}`}
-      className={`flex flex-col relative cursor-pointer rounded-xl overflow-hidden transition-transform duration-150 active:scale-[0.97]
-        ${isNight
-          ? 'bg-[#1C1C26] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
-          : 'bg-white shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
-        ${highlightedProductId === product.id ? 'ring-2 ring-purple-500' : ''}
+      className={`flex flex-col relative cursor-pointer transition-transform duration-150 active:scale-[0.97]
+        ${highlightedProductId === product.id ? 'rounded-2xl ring-2 ring-purple-500' : ''}
       `}
       onClick={onClick || onDoubleClick}
     >
-      {/* Image area */}
+      {/* Image area — this rounded box IS the card; the photo fills it 100% */}
       <div
-        className={`relative w-full aspect-[3/4] overflow-hidden group
-          ${isNight ? 'bg-[#2A2A3A]' : 'bg-[#F4F4F6]'}
+        className={`relative w-full aspect-[3/4] overflow-hidden group rounded-2xl
+          ${isNight
+            ? 'bg-[#2A2A3A] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
+            : 'bg-[#F4F4F6] shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
         `}
       >
         {images.length > 0 ? (
@@ -342,10 +360,19 @@ export default function ProductCard({
           <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-400' : 'text-gray-400'}`} />
         </button>
 
-        {/* Cart badge */}
-        {cartQuantity && (
-          <div className="absolute top-2 left-2 bg-[#5B3CF5] text-white rounded-lg px-2 py-0.5 text-xs font-semibold z-20 shadow-sm">
-            {cartQuantity}
+        {/* Top-left badge stack: status badges (🔥 Хит / Новинка / Осталось N) + cart quantity */}
+        {(visibleBadges.length > 0 || cartQuantity) && (
+          <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start">
+            {visibleBadges.map((b) => (
+              <span key={b.label} className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold shadow-sm ${b.cls}`}>
+                {b.label}
+              </span>
+            ))}
+            {cartQuantity ? (
+              <span className="bg-[#5B3CF5] text-white rounded-lg px-2 py-0.5 text-xs font-semibold shadow-sm">
+                {cartQuantity}
+              </span>
+            ) : null}
           </div>
         )}
 
@@ -360,14 +387,19 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* Product info */}
-      <div className="px-3 py-2.5">
-        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1.5 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
+      {/* Product info — OUTSIDE the card, on the transparent page background */}
+      <div className="pt-2 px-0.5">
+        <h3 className={`text-[11px] leading-snug line-clamp-2 mb-1 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>
           {product.name}
         </h3>
-        <div className={`text-[13px] font-bold tracking-tight ${isNight ? 'text-white' : 'text-gray-900'}`}>
+        <div className="text-[13px] font-bold tracking-tight text-[#FF5722]">
           {formatPrice(getPriceWithMarkup(product))}
         </div>
+        {soldCount > 0 && (
+          <div className={`text-[10px] mt-0.5 ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+            Продано {soldCount}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -68,8 +68,8 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"deliveryEnabled": comp.DeliveryEnabled,
 			}
 
-			// Возвращаем пароль для админ-панели (plaintext если не bcrypt, иначе маркер)
-			company["password"] = comp.PasswordHash
+			// SECURITY: never expose the password hash in this (publicly reachable)
+			// list response.
 			if comp.AccessKey.Valid {
 				company["accessKey"] = comp.AccessKey.String
 			}
@@ -103,6 +103,54 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 
 		log.Printf("✅ GetCompanies: Returning %d companies", len(companies))
 		c.JSON(http.StatusOK, companies)
+	}
+}
+
+// GetTopCompanies returns the "hit" shops — public, approved companies ranked
+// by how much they sell (sum of product sold_count), then rating, then views.
+// Powers the Instagram-style "recommended shops" row on the home screen.
+func GetTopCompanies(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		rows, err := db.Query(`
+			SELECT c.id, c.name, COALESCE(c.logo_url, ''), COALESCE(c.address, ''),
+			       COALESCE((SELECT SUM(p.sold_count) FROM products p WHERE p.company_id = c.id), 0) AS sold_units,
+			       COALESCE(c.view_count, 0) AS view_count,
+			       COALESCE((SELECT AVG(rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating,
+			       COALESCE((SELECT COUNT(*) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating_count,
+			       COALESCE((SELECT COUNT(*) FROM products p WHERE p.company_id = c.id AND p.available_for_customers = TRUE), 0) AS product_count
+			FROM companies c
+			WHERE c.status = 'approved'
+			  AND (c.mode = 'public' OR c.mode IS NULL)
+			  AND COALESCE(c.is_enabled, TRUE) = TRUE
+			ORDER BY sold_units DESC, rating DESC, view_count DESC
+			LIMIT 12
+		`)
+		if err != nil {
+			log.Printf("❌ GetTopCompanies: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch top companies"})
+			return
+		}
+		defer rows.Close()
+
+		list := make([]gin.H, 0)
+		for rows.Next() {
+			var (
+				id                       int64
+				name, logo, address      string
+				soldUnits, viewCount     int
+				rating                   float64
+				ratingCount, productCnt  int
+			)
+			if err := rows.Scan(&id, &name, &logo, &address, &soldUnits, &viewCount, &rating, &ratingCount, &productCnt); err != nil {
+				continue
+			}
+			list = append(list, gin.H{
+				"id": id, "name": name, "logoUrl": logo, "address": address,
+				"soldUnits": soldUnits, "viewCount": viewCount,
+				"rating": rating, "ratingCount": ratingCount, "productCount": productCnt,
+			})
+		}
+		c.JSON(http.StatusOK, list)
 	}
 }
 

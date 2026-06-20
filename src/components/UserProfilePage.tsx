@@ -1,9 +1,31 @@
 import { User, ArrowLeft, Heart, List, MessageCircle, Star, UserPlus, UserCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-// TODO: User stats, reviews, subscriptions not yet in new API
-import api from '../utils/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+
+// Wired to the existing backend (/api/users/:phone/*). These were referenced
+// but never defined, which crashed the profile page at runtime.
+const getUserStats = async (phone: string) => {
+  try {
+    const r: any = await api.users.getStats(phone);
+    return { following: r?.following ?? 0, followers: r?.followers ?? 0, views: r?.views ?? 0 };
+  } catch { return { following: 0, followers: 0, views: 0 }; }
+};
+const getUserReviews = async (phone: string) => {
+  try { const r = await api.users.getReviews(phone); return Array.isArray(r) ? r : []; }
+  catch { return []; }
+};
+const checkSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.subscriptionStatus(from, to); return r?.subscribed ?? false; }
+  catch { return false; }
+};
+const toggleSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.toggleSubscription(from, to); return r?.subscribed ?? false; }
+  catch { return false; }
+};
+const incrementProfileViews = async (phone: string) => {
+  try { await api.users.incrementViews(phone); } catch { /* non-critical */ }
+};
 
 interface UserProfilePageProps {
   targetUserPhone: string;

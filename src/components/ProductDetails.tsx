@@ -3,6 +3,7 @@ import { ArrowLeft, Share2, Star, ChevronDown, ChevronUp, Store, Send, Package, 
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api from '../utils/api';
 import { LinkifiedText } from './LinkifiedText'; // 🆕 Компонент для ссылок
+import ProductQA from './ProductQA'; // ❓ Вопросы и ответы по товару
 
 interface Product {
   id: number;
@@ -513,6 +514,14 @@ export default function ProductDetails({
                 </div>
               )}
             </div>
+
+            {/* ❓ Questions & Answers */}
+            <ProductQA
+              productId={product.id}
+              userPhone={userPhone}
+              userName={userName}
+              isNight={isNight}
+            />
           </div>
         </div>
       </div>
