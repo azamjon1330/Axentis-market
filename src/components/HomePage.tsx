@@ -96,8 +96,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [internalCart, setInternalCart] = useState<{ [key: number]: number }>({});
-  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({}); 
-  
+  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({});
+  const [selectedSizes, setSelectedSizes] = useState<{ [key: number]: string }>({});
+
   const cart = externalCart !== undefined ? externalCart : internalCart;
   const selectedColors = externalSelectedColors !== undefined ? externalSelectedColors : internalSelectedColors;
   const setSelectedColors = externalSetSelectedColors !== undefined ? externalSetSelectedColors : setInternalSelectedColors;
@@ -815,8 +816,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
     // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
-      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty})`);
-      api.users.setCartQty(userPhone, productId, newQty)
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, newQty, color, size)
         .then(() => console.log(`✅ [addToCart] API call successful`))
         .catch((err) => console.error(`❌ [addToCart] API call failed:`, err));
     }
@@ -836,8 +839,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     setCart(newCart);
     // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)})`);
-      api.users.setCartQty(userPhone, productId, Math.max(0, newQty))
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, Math.max(0, newQty), color, size)
         .then(() => console.log(`✅ [removeFromCart] API call successful`))
         .catch((err) => console.error(`❌ [removeFromCart] API call failed:`, err));
     } else {
@@ -906,6 +911,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       const markupPercent = product.markupPercent || 0;
       const markupAmount = priceWithMarkup - product.price;
       totalAmount += priceWithMarkup * purchasedQty;
+      const itemColor = product.hasColorOptions ? (selectedColors[productId] || null) : null;
+      const itemSize = selectedSizes[productId] || null;
       purchasedItems.push({
         id: product.id,
         name: product.name,
@@ -915,7 +922,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         markupPercent,
         markupAmount,
         total: priceWithMarkup * purchasedQty,
-        color: product.hasColorOptions ? (selectedColors[productId] || 'Любой') : null,
+        color: itemColor,
+        size: itemSize,
         image_url: product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null,
         company_id: product.company_id
       });
@@ -967,7 +975,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         total: finalTotal,
         itemsCount: purchasedItems.length,
         date: getUzbekistanISOString(),
-        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color })),
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color, size: item.size })),
         status: 'pending',
         orderId
       }, ...prev]);

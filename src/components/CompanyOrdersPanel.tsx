@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Search, Check, X, Clock, Package, Phone, User, Receipt, DollarSign, RefreshCw, Calendar, MapPin, Navigation, Truck } from 'lucide-react';
 import api from '../utils/api';
 import { formatUzbekistanFullDateTime } from '../utils/uzbekTime';
@@ -7,12 +7,15 @@ import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 import CompactPeriodSelector from './CompactPeriodSelector';
 
+const DeliveryMap = lazy(() => import('./DeliveryMap'));
+
 interface OrderItem {
   name: string;
   quantity: number;
   price: number;
   total: number;
   color?: string;
+  size?: string;
   markupAmount?: number;
 }
 
@@ -62,10 +65,12 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const [periodEndDate, setPeriodEndDate] = useState<Date | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
-  const [showMapModal, setShowMapModal] = useState(false);
-  const [selectedDeliveryCoords, setSelectedDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
   const [companyCoords, setCompanyCoords] = useState<{lat: number, lng: number} | null>(null);
   const [companyAddress, setCompanyAddress] = useState<string>('');
+
+  // Selected delivery coords for map (right panel)
+  const [mapDeliveryCoords, setMapDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
+  const [mapOrderCode, setMapOrderCode] = useState<string | null>(null);
 
   const { isMobile } = useResponsive();
   const responsive = useResponsiveClasses();
@@ -96,7 +101,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
   const loadOrders = async () => {
     try {
-      const data = await api.orders.list({ companyId });
+      const data = await api.orders.list({ companyId: String(companyId) });
       const rawOrders = Array.isArray(data) ? data : (data?.orders || []);
 
       const mapped = rawOrders.map((order: any) => {
@@ -111,13 +116,17 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           }
         }
 
-        const mappedItems = items.map((item: any) => ({
+        const mappedItems: OrderItem[] = items.map((item: any) => ({
           name: item.productName || item.product_name || item.name || 'Товар',
           quantity: item.quantity || 1,
           price: item.price_with_markup || item.priceWithMarkup || item.price || 0,
           total: item.total || (item.quantity || 1) * (item.price_with_markup || item.priceWithMarkup || item.price || 0),
-          color: item.color,
-          markupAmount: item.markupAmount || item.markup_amount || 0
+          color: item.color && item.color !== 'Любой' && item.color !== 'любой' ? item.color : undefined,
+          size: item.size && item.size !== 'Любой' && item.size !== 'любой' ? item.size
+              : item.selectedSize && item.selectedSize !== 'Любой' ? item.selectedSize
+              : item.selected_size && item.selected_size !== 'Любой' ? item.selected_size
+              : undefined,
+          markupAmount: item.markupAmount || item.markup_amount || 0,
         }));
 
         return {
@@ -132,7 +141,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           delivery_address: order.deliveryAddress || order.delivery_address,
           delivery_coordinates: order.deliveryCoordinates || order.delivery_coordinates,
           recipient_name: order.recipientName || order.recipient_name,
-          items: mappedItems
+          items: mappedItems,
         };
       });
 
@@ -150,7 +159,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
-  // Принять заказ: pending → confirmed (уменьшает склад)
   const handleAcceptOrder = async (orderId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(t.acceptOrderConfirm)) return;
@@ -168,7 +176,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
-  // В пути: confirmed → shipped (рассчитывает прибыль)
   const handleMarkAsShipped = async (orderId: number, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm(t.markAsShippedConfirm)) return;
@@ -203,24 +210,32 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
-  const handleShowDeliveryMap = (deliveryCoordinates: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const parseDeliveryCoords = (coords: string): { lat: number; lng: number } | null => {
     try {
-      const coords = deliveryCoordinates.split(',').map(c => parseFloat(c.trim()));
-      if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-        setSelectedDeliveryCoords({ lat: coords[0], lng: coords[1] });
-        setShowMapModal(true);
-      } else {
-        toast.error(t.invalidDeliveryCoords);
+      const parts = coords.split(',').map(c => parseFloat(c.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return { lat: parts[0], lng: parts[1] };
       }
-    } catch (error) {
-      console.error('Error parsing delivery coordinates:', error);
-      toast.error(t.mapOpenError);
-    }
+    } catch {}
+    return null;
   };
 
-  const toggleExpand = (orderId: number) => {
-    setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
+  const toggleExpand = (order: Order) => {
+    const newId = expandedOrderId === order.id ? null : order.id;
+    setExpandedOrderId(newId);
+
+    if (newId && order.delivery_type === 'delivery' && order.delivery_coordinates && companyCoords) {
+      const coords = parseDeliveryCoords(order.delivery_coordinates);
+      if (coords) {
+        setMapDeliveryCoords(coords);
+        setMapOrderCode(order.order_code);
+        return;
+      }
+    }
+    if (!newId) {
+      setMapDeliveryCoords(null);
+      setMapOrderCode(null);
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -320,8 +335,9 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     );
   }
 
-  return (
-    <div className={responsive.spacing} style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
+  // ── ORDER LIST PANEL ──────────────────────────────────────────────────────
+  const orderListPanel = (
+    <div className={responsive.spacing} style={{ minWidth: 0 }}>
       {/* Header & Filters */}
       <div className={`${responsive.card}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
@@ -332,7 +348,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               {orders.length}
             </span>
           </h2>
-
           <button
             onClick={loadOrders}
             className={`${responsive.buttonSmall} hover:bg-gray-100 rounded-lg transition-colors text-gray-600`}
@@ -405,66 +420,25 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
-              style={{
-                borderRadius: 20,
-                background: statusFilter === 'all' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                color: statusFilter === 'all' ? '#FFFFFF' : '#8B8BAA',
-                border: statusFilter === 'all' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              {t.all}
-            </button>
-            <button
-              onClick={() => setStatusFilter('pending')}
-              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
-              style={{
-                borderRadius: 20,
-                background: statusFilter === 'pending' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                color: statusFilter === 'pending' ? '#FFFFFF' : '#8B8BAA',
-                border: statusFilter === 'pending' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              {t.waitingOrders}
-            </button>
-            <button
-              onClick={() => setStatusFilter('confirmed')}
-              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
-              style={{
-                borderRadius: 20,
-                background: statusFilter === 'confirmed' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                color: statusFilter === 'confirmed' ? '#FFFFFF' : '#8B8BAA',
-                border: statusFilter === 'confirmed' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              {t.confirmedOrders}
-            </button>
-            <button
-              onClick={() => setStatusFilter('shipped')}
-              className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
-              style={{
-                borderRadius: 20,
-                background: statusFilter === 'shipped' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                color: statusFilter === 'shipped' ? '#FFFFFF' : '#8B8BAA',
-                border: statusFilter === 'shipped' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              {t.shippedOrders}
-            </button>
-            <button
-              onClick={() => setStatusFilter('cancelled')}
-              className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors`}
-              style={{
-                borderRadius: 20,
-                background: statusFilter === 'cancelled' ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
-                color: statusFilter === 'cancelled' ? '#FFFFFF' : '#8B8BAA',
-                border: statusFilter === 'cancelled' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              {t.cancelledOrders}
-            </button>
+            {(['all', 'pending', 'confirmed', 'shipped', 'cancelled'] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`${responsive.buttonSmall} font-medium whitespace-nowrap transition-colors`}
+                style={{
+                  borderRadius: 20,
+                  background: statusFilter === f ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+                  color: statusFilter === f ? '#FFFFFF' : '#8B8BAA',
+                  border: statusFilter === f ? 'none' : '1px solid rgba(255,255,255,0.07)',
+                }}
+              >
+                {f === 'all' ? t.all
+                 : f === 'pending' ? t.waitingOrders
+                 : f === 'confirmed' ? t.confirmedOrders
+                 : f === 'shipped' ? t.shippedOrders
+                 : t.cancelledOrders}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -477,279 +451,330 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
             <p className={`text-gray-500 ${responsive.body}`}>{t.ordersNotFound}</p>
           </div>
         ) : (
-          filteredOrders.map((order) => (
-            <div
-              key={order.id}
-              className={`${responsive.card} transition-all duration-200 overflow-hidden`}
-              style={{
-                background: 'var(--ax-card)',
-                border: expandedOrderId === order.id ? '1px solid rgba(124,92,240,0.5)' : '1px solid rgba(255,255,255,0.07)',
-                boxShadow: expandedOrderId === order.id ? '0 0 0 1px rgba(124,92,240,0.2)' : 'none',
-              }}
-            >
+          filteredOrders.map((order) => {
+            const isExpanded = expandedOrderId === order.id;
+            const hasDelivery = order.delivery_type === 'delivery' && !!order.delivery_coordinates;
+
+            return (
               <div
-                onClick={() => toggleExpand(order.id)}
-                className={`${isMobile ? 'p-3' : 'p-5'} cursor-pointer flex flex-col ${!isMobile && 'md:flex-row md:items-center'} ${responsive.gap}`}
+                key={order.id}
+                className={`${responsive.card} transition-all duration-200 overflow-hidden`}
+                style={{
+                  background: 'var(--ax-card)',
+                  border: isExpanded ? '1px solid rgba(124,92,240,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                  boxShadow: isExpanded ? '0 0 0 1px rgba(124,92,240,0.2)' : 'none',
+                }}
               >
-                {/* Code & Date */}
-                <div className={isMobile ? 'min-w-full' : 'min-w-[120px]'}>
-                  <div className={`font-mono font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-text)' }}>
-                    #{order.order_code}
-                  </div>
-                  <div className={`${responsive.small} flex items-center ${responsive.gap} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
-                    <Calendar className={responsive.iconSmall} />
-                    {new Date(order.order_date || order.created_at || '').toLocaleDateString('ru-RU',
-                      isMobile ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'long' }
-                    )}
-                  </div>
-                </div>
-
-                {/* Customer Info */}
-                <div className="flex-1">
-                  <div className={`flex items-center ${responsive.gap} font-medium`} style={{ color: 'var(--ax-text)' }}>
-                    <User className={responsive.iconSmall} />
-                    {order.user_name || t.guest}
-                  </div>
-                  {order.user_phone && (
-                    <div className={`flex items-center ${responsive.gap} ${responsive.small} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
-                      <Phone className={responsive.iconSmall} />
-                      {order.user_phone}
+                <div
+                  onClick={() => toggleExpand(order)}
+                  className={`${isMobile ? 'p-3' : 'p-5'} cursor-pointer flex flex-col ${!isMobile && 'md:flex-row md:items-center'} ${responsive.gap}`}
+                >
+                  {/* Code & Date */}
+                  <div className={isMobile ? 'min-w-full' : 'min-w-[120px]'}>
+                    <div className={`font-mono font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-text)' }}>
+                      #{order.order_code}
                     </div>
-                  )}
-                </div>
-
-                {/* Amount & Status */}
-                <div className={`flex items-center justify-between ${!isMobile && 'md:justify-end'} gap-4 ${isMobile ? 'min-w-full' : 'min-w-[300px]'}`}>
-                  <div className="text-right">
-                    <div className={`font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-primary)' }}>
-                      {formatPrice(order.total_amount)}
+                    <div className={`${responsive.small} flex items-center ${responsive.gap} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
+                      <Calendar className={responsive.iconSmall} />
+                      {new Date(order.order_date || order.created_at || '').toLocaleDateString('ru-RU',
+                        isMobile ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'long' }
+                      )}
                     </div>
-                    {order.markup_profit > 0 && (
-                      <div className={`${responsive.small} font-medium`} style={{ color: '#22C55E' }}>
-                        <DollarSign className="inline w-3 h-3 mr-1" />
-                        +{formatPrice(order.markup_profit)}
+                    {hasDelivery && (
+                      <div className={`${responsive.small} flex items-center gap-1 mt-1`} style={{ color: '#38BDF8' }}>
+                        <Navigation className="w-3 h-3" />
+                        {language === 'uz' ? 'Yetkazib berish' : 'Доставка'}
                       </div>
                     )}
-                    <div className={`${responsive.small}`} style={{ color: 'var(--ax-text-2)' }}>
-                      {order.items?.length || 0} {t.products}
-                    </div>
                   </div>
 
-                  <div>
-                    {getStatusBadge(order.status)}
+                  {/* Customer Info */}
+                  <div className="flex-1">
+                    <div className={`flex items-center ${responsive.gap} font-medium`} style={{ color: 'var(--ax-text)' }}>
+                      <User className={responsive.iconSmall} />
+                      {order.user_name || t.guest}
+                    </div>
+                    {order.user_phone && (
+                      <div className={`flex items-center ${responsive.gap} ${responsive.small} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
+                        <Phone className={responsive.iconSmall} />
+                        {order.user_phone}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Amount & Status */}
+                  <div className={`flex items-center justify-between ${!isMobile && 'md:justify-end'} gap-4 ${isMobile ? 'min-w-full' : 'min-w-[300px]'}`}>
+                    <div className="text-right">
+                      <div className={`font-bold ${isMobile ? 'text-base' : 'text-lg'}`} style={{ color: 'var(--ax-primary)' }}>
+                        {formatPrice(order.total_amount)}
+                      </div>
+                      {(order.markup_profit ?? 0) > 0 && (
+                        <div className={`${responsive.small} font-medium`} style={{ color: '#22C55E' }}>
+                          <DollarSign className="inline w-3 h-3 mr-1" />
+                          +{formatPrice(order.markup_profit!)}
+                        </div>
+                      )}
+                      <div className={`${responsive.small}`} style={{ color: 'var(--ax-text-2)' }}>
+                        {order.items?.length || 0} {t.products}
+                      </div>
+                    </div>
+                    <div>{getStatusBadge(order.status)}</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Expanded Details */}
-              {expandedOrderId === order.id && (
-                <div className={`${isMobile ? 'p-3' : 'p-5'} animate-in slide-in-from-top-2`} style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
-                  <div className={`flex flex-col lg:flex-row ${responsive.gapLarge}`}>
-                    {/* Items List */}
-                    <div className={`flex-1 ${responsive.spacing}`}>
-                      <h4 className={`${responsive.small} font-medium uppercase tracking-wider mb-2`} style={{ color: 'var(--ax-text-2)' }}>{t.orderComposition}</h4>
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className={`flex items-center justify-between ${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                          <div className={`flex items-center ${responsive.gap}`}>
-                            <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-md flex items-center justify-center`} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--ax-text-2)' }}>
-                              <Package className={responsive.iconSmall} />
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className={`${isMobile ? 'p-3' : 'p-5'} animate-in slide-in-from-top-2`} style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}>
+                    <div className={`flex flex-col lg:flex-row ${responsive.gapLarge}`}>
+                      {/* Items List */}
+                      <div className={`flex-1 ${responsive.spacing}`}>
+                        <h4 className={`${responsive.small} font-medium uppercase tracking-wider mb-2`} style={{ color: 'var(--ax-text-2)' }}>{t.orderComposition}</h4>
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className={`flex items-center justify-between ${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <div className={`flex items-center ${responsive.gap}`}>
+                              <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-md flex items-center justify-center`} style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--ax-text-2)' }}>
+                                <Package className={responsive.iconSmall} />
+                              </div>
+                              <div>
+                                <div className={`font-medium ${responsive.body}`} style={{ color: 'var(--ax-text)' }}>{item.name}</div>
+                                {/* Variant info: color and/or size */}
+                                {(item.color || item.size) && (
+                                  <div className={`${responsive.small} flex flex-wrap gap-1 mt-0.5`}>
+                                    {item.color && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: 'rgba(124,92,240,0.15)', color: '#A78BFA' }}>
+                                        🎨 {item.color}
+                                      </span>
+                                    )}
+                                    {item.size && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+                                        📏 {item.size}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <div className={`font-medium ${responsive.body}`} style={{ color: 'var(--ax-text)' }}>{item.name}</div>
-                              {item.color && item.color !== 'Любой' && (
-                                <div className={`${responsive.small}`} style={{ color: 'var(--ax-text-2)' }}>{t.color}: {item.color}</div>
+                            <div className="text-right">
+                              <div className={`font-medium ${responsive.small}`} style={{ color: 'var(--ax-text)' }}>
+                                {item.quantity} {t.pcs}. × {formatPrice(item.price)}
+                              </div>
+                              <div className={`font-bold ${responsive.body}`} style={{ color: 'var(--ax-primary)' }}>
+                                {formatPrice(item.total)}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Actions & Info */}
+                      <div className={`lg:w-80 ${responsive.spacing}`}>
+                        <div className={`${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <h4 className={`${responsive.small} font-medium mb-3`} style={{ color: 'var(--ax-text-2)' }}>{t.orderDetails}</h4>
+                          <div className={`${responsive.spacing} ${responsive.small}`}>
+                            <div className="flex justify-between">
+                              <span style={{ color: 'var(--ax-text-2)' }}>{t.orderTime}:</span>
+                              <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
+                                {order.order_date ? formatUzbekistanFullDateTime(order.order_date) : '-'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span style={{ color: 'var(--ax-text-2)' }}>{t.paymentMethod}:</span>
+                              <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
+                                {order.payment_method === 'demo_online' ? t.demoOnline :
+                                 order.payment_method === 'real_online' ? t.onlineCard : t.cashCheck}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Delivery info */}
+                        {order.delivery_type === 'delivery' && (
+                          <div className={`${responsive.cardCompact}`} style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.25)' }}>
+                            <h4 className={`${responsive.small} font-medium mb-3 flex items-center gap-2`} style={{ color: '#38BDF8' }}>
+                              <MapPin className={responsive.iconSmall} />
+                              {language === 'uz' ? 'Yetkazib berish' : 'Информация о доставке'}
+                            </h4>
+                            <div className={`${responsive.spacing} ${responsive.small}`}>
+                              {order.recipient_name && (
+                                <div className="flex justify-between">
+                                  <span style={{ color: 'var(--ax-text-2)' }}>{t.deliveryRecipient}:</span>
+                                  <span className="font-medium" style={{ color: 'var(--ax-text)' }}>{order.recipient_name}</span>
+                                </div>
+                              )}
+                              {order.delivery_address && (
+                                <div className="flex flex-col gap-0.5">
+                                  <span style={{ color: 'var(--ax-text-2)' }}>{t.deliveryAddress}:</span>
+                                  <span className="font-medium text-xs" style={{ color: 'var(--ax-text)' }}>{order.delivery_address}</span>
+                                </div>
+                              )}
+                              {order.delivery_coordinates && companyCoords && (
+                                <div className={`flex items-center gap-1 text-xs mt-1`} style={{ color: '#7C5CF0' }}>
+                                  <Navigation className="w-3 h-3" />
+                                  {language === 'uz' ? 'Xaritada yo\'nalish ko\'rsatildi' : 'Маршрут отображён на карте →'}
+                                </div>
                               )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className={`font-medium ${responsive.small}`} style={{ color: 'var(--ax-text)' }}>
-                              {item.quantity} {t.pcs}. × {formatPrice(item.price)}
-                            </div>
-                            <div className={`font-bold ${responsive.body}`} style={{ color: 'var(--ax-primary)' }}>
-                              {formatPrice(item.total)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        )}
 
-                    {/* Actions & Info */}
-                    <div className={`lg:w-80 ${responsive.spacing}`}>
-                      <div className={`${responsive.cardCompact}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <h4 className={`${responsive.small} font-medium mb-3`} style={{ color: 'var(--ax-text-2)' }}>{t.orderDetails}</h4>
-                        <div className={`${responsive.spacing} ${responsive.small}`}>
-                          <div className="flex justify-between">
-                            <span style={{ color: 'var(--ax-text-2)' }}>{t.orderTime}:</span>
-                            <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
-                              {order.order_date ? formatUzbekistanFullDateTime(order.order_date) : '-'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span style={{ color: 'var(--ax-text-2)' }}>{t.paymentMethod}:</span>
-                            <span className="font-medium" style={{ color: 'var(--ax-text)' }}>
-                              {order.payment_method === 'demo_online' ? t.demoOnline :
-                               order.payment_method === 'real_online' ? t.onlineCard : t.cashCheck}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Delivery Information */}
-                      {order.delivery_type === 'delivery' && order.delivery_coordinates && (
-                        <div className={`bg-blue-50 ${responsive.cardCompact} border border-blue-200`}>
-                          <h4 className={`${responsive.small} font-medium text-blue-700 mb-3 flex items-center gap-2`}>
-                            <MapPin className={responsive.iconSmall} />
-                            Информация о доставке
-                          </h4>
-                          <div className={`${responsive.spacing} ${responsive.small}`}>
-                            {order.recipient_name && (
-                              <div className="flex justify-between">
-                                <span className="text-blue-600">{t.deliveryRecipient}</span>
-                                <span className="font-medium text-gray-900">{order.recipient_name}</span>
-                              </div>
-                            )}
-                            {order.delivery_address && (
-                              <div className="flex flex-col gap-1">
-                                <span className="text-blue-600">{t.deliveryAddress}</span>
-                                <span className="font-medium text-gray-900 text-xs">{order.delivery_address}</span>
-                              </div>
-                            )}
+                        {/* Action buttons */}
+                        {order.status === 'pending' && (
+                          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
                             <button
-                              onClick={(e) => handleShowDeliveryMap(order.delivery_coordinates!, e)}
-                              className={`w-full mt-2 flex items-center justify-center ${responsive.gap} ${responsive.button} bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm`}
+                              onClick={(e) => handleCancelOrder(order.id, e)}
+                              disabled={processingId === order.id}
+                              className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors disabled:opacity-50`}
                             >
-                              <Navigation className={responsive.iconSmall} />
-                              Показать на карте
+                              <X className={responsive.iconSmall} />
+                              {t.cancel}
+                            </button>
+                            <button
+                              onClick={(e) => handleAcceptOrder(order.id, e)}
+                              disabled={processingId === order.id}
+                              className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
+                            >
+                              <Check className={responsive.iconSmall} />
+                              {t.acceptOrder}
                             </button>
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Action buttons based on status */}
-                      {order.status === 'pending' && (
-                        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
-                          <button
-                            onClick={(e) => handleCancelOrder(order.id, e)}
-                            disabled={processingId === order.id}
-                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors disabled:opacity-50`}
-                          >
-                            <X className={responsive.iconSmall} />
-                            {t.cancel}
-                          </button>
-                          <button
-                            onClick={(e) => handleAcceptOrder(order.id, e)}
-                            disabled={processingId === order.id}
-                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
-                          >
-                            <Check className={responsive.iconSmall} />
-                            {t.acceptOrder}
-                          </button>
-                        </div>
-                      )}
+                        {order.status === 'confirmed' && (
+                          <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
+                            <button
+                              onClick={(e) => handleCancelOrder(order.id, e)}
+                              disabled={processingId === order.id}
+                              className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors disabled:opacity-50`}
+                            >
+                              <X className={responsive.iconSmall} />
+                              {t.cancel}
+                            </button>
+                            <button
+                              onClick={(e) => handleMarkAsShipped(order.id, e)}
+                              disabled={processingId === order.id}
+                              className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
+                            >
+                              <Truck className={responsive.iconSmall} />
+                              {t.markAsShipped}
+                            </button>
+                          </div>
+                        )}
 
-                      {order.status === 'confirmed' && (
-                        <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} ${responsive.gap}`}>
-                          <button
-                            onClick={(e) => handleCancelOrder(order.id, e)}
-                            disabled={processingId === order.id}
-                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-medium transition-colors disabled:opacity-50`}
-                          >
-                            <X className={responsive.iconSmall} />
-                            {t.cancel}
-                          </button>
-                          <button
-                            onClick={(e) => handleMarkAsShipped(order.id, e)}
-                            disabled={processingId === order.id}
-                            className={`flex items-center justify-center ${responsive.gap} ${responsive.button} bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm disabled:opacity-50`}
-                          >
-                            <Truck className={responsive.iconSmall} />
-                            {t.markAsShipped}
-                          </button>
-                        </div>
-                      )}
-
-                      {processingId === order.id && (
-                        <div className={`text-center ${responsive.small} text-blue-600 animate-pulse`}>
-                          {t.processing}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Delivery Map Modal */}
-      {showMapModal && selectedDeliveryCoords && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center" onClick={() => setShowMapModal(false)}>
-          <div className={`bg-white rounded-lg shadow-2xl ${isMobile ? 'w-full h-full' : 'w-[95vw] h-[95vh]'} flex flex-col`} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className={`font-bold ${responsive.h3} text-gray-900 flex items-center gap-2`}>
-                <MapPin className={responsive.iconMedium} />
-                Местоположение доставки
-              </h3>
-              <button
-                onClick={() => setShowMapModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className={responsive.iconMedium} />
-              </button>
-            </div>
-
-            <div className="flex-1 relative">
-              {companyCoords ? (
-                <iframe
-                  src={`https://www.google.com/maps/embed/v1/directions?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&origin=${companyCoords.lat},${companyCoords.lng}&destination=${selectedDeliveryCoords.lat},${selectedDeliveryCoords.lng}&mode=driving`}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Delivery Map"
-                />
-              ) : (
-                <iframe
-                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${selectedDeliveryCoords.lat},${selectedDeliveryCoords.lng}&zoom=15`}
-                  className="w-full h-full border-0"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Delivery Location"
-                />
-              )}
-            </div>
-
-            <div className={`${isMobile ? 'p-3' : 'p-4'} border-t border-gray-200 bg-gray-50 ${responsive.spacing}`}>
-              <div className={`grid ${isMobile ? 'grid-cols-1' : 'md:grid-cols-2'} gap-3`}>
-                {companyCoords && (
-                  <div className={`flex items-start ${responsive.gap}`}>
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Package className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <div className={`font-medium text-gray-900 ${responsive.small}`}>{t.fromCompany}</div>
-                      <div className={`text-gray-500 ${responsive.small}`}>
-                        {companyAddress || `${companyCoords.lat.toFixed(6)}, ${companyCoords.lng.toFixed(6)}`}
+                        {processingId === order.id && (
+                          <div className={`text-center ${responsive.small} text-blue-600 animate-pulse`}>
+                            {t.processing}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 )}
-                <div className={`flex items-start ${responsive.gap}`}>
-                  <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <div className={`font-medium text-gray-900 ${responsive.small}`}>{t.toDelivery}</div>
-                    <div className={`text-gray-500 ${responsive.small}`}>
-                      {selectedDeliveryCoords.lat.toFixed(6)}, {selectedDeliveryCoords.lng.toFixed(6)}
-                    </div>
-                  </div>
-                </div>
               </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
+  // ── MAP PANEL ─────────────────────────────────────────────────────────────
+  const mapPanel = companyCoords ? (
+    <div
+      className="rounded-xl overflow-hidden flex flex-col"
+      style={{
+        background: 'var(--ax-card)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        height: isMobile ? 280 : '100%',
+        minHeight: isMobile ? 280 : 500,
+        position: isMobile ? undefined : 'sticky',
+        top: isMobile ? undefined : 16,
+      }}
+    >
+      {/* Map header */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4" style={{ color: '#7C5CF0' }} />
+          <span className="text-sm font-semibold" style={{ color: 'var(--ax-text)' }}>
+            {mapDeliveryCoords
+              ? `${language === 'uz' ? 'Yo\'nalish' : 'Маршрут'} #${mapOrderCode}`
+              : language === 'uz' ? 'Kompaniya joylashuvi' : 'Местоположение компании'}
+          </span>
+        </div>
+        {mapDeliveryCoords && (
+          <button
+            onClick={() => { setMapDeliveryCoords(null); setMapOrderCode(null); }}
+            className="text-xs px-2 py-1 rounded"
+            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--ax-text-2)' }}
+          >
+            ✕ {language === 'uz' ? 'Yopish' : 'Сбросить'}
+          </button>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow" />
+          <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Kompaniya' : 'Компания'}</span>
+        </div>
+        {mapDeliveryCoords && (
+          <>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-600 border-2 border-white shadow" />
+              <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Yetkazish' : 'Доставка'}</span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-0.5 w-5 rounded" style={{ background: '#7C5CF0' }} />
+              <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>OSRM</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Hint when no order selected */}
+      {!mapDeliveryCoords && (
+        <div className="px-4 py-2 text-xs" style={{ color: 'var(--ax-text-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          {language === 'uz'
+            ? '💡 Yetkazib berish buyurtmasini bosing — OSRM yo\'nalish chiziladi'
+            : '💡 Нажмите на заказ с доставкой — будет нарисован OSRM маршрут'}
+        </div>
+      )}
+
+      {/* Map */}
+      <div className="flex-1" style={{ minHeight: 200 }}>
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--ax-text-2)' }}>
+            Загрузка карты...
           </div>
+        }>
+          <DeliveryMap
+            companyCoords={companyCoords}
+            deliveryCoords={mapDeliveryCoords}
+            companyAddress={companyAddress}
+          />
+        </Suspense>
+      </div>
+    </div>
+  ) : null;
+
+  // ── ROOT LAYOUT ───────────────────────────────────────────────────────────
+  return (
+    <div className={responsive.spacing} style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
+      {isMobile ? (
+        // Mobile: orders first, map below
+        <>
+          {orderListPanel}
+          {mapPanel && <div className="mt-2">{mapPanel}</div>}
+        </>
+      ) : (
+        // Desktop: side-by-side (orders left, map right)
+        <div className="flex gap-4 items-start">
+          <div className="flex-1 min-w-0">{orderListPanel}</div>
+          {mapPanel && (
+            <div style={{ width: 380, flexShrink: 0, alignSelf: 'stretch' }}>
+              {mapPanel}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -253,43 +253,57 @@ func RemoveFromCart(db *sql.DB) gin.HandlerFunc {
 }
 
 // SetCartItemQuantity - установить точное количество товара (upsert). Если quantity=0 — удаляет.
-// Тело: { user_phone, product_id, quantity }
+// Тело: { user_phone, product_id, quantity, selected_color?, selected_size? }
 func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			UserPhone string `json:"user_phone"`
-			ProductID int64  `json:"product_id"`
-			Quantity  int    `json:"quantity"`
+			UserPhone     string `json:"user_phone"`
+			ProductID     int64  `json:"product_id"`
+			Quantity      int    `json:"quantity"`
+			SelectedColor string `json:"selected_color"`
+			SelectedSize  string `json:"selected_size"`
 		}
 		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone, product_id and quantity are required"})
 			return
 		}
 
+		color := input.SelectedColor
+		size := input.SelectedSize
+		if color == "Любой" || color == "любой" {
+			color = ""
+		}
+
 		if input.Quantity <= 0 {
-			// quantity=0 → удаляем все варианты этого товара (любой color/size)
-			result, err := db.Exec(
-				"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
-				input.UserPhone, input.ProductID,
-			)
+			// quantity=0 → удаляем конкретный вариант (или все, если color/size пустые)
+			var err error
+			if color != "" || size != "" {
+				_, err = db.Exec(
+					"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2 AND selected_color = $3 AND selected_size = $4",
+					input.UserPhone, input.ProductID, color, size,
+				)
+			} else {
+				_, err = db.Exec(
+					"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
+					input.UserPhone, input.ProductID,
+				)
+			}
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove cart item"})
 				return
 			}
-			rows, _ := result.RowsAffected()
-			log.Printf("✅ SetCartItemQty=0 (DELETE) user=%s product=%d removed=%d", input.UserPhone, input.ProductID, rows)
+			log.Printf("✅ SetCartItemQty=0 (DELETE) user=%s product=%d color=%s size=%s", input.UserPhone, input.ProductID, color, size)
 			c.JSON(http.StatusOK, gin.H{"success": true, "action": "deleted"})
 			return
 		}
 
 		// Upsert с учётом UNIQUE(user_phone, product_id, selected_color, selected_size)
-		// Используем пустые строки для color/size (дефолт)
 		_, err := db.Exec(`
 			INSERT INTO cart_items (user_phone, product_id, quantity, selected_color, selected_size)
-			VALUES ($1, $2, $3, '', '')
+			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (user_phone, product_id, selected_color, selected_size)
 			DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP
-		`, input.UserPhone, input.ProductID, input.Quantity)
+		`, input.UserPhone, input.ProductID, input.Quantity, color, size)
 
 		if err != nil {
 			log.Printf("❌ SetCartItemQty error: %v", err)
@@ -297,7 +311,7 @@ func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d", input.UserPhone, input.ProductID, input.Quantity)
+		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d color=%s size=%s", input.UserPhone, input.ProductID, input.Quantity, color, size)
 		c.JSON(http.StatusOK, gin.H{"success": true, "action": "upserted", "quantity": input.Quantity})
 	}
 }

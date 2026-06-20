@@ -871,10 +871,10 @@ export const users = {
   },
 
   // Set exact quantity for a cart item (upsert). quantity=0 removes the item. Single API call, no GET.
-  setCartQty: async (phone: string, productId: number, quantity: number) => {
+  setCartQty: async (phone: string, productId: number, quantity: number, selectedColor?: string, selectedSize?: string) => {
     return apiCall('/cart/set', {
       method: 'POST',
-      body: JSON.stringify({ user_phone: phone, product_id: productId, quantity }),
+      body: JSON.stringify({ user_phone: phone, product_id: productId, quantity, selected_color: selectedColor || '', selected_size: selectedSize || '' }),
       requiresAuth: false,
     });
   },
