@@ -226,7 +226,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     const newId = expandedOrderId === order.id ? null : order.id;
     setExpandedOrderId(newId);
 
-    if (newId && order.delivery_type === 'delivery' && companyCoords) {
+    if (newId && order.delivery_type === 'delivery') {
       if (order.delivery_coordinates) {
         const coords = parseDeliveryCoords(order.delivery_coordinates);
         if (coords) {
@@ -669,7 +669,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                                   <span className="font-medium text-xs" style={{ color: 'var(--ax-text)' }}>{order.delivery_address}</span>
                                 </div>
                               )}
-                              {order.delivery_coordinates && companyCoords && (
+                              {order.delivery_coordinates && (
                                 <div className={`flex items-center gap-1 text-xs mt-1`} style={{ color: '#7C5CF0' }}>
                                   <Navigation className="w-3 h-3" />
                                   {language === 'uz' ? 'Xaritada yo\'nalish ko\'rsatildi' : 'Маршрут отображён на карте →'}
@@ -740,7 +740,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   );
 
   // ── MAP PANEL ─────────────────────────────────────────────────────────────
-  const mapPanel = companyCoords ? (
+  const mapPanel = (
     <div
       className="rounded-xl overflow-hidden flex flex-col"
       style={{
@@ -823,7 +823,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         </Suspense>
       </div>
     </div>
-  ) : null;
+  );
 
   // ── ROOT LAYOUT ───────────────────────────────────────────────────────────
   return (
@@ -832,17 +832,15 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         // Mobile: orders first, map below
         <>
           {orderListPanel}
-          {mapPanel && <div className="mt-2">{mapPanel}</div>}
+          <div className="mt-2">{mapPanel}</div>
         </>
       ) : (
         // Desktop: side-by-side (orders left, map right)
         <div className="flex gap-4 items-start">
           <div className="flex-1 min-w-0">{orderListPanel}</div>
-          {mapPanel && (
-            <div style={{ width: 520, flexShrink: 0, alignSelf: 'stretch' }}>
-              {mapPanel}
-            </div>
-          )}
+          <div style={{ width: 520, flexShrink: 0, alignSelf: 'stretch' }}>
+            {mapPanel}
+          </div>
         </div>
       )}
     </div>

@@ -1415,7 +1415,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       {/* Product Details Panel */}
       {selectedProduct ? (
         <div className="fixed inset-0 z-50 bg-white h-screen">
-          <ProductDetails 
+          <ProductDetails
             product={selectedProduct}
             onBack={handleCloseProduct}
             onAddToCart={(p) => addToCart(p.id)}
@@ -1433,8 +1433,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             userPhone={userPhone}
             userName={userName}
             onUserClick={handleOpenUserProfile}
-            isLiked={likedProductIds.includes(selectedProduct.id)} // 💖 Передаем статус лайка
-            onToggleLike={toggleLike} // 💖 Передаем функцию переключения лайка
+            isLiked={likedProductIds.includes(selectedProduct.id)}
+            onToggleLike={toggleLike}
+            onVariantChange={(productId, color, size) => {
+              setSelectedColors(prev => ({ ...prev, [productId]: color }));
+              setSelectedSizes(prev => ({ ...prev, [productId]: size }));
+            }}
           />
         </div>
       ) : viewingUserProfile ? (

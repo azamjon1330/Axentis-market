@@ -16,6 +16,7 @@ export default function DeliveryLocationPicker({ onLocationSelect, selectedCoord
   const markerRef = useRef<Marker | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -136,6 +137,63 @@ export default function DeliveryLocationPicker({ onLocationSelect, selectedCoord
     };
   }, []);
 
+  const detectGPS = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+
+        // Move map to detected position
+        if (mapRef.current) {
+          mapRef.current.setView([lat, lng], 16);
+        }
+
+        // Place marker and reverse-geocode
+        import('leaflet').then(async (Lmod) => {
+          const L = Lmod.default;
+          const map = mapRef.current;
+          if (!map) return;
+
+          const deliveryIcon = L.divIcon({
+            html: `<div style="width:22px;height:22px;background:#7C5CF0;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">
+              <div style="width:6px;height:6px;background:white;border-radius:50%"></div>
+            </div>`,
+            className: '',
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+
+          if (markerRef.current) map.removeLayer(markerRef.current);
+          markerRef.current = L.marker([lat, lng], { icon: deliveryIcon }).addTo(map).bindPopup('Моя геопозиция').openPopup();
+
+          setGeocoding(true);
+          try {
+            const resp = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+              { headers: { 'Accept-Language': 'ru' } }
+            );
+            if (resp.ok) {
+              const data = await resp.json();
+              onLocationSelect({ lat, lng }, data.display_name || '');
+            } else {
+              onLocationSelect({ lat, lng });
+            }
+          } catch {
+            onLocationSelect({ lat, lng });
+          } finally {
+            setGeocoding(false);
+          }
+        });
+
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
   return (
     <div>
       <button
@@ -172,9 +230,35 @@ export default function DeliveryLocationPicker({ onLocationSelect, selectedCoord
               background: 'rgba(124,92,240,0.1)',
               fontSize: 11,
               color: '#A78BFA',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            Нажмите на карту, чтобы указать адрес доставки
+            <span>Нажмите на карту, чтобы указать адрес доставки</span>
+            {navigator.geolocation && (
+              <button
+                type="button"
+                onClick={detectGPS}
+                disabled={locating}
+                style={{
+                  marginLeft: 8,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  background: 'rgba(124,92,240,0.25)',
+                  color: '#C4B5FD',
+                  border: '1px solid rgba(124,92,240,0.4)',
+                  fontSize: 11,
+                  cursor: locating ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {locating ? '...' : '📍 Моя геопозиция'}
+              </button>
+            )}
           </div>
           <div ref={containerRef} style={{ width: '100%', height: 260 }} />
         </div>
