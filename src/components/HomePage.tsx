@@ -1,5 +1,6 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import DeliveryLocationPicker from './DeliveryLocationPicker';
 import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import CartItemImage from './CartItemImage';
@@ -193,6 +194,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'delivery' | 'payment'>('cart');
   const [checkoutDeliveryType, setCheckoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
   const [checkoutDeliveryAddress, setCheckoutDeliveryAddress] = useState('');
+  const [checkoutDeliveryCoords, setCheckoutDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [savedPaymentCards, setSavedPaymentCards] = useState<any[]>([]);
   // 🎟️ Promo code + ⭐ loyalty points at checkout
@@ -952,6 +954,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         totalAmount: finalTotal,
         deliveryType: checkoutDeliveryType,
         deliveryAddress: checkoutDeliveryType === 'delivery' ? checkoutDeliveryAddress : undefined,
+        deliveryCoordinates: checkoutDeliveryType === 'delivery' && checkoutDeliveryCoords
+          ? `${checkoutDeliveryCoords.lat},${checkoutDeliveryCoords.lng}`
+          : undefined,
         paymentMethod: checkoutPaymentMethod,
         cardSubtype
       });
@@ -992,9 +997,14 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       });
       setShowOrderConfirmation(true);
       setCartTab('orders');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing checkout:', error);
-      alert('Ошибка при оформлении заказа');
+      const msg = error?.message || '';
+      if (msg.includes('Недостаточно') || msg.includes('складе')) {
+        alert(msg);
+      } else {
+        alert('Ошибка при оформлении заказа');
+      }
     } finally {
       setIsCheckingOut(false);
     }
@@ -1808,7 +1818,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       {checkoutDeliveryType === 'delivery' && (
                         <div className="mb-5">
                           <p className={`text-sm font-semibold mb-2 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Адрес доставки</p>
-                          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isNight ? 'border-slate-600 bg-slate-700' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 mb-2 ${isNight ? 'border-slate-600 bg-slate-700' : 'border-gray-200 bg-gray-50'}`}>
                             <input
                               type="text"
                               placeholder="Введите адрес..."
@@ -1816,7 +1826,28 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                               onChange={e => setCheckoutDeliveryAddress(e.target.value)}
                               className={`flex-1 bg-transparent outline-none text-sm ${isNight ? 'text-white placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'}`}
                             />
+                            {checkoutDeliveryCoords && (
+                              <button
+                                onClick={() => setCheckoutDeliveryCoords(null)}
+                                className="text-xs text-red-400 hover:text-red-500"
+                                title="Сбросить координаты"
+                              >✕</button>
+                            )}
                           </div>
+                          {/* Map location picker */}
+                          <DeliveryLocationPicker
+                            isNight={isNight}
+                            onLocationSelect={(coords, address) => {
+                              setCheckoutDeliveryCoords(coords);
+                              if (address) setCheckoutDeliveryAddress(address);
+                            }}
+                            selectedCoords={checkoutDeliveryCoords}
+                          />
+                          {checkoutDeliveryCoords && (
+                            <p className="text-xs text-green-500 mt-1">
+                              📍 Местоположение выбрано на карте ({checkoutDeliveryCoords.lat.toFixed(4)}, {checkoutDeliveryCoords.lng.toFixed(4)})
+                            </p>
+                          )}
                         </div>
                       )}
                       <button
