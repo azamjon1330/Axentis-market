@@ -245,8 +245,13 @@ function AppContent() {
                 console.error('❌ [App] Failed to load likes:', error);
               }
               try {
-                const savedCart = await getUserCart(session.userData.phone);
-                setCart(savedCart && typeof savedCart === 'object' ? savedCart : {});
+                const cartData = await getUserCart(session.userData.phone);
+                if (cartData && typeof cartData === 'object' && 'quantities' in cartData) {
+                  setCart((cartData as any).quantities || {});
+                  if ((cartData as any).colors) setSelectedColors((cartData as any).colors);
+                } else {
+                  setCart(cartData && typeof cartData === 'object' ? cartData as any : {});
+                }
               } catch (error) {
                 console.error('❌ [App] Failed to load cart:', error);
               }

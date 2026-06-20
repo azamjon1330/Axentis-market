@@ -99,6 +99,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [internalCart, setInternalCart] = useState<{ [key: number]: number }>({});
   const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({});
   const [selectedSizes, setSelectedSizes] = useState<{ [key: number]: string }>({});
+  const [variantStocks, setVariantStocks] = useState<{ [key: number]: number }>({});
 
   const cart = externalCart !== undefined ? externalCart : internalCart;
   const selectedColors = externalSelectedColors !== undefined ? externalSelectedColors : internalSelectedColors;
@@ -805,17 +806,18 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const product = products.find(p => p.id === productId);
     if (!product) return;
     const currentInCart = cart[productId] || 0;
-    if (currentInCart >= product.quantity) {
-      alert(`"${product.name}" tovaridan omborda ${product.quantity} ta qolgan. Bundan ko'p buyurtma bera olmaysiz.`);
+    // Use variant-specific stock if known, otherwise fall back to total product stock
+    const maxStock = variantStocks[productId] !== undefined ? variantStocks[productId] : product.quantity;
+    if (currentInCart >= maxStock) {
+      const variantDesc = [selectedColors[productId], selectedSizes[productId]].filter(v => v && v !== 'юбй').join(' / ');
+      alert(variantDesc
+        ? `На складе только ${maxStock} шт. (${variantDesc}). Больше добавить нельзя.`
+        : `На складе только ${maxStock} шт. "${product.name}". Больше добавить нельзя.`);
       return;
     }
     const newQty = currentInCart + 1;
-    console.log(`🛒 [addToCart] productId=${productId}, currentQty=${currentInCart}, newQty=${newQty}`);
     // 1. Update UI instantly
     setCart(prev => ({ ...prev, [productId]: newQty }));
-    if (!selectedColors[productId]) {
-      setSelectedColors(prev => ({ ...prev, [productId]: 'юбй' }));
-    }
     // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
       const color = selectedColors[productId] || '';
@@ -993,7 +995,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         code: orderCode,
         total: totalAmount,
         itemsCount: purchasedItems.length,
-        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color }))
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color, size: item.size }))
       });
       setShowOrderConfirmation(true);
       setCartTab('orders');
@@ -1421,7 +1423,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             onAddToCart={(p) => addToCart(p.id)}
             onBuyNow={(p) => {
               addToCart(p.id);
-              handleOpenCart();
+              // Close product details, go directly to cart (Savat) view
+              setSelectedProduct(null);
+              setCheckoutStep('cart');
+              setShowCart(true);
             }}
             isNight={isNight}
             cartQuantity={cart[selectedProduct.id] || 0}
@@ -1435,9 +1440,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             onUserClick={handleOpenUserProfile}
             isLiked={likedProductIds.includes(selectedProduct.id)}
             onToggleLike={toggleLike}
-            onVariantChange={(productId, color, size) => {
+            onVariantChange={(productId, color, size, stock) => {
               setSelectedColors(prev => ({ ...prev, [productId]: color }));
               setSelectedSizes(prev => ({ ...prev, [productId]: size }));
+              if (stock !== undefined) {
+                setVariantStocks(prev => ({ ...prev, [productId]: stock }));
+              }
             }}
           />
         </div>
@@ -2098,12 +2106,18 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                 <h3 className={`text-sm font-medium line-clamp-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                   {product.name}
                                 </h3>
+                                {/* Show selected variant (color + size) */}
+                                {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').length > 0 && (
+                                  <p className="text-xs mt-0.5" style={{ color: '#A78BFA' }}>
+                                    {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').join(' · ')}
+                                  </p>
+                                )}
                                 <div className={`text-sm font-bold mt-1 ${isNight ? 'text-blue-400' : 'text-blue-600'}`}>
                                   {formatPrice(getPriceWithMarkup(product) * quantity)}
                                 </div>
-                                
+
                                 <div className="flex items-center gap-3 mt-2">
-                                  <button 
+                                  <button
                                     onClick={() => removeFromCart(product.id)}
                                     className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
                                   >
@@ -2112,10 +2126,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                   <span className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                     {quantity}
                                   </span>
-                                  <button 
+                                  <button
                                     onClick={() => addToCart(product.id)}
                                     className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
-                                    disabled={quantity >= product.quantity}
+                                    disabled={quantity >= (variantStocks[product.id] !== undefined ? variantStocks[product.id] : product.quantity)}
                                   >
                                     <Plus className="w-4 h-4 text-gray-700" />
                                   </button>
@@ -2190,7 +2204,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             {order.items.map((item, idx) => (
                               <div key={idx} className="flex justify-between py-1">
                                 <span className="line-clamp-1 flex-1 pr-2">
-                                  {item.quantity}x {item.name} {item.color && item.color !== 'Любой' ? `(${item.color})` : ''}
+                                  {item.quantity}x {item.name}
+                                  {[item.color && item.color !== 'Любой' ? item.color : '', (item as any).size || ''].filter(Boolean).length > 0
+                                    ? ` (${[item.color && item.color !== 'Любой' ? item.color : '', (item as any).size || ''].filter(Boolean).join(', ')})`
+                                    : ''}
                                 </span>
                                 <span className="font-medium">{formatPrice(item.total)}</span>
                               </div>

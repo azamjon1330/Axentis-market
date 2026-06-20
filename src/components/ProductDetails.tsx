@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Share2, Star, ChevronDown, ChevronUp, Store, Send, Package, User, CheckCircle, Heart } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import api from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 import { LinkifiedText } from './LinkifiedText';
 import ProductQA from './ProductQA';
 
@@ -44,7 +44,7 @@ interface ProductDetailsProps {
   onUserClick?: (phone: string, name: string) => void;
   isLiked?: boolean;
   onToggleLike?: (productId: number) => void;
-  onVariantChange?: (productId: number, color: string, size: string) => void;
+  onVariantChange?: (productId: number, color: string, size: string, stock: number) => void;
 }
 
 interface Review {
@@ -54,6 +54,7 @@ interface Review {
   rating: number;
   comment: string;
   created_at: string;
+  avatar_url?: string;
 }
 
 export default function ProductDetails({
@@ -162,7 +163,8 @@ export default function ProductDetails({
         const firstSize = data.find((v: Variant) => v.color === firstColor && v.stockQuantity > 0)?.size
           || data.find((v: Variant) => v.color === firstColor)?.size || '';
         setSelectedSize(firstSize);
-        if (onVariantChange) onVariantChange(product.id, firstColor, firstSize);
+        const firstVariant = data.find((v: Variant) => v.color === firstColor && v.size === firstSize);
+        if (onVariantChange) onVariantChange(product.id, firstColor, firstSize, firstVariant?.stockQuantity ?? product.quantity);
       }
     } catch {
       setVariants([]);
@@ -178,12 +180,14 @@ export default function ProductDetails({
     const firstAvailableSize = sizesForThisColor.find(v => v.stockQuantity > 0)?.size
       || sizesForThisColor[0]?.size || '';
     setSelectedSize(firstAvailableSize);
-    if (onVariantChange) onVariantChange(product.id, color, firstAvailableSize);
+    const newVariant = variants.find(v => v.color === color && v.size === firstAvailableSize);
+    if (onVariantChange) onVariantChange(product.id, color, firstAvailableSize, newVariant?.stockQuantity ?? product.quantity);
   };
 
   const handleSelectSize = (size: string) => {
     setSelectedSize(size);
-    if (onVariantChange) onVariantChange(product.id, selectedColor, size);
+    const sizeVariant = variants.find(v => v.color === selectedColor && v.size === size);
+    if (onVariantChange) onVariantChange(product.id, selectedColor, size, sizeVariant?.stockQuantity ?? product.quantity);
   };
 
   const loadReviews = async () => {
@@ -472,8 +476,12 @@ export default function ProductDetails({
                       <div key={review.id} className="border-b border-gray-100 dark:border-gray-800 last:border-0 pb-4 last:pb-0">
                         <div className="flex justify-between items-start mb-1">
                           <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-full ${isNight ? 'bg-gray-700' : 'bg-gray-100'}`}>
-                              <User className="w-3 h-3 text-gray-500" />
+                            <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center bg-gray-200">
+                              {review.avatar_url ? (
+                                <img src={getImageUrl(review.avatar_url) || ''} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-4 h-4 text-gray-500" />
+                              )}
                             </div>
                             <span className={`font-medium text-sm ${textColor}`}>{review.user_name || 'Пользователь'}</span>
                           </div>

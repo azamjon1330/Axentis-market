@@ -802,15 +802,20 @@ export const users = {
     });
   },
 
-  // Get user cart
+  // Get user cart — returns quantities AND per-item color/size
   getCart: async (phone: string) => {
     const items = await apiCall(`/cart/${phone}`, { requiresAuth: false });
-    if (!Array.isArray(items)) return {};
-    const cart: { [key: number]: number } = {};
+    if (!Array.isArray(items)) return { quantities: {} as { [key: number]: number }, colors: {} as { [key: number]: string }, sizes: {} as { [key: number]: string } };
+    const quantities: { [key: number]: number } = {};
+    const colors: { [key: number]: string } = {};
+    const sizes: { [key: number]: string } = {};
     items.forEach((item: any) => {
-      cart[Number(item.product_id)] = item.quantity;
+      const id = Number(item.product_id);
+      quantities[id] = item.quantity;
+      if (item.selected_color) colors[id] = item.selected_color;
+      if (item.selected_size) sizes[id] = item.selected_size;
     });
-    return cart;
+    return { quantities, colors, sizes };
   },
 
   // Sync cart — direct per-item calls, no GET, no race condition.
@@ -1599,6 +1604,7 @@ export const getCompanyRevenue = () => analytics.revenue();
 export const getCompanyProfile = (companyId: string) => companies.get(companyId);
 
 export const getUserCart = (phone: string) => users.getCart(phone);
+export const getUserCartFull = (phone: string) => users.getCart(phone);
 export const saveUserCart = (phone: string, cart: any) => users.saveCart(phone, cart);
 export const getUserLikes = (phone: string) => users.getLikes(phone);
 export const saveUserLikes = (phone: string, likes: any) => users.saveLikes(phone, likes);
