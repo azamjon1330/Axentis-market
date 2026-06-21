@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -23,6 +24,14 @@ func Connect(cfg *config.Config) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Connection pool: ограничиваем число соединений к PostgreSQL.
+	// Без этого Go открывает неограниченное число соединений → исчерпание
+	// max_connections PostgreSQL (default 100) при пиковой нагрузке.
+	db.SetMaxOpenConns(25)              // max параллельных соединений
+	db.SetMaxIdleConns(10)             // держать в пуле (не закрывать между запросами)
+	db.SetConnMaxLifetime(5 * time.Minute) // пересоздавать соединение раз в 5 минут
+	db.SetConnMaxIdleTime(2 * time.Minute) // закрывать idle-соединение через 2 минуты
 
 	if err := db.Ping(); err != nil {
 		return nil, err

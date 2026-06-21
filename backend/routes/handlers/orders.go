@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,49 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// --- Типы для списка заказов ---
+
+// OrderListItem — минимальный набор полей для списка.
+// Поле items намеренно исключено: загружается через GET /orders/:id.
+type OrderListItem struct {
+	ID            int64   `json:"id"`
+	OrderCode     string  `json:"order_code"`
+	Status        string  `json:"status"`
+	TotalAmount   float64 `json:"total_amount"`
+	DeliveryCost  float64 `json:"delivery_cost"`
+	DeliveryType  string  `json:"delivery_type"`
+	CustomerName  string  `json:"customer_name"`
+	CustomerPhone string  `json:"customer_phone"`
+	CreatedAt     string  `json:"created_at"`
+}
+
+// OrdersPage — ответ пагинации.
+type OrdersPage struct {
+	Orders     []OrderListItem `json:"orders"`
+	PageSize   int             `json:"page_size"`
+	HasMore    bool            `json:"has_more"`
+	NextCursor int64           `json:"next_cursor,omitempty"` // cursor mode
+	Total      int             `json:"total,omitempty"`       // offset mode
+	Page       int             `json:"page,omitempty"`        // offset mode
+}
+
+const (
+	ordersDefaultPageSize = 20
+	ordersMaxPageSize     = 100
+	ordersQueryTimeout    = 5 * time.Second
+)
+
+func parseOrdersPageSize(c *gin.Context) int {
+	v, err := strconv.Atoi(c.Query("page_size"))
+	if err != nil || v <= 0 {
+		return ordersDefaultPageSize
+	}
+	if v > ordersMaxPageSize {
+		return ordersMaxPageSize
+	}
+	return v
+}
 
 // checkStockAvailable locks the relevant stock rows inside the transaction and
 // verifies enough quantity is available to fulfil `qty` of a product line.
@@ -70,165 +114,234 @@ func checkStockAvailable(tx *sql.Tx, productID int64, color, size string, qty in
 	return true, ""
 }
 
-// Get Orders
+// GetOrders — production-ready handler с cursor pagination.
+//
+// Query params:
+//   customer_phone  — фильтр по телефону (мобильное приложение)
+//   company_id      — фильтр по компании (panель компании); принимает и companyId
+//   cursor          — ID последнего заказа предыдущей страницы (cursor mode)
+//   page            — номер страницы, начиная с 1 (offset mode)
+//   page_size       — размер страницы (default 20, max 100)
+//   mode            — "cursor" (default) | "offset"
+//
+// items в список НЕ включены. Используйте GET /orders/:id для получения деталей.
 func GetOrders(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		companyID := c.Query("companyId")
+		ctx, cancel := context.WithTimeout(c.Request.Context(), ordersQueryTimeout)
+		defer cancel()
+
 		customerPhone := c.Query("customer_phone")
-
-		log.Printf("📦 GetOrders called for companyId=%s customerPhone=%s", companyID, customerPhone)
-
-		// Инициализируем пустой массив чтобы избежать null
-		orders := make([]map[string]interface{}, 0)
-
-		var rows *sql.Rows
-		var err error
-
-		if customerPhone != "" {
-			// Mobile app: filter by customer phone
-			rows, err = db.Query(`
-				SELECT id, customer_name, customer_phone, address, items,
-				       total_amount, delivery_cost, delivery_type, recipient_name,
-				       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
-				FROM orders
-				WHERE customer_phone = $1
-				ORDER BY created_at DESC
-			`, customerPhone)
-		} else {
-			// Company panel: filter by company id
-			rows, err = db.Query(`
-				SELECT id, customer_name, customer_phone, address, items,
-				       total_amount, delivery_cost, delivery_type, recipient_name,
-				       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
-				FROM orders
-				WHERE company_id = $1
-				ORDER BY created_at DESC
-			`, companyID)
+		companyIDStr := c.Query("company_id")
+		if companyIDStr == "" {
+			companyIDStr = c.Query("companyId")
 		}
 
-		if err != nil {
-			log.Printf("❌ GetOrders: Ошибка запроса БД: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch orders"})
+		if customerPhone == "" && companyIDStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "customer_phone or company_id required"})
 			return
 		}
-		defer rows.Close()
 
-		for rows.Next() {
-			var o struct {
-				ID                  int64
-				CustomerName        string
-				CustomerPhone       string
-				Address             sql.NullString
-				Items               []byte // Use []byte to read JSONB directly
-				TotalAmount         float64
-				DeliveryCost        float64
-				DeliveryType        sql.NullString
-				RecipientName       sql.NullString
-				DeliveryAddress     sql.NullString
-				DeliveryCoordinates sql.NullString
-				MarkupProfit        float64
-				Status              string
-				Comment             sql.NullString
-				OrderCode           sql.NullString
-				CreatedAt           string
-			}
+		pageSize := parseOrdersPageSize(c)
 
-			if err := rows.Scan(&o.ID, &o.CustomerName, &o.CustomerPhone, &o.Address,
-				&o.Items, &o.TotalAmount, &o.DeliveryCost, &o.DeliveryType, &o.RecipientName,
-				&o.DeliveryAddress, &o.DeliveryCoordinates, &o.MarkupProfit, &o.Status, &o.Comment, &o.OrderCode, &o.CreatedAt); err != nil {
-				log.Printf("⚠️ Error scanning order: %v", err)
-				continue
-			}
-
-		// Parse items JSON
-		var itemsArray []map[string]interface{}
-		if len(o.Items) > 0 {
-			// Try to unmarshal directly as JSON array
-			if err := json.Unmarshal(o.Items, &itemsArray); err != nil {
-				// Try to unmarshal as string first (double-encoded JSON)
-				var itemsString string
-				if err2 := json.Unmarshal(o.Items, &itemsString); err2 == nil {
-					// Successfully got a string, now parse it as JSON
-					if err3 := json.Unmarshal([]byte(itemsString), &itemsArray); err3 == nil {
-						log.Printf("✅ Parsed double-encoded items for order %d", o.ID)
-					} else {
-						log.Printf("⚠️ Failed to parse double-encoded items for order %d: %v", o.ID, err3)
-						log.Printf("   Raw items data: %s", string(o.Items))
-						itemsArray = []map[string]interface{}{}
-					}
-				} else {
-					log.Printf("⚠️ Failed to parse items JSON for order %d: %v", o.ID, err)
-					log.Printf("   Raw items data: %s", string(o.Items))
-					itemsArray = []map[string]interface{}{}
-				}
-			}
+		if c.Query("mode") == "offset" {
+			getOrdersOffset(ctx, c, db, customerPhone, companyIDStr, pageSize)
 		} else {
-			itemsArray = []map[string]interface{}{}
+			getOrdersCursor(ctx, c, db, customerPhone, companyIDStr, pageSize)
 		}
+	}
+}
 
-		order := map[string]interface{}{
-			"id":             o.ID,
-			"customerName":   o.CustomerName,
-			"customerPhone":  o.CustomerPhone,
-			"items":          itemsArray,
-			"delivery_cost":  o.DeliveryCost,  // ✅ Use snake_case for frontend compatibility
-			"deliveryCost":   o.DeliveryCost,  // Keep camelCase for backward compatibility
-			"total_amount":   o.TotalAmount,   // ✅ Use snake_case for frontend compatibility
-			"totalAmount":    o.TotalAmount,   // Keep camelCase for backward compatibility
-			"markup_profit":  o.MarkupProfit,  // ✅ Use snake_case for frontend compatibility
-			"markupProfit":   o.MarkupProfit,  // Keep camelCase for backward compatibility
-			"status":         o.Status,
-			"created_at":     o.CreatedAt,     // ✅ Use snake_case for frontend compatibility
-			"createdAt":      o.CreatedAt,     // Keep camelCase for backward compatibility
-		}
-
-		if o.DeliveryType.Valid {
-			order["deliveryType"] = o.DeliveryType.String
-		} else {
-			order["deliveryType"] = "pickup"
-		}
-
-		if o.RecipientName.Valid {
-			order["recipientName"] = o.RecipientName.String
-		}
-
-		if o.DeliveryAddress.Valid {
-			order["deliveryAddress"] = o.DeliveryAddress.String
-		}
-
-		if o.DeliveryCoordinates.Valid {
-			order["deliveryCoordinates"] = o.DeliveryCoordinates.String
-		}
-
-		if o.Address.Valid {
-			order["address"] = o.Address.String
-		} else {
-			order["address"] = ""
-		}
-		
-		if o.Comment.Valid {
-			order["comment"] = o.Comment.String
-		} else {
-			order["comment"] = ""
-		}
-		
-		if o.OrderCode.Valid {
-			order["orderCode"] = o.OrderCode.String
-		} else {
-			order["orderCode"] = ""
-		}
-
-		orders = append(orders, order)
+// getOrdersCursor — cursor-based pagination.
+// Использует id DESC как cursor: стабильный, уникальный, уже индексирован PK.
+// Оптимальный выбор для 1M+ строк — O(1) независимо от глубины страницы.
+func getOrdersCursor(ctx context.Context, c *gin.Context, db *sql.DB, customerPhone, companyIDStr string, pageSize int) {
+	var cursor int64
+	if cur := c.Query("cursor"); cur != "" {
+		cursor, _ = strconv.ParseInt(cur, 10, 64)
 	}
 
-	log.Printf("📦 GetOrders: Найдено %d заказов для companyId=%s", len(orders), companyID)
-	if len(orders) > 0 {
-		log.Printf("   Пример первого заказа: ID=%v, Code=%v, Customer=%v", 
-			orders[0]["id"], orders[0]["orderCode"], orders[0]["customerName"])
+	// Запрашиваем pageSize+1 чтобы определить has_more без COUNT(*)
+	fetch := pageSize + 1
+
+	const selectCols = `
+		SELECT id,
+		       COALESCE(order_code, '')           AS order_code,
+		       status,
+		       total_amount,
+		       delivery_cost,
+		       COALESCE(delivery_type, 'pickup')  AS delivery_type,
+		       customer_name,
+		       customer_phone,
+		       created_at
+		FROM orders`
+
+	var (
+		rows *sql.Rows
+		err  error
+	)
+
+	if customerPhone != "" {
+		if cursor > 0 {
+			rows, err = db.QueryContext(ctx, selectCols+`
+				WHERE customer_phone = $1 AND id < $2
+				ORDER BY id DESC LIMIT $3
+			`, customerPhone, cursor, fetch)
+		} else {
+			rows, err = db.QueryContext(ctx, selectCols+`
+				WHERE customer_phone = $1
+				ORDER BY id DESC LIMIT $2
+			`, customerPhone, fetch)
+		}
+	} else {
+		companyID, err2 := strconv.ParseInt(companyIDStr, 10, 64)
+		if err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid company_id"})
+			return
+		}
+		if cursor > 0 {
+			rows, err = db.QueryContext(ctx, selectCols+`
+				WHERE company_id = $1 AND id < $2
+				ORDER BY id DESC LIMIT $3
+			`, companyID, cursor, fetch)
+		} else {
+			rows, err = db.QueryContext(ctx, selectCols+`
+				WHERE company_id = $1
+				ORDER BY id DESC LIMIT $2
+			`, companyID, fetch)
+		}
 	}
 
-	c.JSON(http.StatusOK, orders)
+	if err != nil {
+		log.Printf("❌ getOrdersCursor: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch orders"})
+		return
 	}
+	defer rows.Close()
+
+	orders := make([]OrderListItem, 0, pageSize)
+	for rows.Next() {
+		var o OrderListItem
+		if err := rows.Scan(
+			&o.ID, &o.OrderCode, &o.Status,
+			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType,
+			&o.CustomerName, &o.CustomerPhone, &o.CreatedAt,
+		); err != nil {
+			log.Printf("⚠️ getOrdersCursor scan: %v", err)
+			continue
+		}
+		orders = append(orders, o)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("❌ getOrdersCursor rows.Err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "row iteration error"})
+		return
+	}
+
+	var nextCursor int64
+	hasMore := len(orders) > pageSize
+	if hasMore {
+		orders = orders[:pageSize]
+		nextCursor = orders[len(orders)-1].ID
+	}
+
+	log.Printf("📦 getOrdersCursor: returned %d orders (has_more=%v)", len(orders), hasMore)
+	c.JSON(http.StatusOK, OrdersPage{
+		Orders:     orders,
+		PageSize:   pageSize,
+		HasMore:    hasMore,
+		NextCursor: nextCursor,
+	})
+}
+
+// getOrdersOffset — LIMIT/OFFSET pagination с COUNT(*).
+// Использовать только если фронтенд требует номера страниц ("страница 3 из 15").
+// При таблице 1M+ строк COUNT(*) становится дорогим (Sequential Scan).
+func getOrdersOffset(ctx context.Context, c *gin.Context, db *sql.DB, customerPhone, companyIDStr string, pageSize int) {
+	page := 1
+	if p, err := strconv.Atoi(c.Query("page")); err == nil && p > 0 {
+		page = p
+	}
+	offset := (page - 1) * pageSize
+
+	const selectCols = `
+		SELECT id,
+		       COALESCE(order_code, '')          AS order_code,
+		       status,
+		       total_amount,
+		       delivery_cost,
+		       COALESCE(delivery_type, 'pickup') AS delivery_type,
+		       customer_name,
+		       customer_phone,
+		       created_at
+		FROM orders`
+
+	var (
+		rows  *sql.Rows
+		err   error
+		total int
+	)
+
+	if customerPhone != "" {
+		_ = db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM orders WHERE customer_phone = $1`, customerPhone,
+		).Scan(&total)
+
+		rows, err = db.QueryContext(ctx, selectCols+`
+			WHERE customer_phone = $1
+			ORDER BY id DESC LIMIT $2 OFFSET $3
+		`, customerPhone, pageSize, offset)
+	} else {
+		companyID, err2 := strconv.ParseInt(companyIDStr, 10, 64)
+		if err2 != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid company_id"})
+			return
+		}
+		_ = db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM orders WHERE company_id = $1`, companyID,
+		).Scan(&total)
+
+		rows, err = db.QueryContext(ctx, selectCols+`
+			WHERE company_id = $1
+			ORDER BY id DESC LIMIT $2 OFFSET $3
+		`, companyID, pageSize, offset)
+	}
+
+	if err != nil {
+		log.Printf("❌ getOrdersOffset: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch orders"})
+		return
+	}
+	defer rows.Close()
+
+	orders := make([]OrderListItem, 0, pageSize)
+	for rows.Next() {
+		var o OrderListItem
+		if err := rows.Scan(
+			&o.ID, &o.OrderCode, &o.Status,
+			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType,
+			&o.CustomerName, &o.CustomerPhone, &o.CreatedAt,
+		); err != nil {
+			log.Printf("⚠️ getOrdersOffset scan: %v", err)
+			continue
+		}
+		orders = append(orders, o)
+	}
+
+	if err := rows.Err(); err != nil {
+		log.Printf("❌ getOrdersOffset rows.Err: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "row iteration error"})
+		return
+	}
+
+	log.Printf("📦 getOrdersOffset: page=%d total=%d returned=%d", page, total, len(orders))
+	c.JSON(http.StatusOK, OrdersPage{
+		Orders:   orders,
+		PageSize: pageSize,
+		HasMore:  offset+pageSize < total,
+		Total:    total,
+		Page:     page,
+	})
 }
 
 // GetOrderByID returns a single order. The mobile app's order-detail screen
