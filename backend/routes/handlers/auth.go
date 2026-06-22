@@ -300,12 +300,12 @@ func RegisterCompany(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 		var companyID int64
 		err = db.QueryRow(`
 			INSERT INTO companies (
-				name, phone, password_hash, mode, description, status, access_key,
+				name, phone, password_hash, password_plain, mode, description, status, access_key,
 				referral_code, referral_agent_id, is_enabled
 			)
-			VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7, $8, true)
+			VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, true)
 			RETURNING id
-		`, req.Name, req.Phone, string(hashedPassword), req.Mode, req.Description, 
+		`, req.Name, req.Phone, string(hashedPassword), req.Password, req.Mode, req.Description,
 		   accessKey, req.ReferralCode, referralAgentID).Scan(&companyID)
 
 		if err != nil {

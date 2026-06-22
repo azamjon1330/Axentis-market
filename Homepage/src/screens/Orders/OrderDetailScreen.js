@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Image, ActivityIndicator, Linking, Alert,
+  Image, ActivityIndicator, Linking, Alert, TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import { getOrderDetail } from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import { getOrderDetail, createReturn } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
 
 const STATUS_CONFIG = {
@@ -21,12 +22,44 @@ const STATUS_CONFIG = {
 
 export default function OrderDetailScreen() {
   const { colors, isDark } = useTheme();
+  const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
   const { orderId } = route.params;
 
   const [order, setOrder] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ↩️ Возврат: форма причины + статус отправки
+  const [showReturnForm, setShowReturnForm] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [submittingReturn, setSubmittingReturn] = useState(false);
+  const [returnRequested, setReturnRequested] = useState(false);
+
+  const submitReturn = async () => {
+    if (!returnReason.trim()) {
+      Alert.alert('Возврат', 'Опишите причину возврата');
+      return;
+    }
+    setSubmittingReturn(true);
+    try {
+      await createReturn({
+        orderId: order.id,
+        companyId: order.companyId,
+        customerPhone: user?.phone || order.customerPhone,
+        reason: returnReason.trim(),
+        refundAmount: order.totalAmount || 0,
+      });
+      setReturnRequested(true);
+      setShowReturnForm(false);
+      setReturnReason('');
+      Alert.alert('Возврат', 'Заявка на возврат отправлена продавцу. Ожидайте решения.');
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось отправить заявку на возврат. Попробуйте позже.');
+    } finally {
+      setSubmittingReturn(false);
+    }
+  };
 
   useEffect(() => {
     getOrderDetail(orderId)
@@ -180,6 +213,56 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
+        {/* ↩️ Возврат — доступен после доставки заказа */}
+        {order.status === 'delivered' && !returnRequested && (
+          showReturnForm ? (
+            <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Оформить возврат</Text>
+              <TextInput
+                value={returnReason}
+                onChangeText={setReturnReason}
+                placeholder="Опишите причину возврата..."
+                placeholderTextColor={colors.textMuted}
+                multiline
+                style={[styles.returnInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardAlt }]}
+              />
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <TouchableOpacity
+                  style={[styles.returnBtn, { backgroundColor: colors.primary, flex: 1, opacity: submittingReturn ? 0.6 : 1 }]}
+                  onPress={submitReturn}
+                  disabled={submittingReturn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.returnBtnText}>{submittingReturn ? 'Отправка...' : 'Отправить заявку'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.returnBtn, { backgroundColor: colors.cardAlt }]}
+                  onPress={() => { setShowReturnForm(false); setReturnReason(''); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.returnBtnText, { color: colors.text }]}>Отмена</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.supportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setShowReturnForm(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="return-down-back-outline" size={20} color="#FF7043" />
+              <Text style={[styles.supportText, { color: '#FF7043' }]}>Оформить возврат</Text>
+            </TouchableOpacity>
+          )
+        )}
+
+        {returnRequested && (
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <Ionicons name="checkmark-circle-outline" size={22} color="#4CAF50" />
+            <Text style={[styles.infoText, { color: colors.textSecondary }]}>Заявка на возврат отправлена продавцу</Text>
+          </View>
+        )}
+
         <TouchableOpacity
           style={[styles.supportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => Linking.openURL('tel:+74951234567').catch(() => Alert.alert('Поддержка', 'Свяжитесь с нами по телефону'))}
@@ -227,4 +310,7 @@ const styles = StyleSheet.create({
   totalValue: { fontSize: 18, fontWeight: '800' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 18, borderWidth: 1, padding: 16 },
   supportText: { fontSize: 15, fontWeight: '600' },
+  returnInput: { borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 70, fontSize: 14, textAlignVertical: 'top' },
+  returnBtn: { borderRadius: 14, paddingVertical: 13, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  returnBtnText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
 });

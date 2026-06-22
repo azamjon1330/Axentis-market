@@ -50,4 +50,7 @@ export const ENDPOINTS = {
   userAddresses: (phone) => `/users/${phone}/addresses`,
   userAddressDetail: (phone, id) => `/users/${phone}/addresses/${id}`,
   userAddressDefault: (phone, id) => `/users/${phone}/addresses/${id}/default`,
+  // ❓ Вопросы к товару и ↩️ возвраты
+  productQuestions: (id) => `/products/${id}/questions`,
+  returns: '/returns',
 };

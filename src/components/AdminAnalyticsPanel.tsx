@@ -120,10 +120,14 @@ export default function AdminAnalyticsPanel() {
     orders: true,
     products: false,
     calculator: true,
-    topProducts: true,
-    purchases: false
+    topProducts: true
   });
   
+  // Per-category "show 10 / show 30" toggle for the product analytics cards.
+  const [expandedProductCats, setExpandedProductCats] = useState<Record<string, boolean>>({});
+  const toggleProductCat = (key: string) =>
+    setExpandedProductCats(prev => ({ ...prev, [key]: !prev[key] }));
+
   // Search and expanded orders
   const [orderSearchQuery, setOrderSearchQuery] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
@@ -389,49 +393,42 @@ export default function AdminAnalyticsPanel() {
     
     const salesArray = Object.values(salesByProduct);
     console.log('📊 [ProductAnalytics] Sales data:', salesArray.length, 'products');
-    
-    // Самый продаваемый товар (по количеству)
-    const bestSeller = salesArray.length > 0 
-      ? salesArray.reduce((a, b) => a.totalSold > b.totalSold ? a : b) 
-      : null;
-    
-    // Наименее продаваемый товар (по количеству) - из тех что продавались
-    const worstSeller = salesArray.length > 0 
-      ? salesArray.reduce((a, b) => a.totalSold < b.totalSold ? a : b) 
-      : null;
-    
-    // Самый прибыльный товар (по прибыли)
-    const mostProfitable = salesArray.length > 0 
-      ? salesArray.reduce((a, b) => a.totalProfit > b.totalProfit ? a : b) 
-      : null;
-    
-    // Самый дорогой товар из проданных (по цене продажи)
-    const mostExpensive = salesArray.length > 0 
-      ? salesArray.reduce((a, b) => a.sellingPrice > b.sellingPrice ? a : b) 
-      : null;
-    
-    // Самый дешёвый товар из проданных  
-    const cheapest = salesArray.length > 0 
-      ? salesArray.reduce((a, b) => a.sellingPrice < b.sellingPrice ? a : b) 
-      : null;
-    
+
+    // We surface ranked lists (up to MAX_ROWS) for each category so the UI can
+    // show 10 by default and expand to 30 on demand.
+    const MAX_ROWS = 30;
+    const by = (cmp: (a: typeof salesArray[number], b: typeof salesArray[number]) => number) =>
+      [...salesArray].sort(cmp).slice(0, MAX_ROWS);
+
+    // Лидеры продаж (по количеству, убыв.)
+    const topSellers = by((a, b) => b.totalSold - a.totalSold);
+    // Меньше всего продаж (по количеству, возр.) — только то, что продавалось
+    const worstSellers = by((a, b) => a.totalSold - b.totalSold);
+    // Самые прибыльные (по прибыли, убыв.)
+    const mostProfitable = by((a, b) => b.totalProfit - a.totalProfit);
+    // Самые дорогие (по цене продажи, убыв.)
+    const mostExpensive = by((a, b) => b.sellingPrice - a.sellingPrice);
+    // Самые дешёвые (по цене продажи, возр.)
+    const cheapest = by((a, b) => a.sellingPrice - b.sellingPrice);
+
     // Товары которые не продаются (есть на складе, но нет в заказах)
     const soldProductNames = new Set(
       salesArray
         .filter(s => s.name)
         .map(s => s.name.toLowerCase())
     );
-    const unsoldProducts = getFilteredProducts.filter(p => 
+    const unsoldProducts = getFilteredProducts.filter(p =>
       p.name && !soldProductNames.has(p.name.toLowerCase()) && p.quantity > 0
     );
-    
+
     return {
-      bestSeller,
-      worstSeller,
+      topSellers,
+      worstSellers,
       mostProfitable,
       mostExpensive,
       cheapest,
-      unsoldProducts: unsoldProducts.slice(0, 10), // Топ 10 непроданных
+      unsoldProducts: unsoldProducts.slice(0, MAX_ROWS), // до 30 непроданных
+      totalUnsold: unsoldProducts.length,
       totalSoldProducts: salesArray.length
     };
   }, [getFilteredOrders, getFilteredProducts]);
@@ -474,6 +471,71 @@ export default function AdminAnalyticsPanel() {
   const selectedCompany = useMemo(() => {
     return companies.find(c => c.id === selectedCompanyId);
   }, [companies, selectedCompanyId]);
+
+  // ===================== PRODUCT ANALYTICS CARDS =====================
+  // Six ranked categories. Each shows the top 10 by default and expands to the
+  // top 30 on demand. `accent` keeps each card's colour palette in one place;
+  // dark-theme.css lightens these colour classes so text stays readable.
+  const productAnalyticsCards = useMemo(() => {
+    const pa = productSalesAnalytics;
+    return [
+      {
+        key: 'top', emoji: '🏆', title: 'Лидеры продаж',
+        accent: { wrap: 'from-green-50 to-green-100 border-green-200', badge: 'text-green-700', name: 'text-green-900', meta: 'text-green-700', sub: 'text-green-600' },
+        items: pa.topSellers,
+        render: (p: any) => ({
+          main: `Продано: ${p.totalSold} шт.`,
+          sub: `Выручка ${formatShortPrice(p.totalRevenue)} • Прибыль ${formatShortPrice(p.totalProfit)} • ${p.companyName}`,
+        }),
+      },
+      {
+        key: 'profit', emoji: '💰', title: 'Самые прибыльные',
+        accent: { wrap: 'from-yellow-50 to-amber-100 border-yellow-200', badge: 'text-yellow-700', name: 'text-yellow-900', meta: 'text-yellow-700', sub: 'text-yellow-600' },
+        items: pa.mostProfitable,
+        render: (p: any) => ({
+          main: `Прибыль: ${formatShortPrice(p.totalProfit)}`,
+          sub: `Наценка +${p.markupPercent.toFixed(0)}% • Продано ${p.totalSold} шт. • ${p.companyName}`,
+        }),
+      },
+      {
+        key: 'expensive', emoji: '💎', title: 'Самые дорогие',
+        accent: { wrap: 'from-purple-50 to-purple-100 border-purple-200', badge: 'text-purple-700', name: 'text-purple-900', meta: 'text-purple-700', sub: 'text-purple-600' },
+        items: pa.mostExpensive,
+        render: (p: any) => ({
+          main: `Цена: ${formatShortPrice(p.sellingPrice)}`,
+          sub: `Себест. ${formatShortPrice(p.price)} • Наценка +${p.markupPercent.toFixed(0)}% • ${p.companyName}`,
+        }),
+      },
+      {
+        key: 'cheap', emoji: '🏷️', title: 'Самые дешёвые',
+        accent: { wrap: 'from-blue-50 to-blue-100 border-blue-200', badge: 'text-blue-700', name: 'text-blue-900', meta: 'text-blue-700', sub: 'text-blue-600' },
+        items: pa.cheapest,
+        render: (p: any) => ({
+          main: `Цена: ${formatShortPrice(p.sellingPrice)}`,
+          sub: `Себест. ${formatShortPrice(p.price)} • Продано ${p.totalSold} шт. • ${p.companyName}`,
+        }),
+      },
+      {
+        key: 'worst', emoji: '📉', title: 'Меньше всего продаж',
+        accent: { wrap: 'from-orange-50 to-orange-100 border-orange-200', badge: 'text-orange-700', name: 'text-orange-900', meta: 'text-orange-700', sub: 'text-orange-600' },
+        items: pa.totalSoldProducts > 1 ? pa.worstSellers : [],
+        render: (p: any) => ({
+          main: `Продано: ${p.totalSold} шт.`,
+          sub: `Выручка ${formatShortPrice(p.totalRevenue)} • ${p.companyName}`,
+        }),
+      },
+      {
+        key: 'unsold', emoji: '🚫', title: 'Без продаж',
+        accent: { wrap: 'from-red-50 to-red-100 border-red-200', badge: 'text-red-700', name: 'text-red-900', meta: 'text-red-700', sub: 'text-red-600' },
+        items: pa.unsoldProducts,
+        totalOverride: pa.totalUnsold,
+        render: (p: any) => ({
+          main: `На складе: ${p.quantity ?? 0} шт.`,
+          sub: p.companyName || p.company_name || '',
+        }),
+      },
+    ];
+  }, [productSalesAnalytics]);
 
   // ===================== CHART DATA =====================
   
@@ -1328,125 +1390,54 @@ export default function AdminAnalyticsPanel() {
           {expandedSections.topProducts && (
             <div className="border-t border-gray-100 p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {/* Самый продаваемый */}
-                {productSalesAnalytics.bestSeller && (
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🏆</span>
-                      <span className="text-sm font-medium text-green-700">Лидер продаж</span>
-                    </div>
-                    <div className="text-lg font-bold text-green-900 truncate" title={productSalesAnalytics.bestSeller.name}>
-                      {productSalesAnalytics.bestSeller.name}
-                    </div>
-                    <div className="text-sm text-green-700 mt-1">
-                      Продано: <strong>{productSalesAnalytics.bestSeller.totalSold} шт.</strong>
-                    </div>
-                    <div className="text-xs text-green-600 mt-1">
-                      Выручка: {formatPrice(productSalesAnalytics.bestSeller.totalRevenue)} • Прибыль: {formatPrice(productSalesAnalytics.bestSeller.totalProfit)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Самый прибыльный */}
-                {productSalesAnalytics.mostProfitable && (
-                  <div className="bg-gradient-to-br from-yellow-50 to-amber-100 rounded-xl p-4 border border-yellow-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">💰</span>
-                      <span className="text-sm font-medium text-yellow-700">Самый прибыльный</span>
-                    </div>
-                    <div className="text-lg font-bold text-yellow-900 truncate" title={productSalesAnalytics.mostProfitable.name}>
-                      {productSalesAnalytics.mostProfitable.name}
-                    </div>
-                    <div className="text-sm text-yellow-700 mt-1">
-                      Прибыль: <strong>{formatPrice(productSalesAnalytics.mostProfitable.totalProfit)}</strong>
-                    </div>
-                    <div className="text-xs text-yellow-600 mt-1">
-                      Наценка: +{productSalesAnalytics.mostProfitable.markupPercent.toFixed(0)}% • Продано: {productSalesAnalytics.mostProfitable.totalSold} шт.
-                    </div>
-                  </div>
-                )}
-
-                {/* Самый дорогой */}
-                {productSalesAnalytics.mostExpensive && (
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">💎</span>
-                      <span className="text-sm font-medium text-purple-700">Самый дорогой</span>
-                    </div>
-                    <div className="text-lg font-bold text-purple-900 truncate" title={productSalesAnalytics.mostExpensive.name}>
-                      {productSalesAnalytics.mostExpensive.name}
-                    </div>
-                    <div className="text-sm text-purple-700 mt-1">
-                      Цена продажи: <strong>{formatPrice(productSalesAnalytics.mostExpensive.sellingPrice)}</strong>
-                    </div>
-                    <div className="text-xs text-purple-600 mt-1">
-                      Себестоимость: {formatPrice(productSalesAnalytics.mostExpensive.price)} • Наценка: +{productSalesAnalytics.mostExpensive.markupPercent.toFixed(0)}%
-                    </div>
-                  </div>
-                )}
-
-                {/* Самый дешёвый */}
-                {productSalesAnalytics.cheapest && (
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🏷️</span>
-                      <span className="text-sm font-medium text-blue-700">Самый дешёвый</span>
-                    </div>
-                    <div className="text-lg font-bold text-blue-900 truncate" title={productSalesAnalytics.cheapest.name}>
-                      {productSalesAnalytics.cheapest.name}
-                    </div>
-                    <div className="text-sm text-blue-700 mt-1">
-                      Цена продажи: <strong>{formatPrice(productSalesAnalytics.cheapest.sellingPrice)}</strong>
-                    </div>
-                    <div className="text-xs text-blue-600 mt-1">
-                      Себестоимость: {formatPrice(productSalesAnalytics.cheapest.price)} • Продано: {productSalesAnalytics.cheapest.totalSold} шт.
-                    </div>
-                  </div>
-                )}
-
-                {/* Наименее продаваемый */}
-                {productSalesAnalytics.worstSeller && productSalesAnalytics.totalSoldProducts > 1 && (
-                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">📉</span>
-                      <span className="text-sm font-medium text-orange-700">Меньше всего продаж</span>
-                    </div>
-                    <div className="text-lg font-bold text-orange-900 truncate" title={productSalesAnalytics.worstSeller.name}>
-                      {productSalesAnalytics.worstSeller.name}
-                    </div>
-                    <div className="text-sm text-orange-700 mt-1">
-                      Продано: <strong>{productSalesAnalytics.worstSeller.totalSold} шт.</strong>
-                    </div>
-                    <div className="text-xs text-orange-600 mt-1">
-                      Выручка: {formatPrice(productSalesAnalytics.worstSeller.totalRevenue)}
-                    </div>
-                  </div>
-                )}
-
-                {/* Товары без продаж */}
-                {productSalesAnalytics.unsoldProducts.length > 0 && (
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4 border border-red-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">🚫</span>
-                      <span className="text-sm font-medium text-red-700">Без продаж</span>
-                    </div>
-                    <div className="text-lg font-bold text-red-900">
-                      {productSalesAnalytics.unsoldProducts.length} товаров
-                    </div>
-                    <div className="text-xs text-red-600 mt-2 max-h-20 overflow-y-auto">
-                      {productSalesAnalytics.unsoldProducts.slice(0, 5).map((p, i) => (
-                        <div key={i} className="truncate" title={p.name}>
-                          • {p.name}
+                {productAnalyticsCards.map(card => {
+                  const expanded = !!expandedProductCats[card.key];
+                  const total = (card as any).totalOverride ?? card.items.length;
+                  const visible = expanded ? card.items.slice(0, 30) : card.items.slice(0, 10);
+                  if (card.items.length === 0) return null;
+                  return (
+                    <div key={card.key} className={`bg-gradient-to-br ${card.accent.wrap} rounded-xl p-4 border`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{card.emoji}</span>
+                          <span className={`text-sm font-semibold ${card.accent.badge}`}>{card.title}</span>
                         </div>
-                      ))}
-                      {productSalesAnalytics.unsoldProducts.length > 5 && (
-                        <div className="text-red-500 font-medium mt-1">
-                          +{productSalesAnalytics.unsoldProducts.length - 5} ещё...
-                        </div>
+                        <span className={`text-xs font-medium ${card.accent.sub}`}>{total} шт.</span>
+                      </div>
+                      <div className="space-y-2">
+                        {visible.map((p: any, i: number) => {
+                          const info = card.render(p);
+                          return (
+                            <div key={i} className="flex items-start gap-2 bg-white/60 rounded-lg px-2.5 py-1.5">
+                              <span className={`text-xs font-bold ${card.accent.badge} w-5 flex-shrink-0 mt-0.5`}>{i + 1}.</span>
+                              <div className="min-w-0 flex-1">
+                                <div className={`text-sm font-semibold truncate ${card.accent.name}`} title={p.name}>
+                                  {p.name}
+                                </div>
+                                <div className={`text-xs ${card.accent.meta}`}>{info.main}</div>
+                                {info.sub && (
+                                  <div className={`text-[11px] truncate ${card.accent.sub}`} title={info.sub}>
+                                    {info.sub}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {card.items.length > 10 && (
+                        <button
+                          onClick={() => toggleProductCat(card.key)}
+                          className={`mt-3 w-full text-xs font-semibold py-1.5 rounded-lg bg-white/70 hover:bg-white transition-colors ${card.accent.badge}`}
+                        >
+                          {expanded
+                            ? '▲ Свернуть (показать 10)'
+                            : `▼ Показать 30 (ещё ${Math.min(card.items.length, 30) - 10})`}
+                        </button>
                       )}
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
 
               {/* Пустое состояние */}
@@ -1454,127 +1445,6 @@ export default function AdminAnalyticsPanel() {
                 <div className="text-center py-8 text-gray-400">
                   <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p>Нет данных о продажах за выбранный период</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========== СЕКЦИЯ: ЗАКУПКИ ТОВАРОВ ========== */}
-      {(viewMode === 'all' || selectedCompanyId) && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden mb-6">
-          <button
-            onClick={() => toggleSection('purchases')}
-            className="w-full px-6 py-4 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 hover:from-indigo-100 hover:to-indigo-200 dark:hover:from-indigo-800/30 dark:hover:to-indigo-700/30 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-indigo-500 rounded-lg">
-                <Truck className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  📦 Аналитика закупок товаров
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  История и статистика закупок по {viewMode === 'all' ? 'всем компаниям' : 'выбранной компании'}
-                </p>
-              </div>
-            </div>
-            {expandedSections.purchases ? (
-              <ChevronUp className="w-5 h-5 text-gray-500" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-gray-500" />
-            )}
-          </button>
-
-          {expandedSections.purchases && (
-            <div className="p-6">
-              {viewMode === 'single' && selectedCompanyId ? (
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 mb-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Building2 className="w-6 h-6 text-blue-600" />
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white">
-                        Аналитика закупок для выбранной компании
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        ID компании: {selectedCompanyId}
-                      </p>
-                    </div>
-                  </div>
-                  {/* Используем компонент PurchaseAnalytics для отображения */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                    <iframe
-                      src={`#purchases-analytics-${selectedCompanyId}`}
-                      style={{ display: 'none' }}
-                    />
-                    <p className="text-center text-gray-600 dark:text-gray-400 py-8">
-                      Для просмотра детальной аналитики закупок перейдите в панель компании
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg p-6">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                      <Package className="w-5 h-5 text-indigo-600" />
-                      Общая статистика закупок
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Всего компаний закупают товары</p>
-                        <p className="text-2xl font-bold text-indigo-600">
-                          {companies.length}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Примерно закупок</p>
-                        <p className="text-2xl font-bold text-purple-600">
-                          —
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Требуется агрегация данных
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Общая сумма закупок</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          —
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Требуется агрегация данных
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
-                    <div className="flex-shrink-0">
-                      <div className="p-2 bg-yellow-100 dark:bg-yellow-900/40 rounded-lg">
-                        <Eye className="w-5 h-5 text-yellow-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-gray-900 dark:text-white mb-1">
-                        💡 Совет: Используйте режим "Одна компания"
-                      </h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Для просмотра детальной аналитики закупок выберите конкретную компанию 
-                        или перейдите в панель компании.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-center py-12 text-gray-400">
-                    <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">
-                      Детальная аналитика закупок доступна для каждой компании
-                    </p>
-                    <p className="text-sm">
-                      Выберите компанию выше, чтобы увидеть сводку по закупкам
-                    </p>
-                  </div>
                 </div>
               )}
             </div>

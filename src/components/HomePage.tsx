@@ -1,7 +1,7 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DeliveryLocationPicker from './DeliveryLocationPicker';
-import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw } from 'lucide-react';
+import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import CartItemImage from './CartItemImage';
 import HitCompanies from './HitCompanies';
@@ -193,7 +193,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   // Checkout flow state
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'delivery' | 'payment'>('cart');
-  const [checkoutDeliveryType, setCheckoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
+  // Самовывоз отключён — заказы оформляются только с доставкой курьером.
+  const [checkoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
   const [checkoutDeliveryAddress, setCheckoutDeliveryAddress] = useState('');
   const [checkoutDeliveryCoords, setCheckoutDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'cash' | 'card'>('cash');
@@ -1789,18 +1790,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                       </div>
-                      <p className={`text-sm font-semibold mb-3 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Тип доставки</p>
-                      <div className="grid grid-cols-2 gap-3 mb-5">
-                        {(['delivery', 'pickup'] as const).map(type => (
-                          <button key={type} onClick={() => setCheckoutDeliveryType(type)}
-                            className={`py-3 rounded-xl border-2 font-medium text-sm transition-all ${
-                              checkoutDeliveryType === type
-                                ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
-                            }`}>
-                            {type === 'delivery' ? 'Доставка' : 'Самовывоз'}
-                          </button>
-                        ))}
+                      {/* Доставка — единственный способ получения заказа (самовывоз отключён) */}
+                      <div className={`flex items-center gap-2 mb-5 py-3 px-4 rounded-xl border-2 border-purple-500 bg-purple-50 text-purple-700 font-medium text-sm`}>
+                        <Truck className="w-4 h-4" />
+                        <span>Доставка курьером</span>
                       </div>
                       {checkoutDeliveryType === 'delivery' && (
                         <div className="mb-5">

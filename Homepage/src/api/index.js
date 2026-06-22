@@ -331,4 +331,28 @@ export const setDefaultAddress = async (phone, id) => {
   return res.data;
 };
 
+// ─── ❓ Вопросы к товару ────────────────────────────────────────────────────────
+export const getProductQuestions = async (productId) => {
+  const res = await api.get(ENDPOINTS.productQuestions(productId));
+  return Array.isArray(res.data) ? res.data : (res.data?.questions || []);
+};
+
+export const askProductQuestion = async (productId, data) => {
+  // data: { userPhone, userName, question }
+  const res = await api.post(ENDPOINTS.productQuestions(productId), data);
+  return res.data;
+};
+
+// ─── ↩️ Возвраты / возврат средств ──────────────────────────────────────────────
+export const createReturn = async (data) => {
+  // data: { orderId, companyId, customerPhone, reason, refundAmount }
+  const res = await api.post(ENDPOINTS.returns, data);
+  return res.data;
+};
+
+export const getUserReturns = async (phone) => {
+  const res = await api.get(`${ENDPOINTS.returns}?customerPhone=${encodeURIComponent(phone)}`);
+  return Array.isArray(res.data) ? res.data : (res.data?.returns || []);
+};
+
 export default api;

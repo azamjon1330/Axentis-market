@@ -144,6 +144,30 @@
   color: #f3f4f6 !important;
 }
 
+/* ---------------------------------------------------------------------------
+   Coloured text on coloured cards (analytics, stats, store panels).
+   `.dark .bg-gradient-to-br` repaints these cards with a dark background, but
+   their text uses dark colour shades (text-green-900, text-red-700, …) which
+   become unreadable on dark. Lighten the dark shades (700/800/900) to bright
+   tints so the labels stay legible; the 500/600 shades are already light
+   enough but we nudge them up a touch for contrast.
+   --------------------------------------------------------------------------- */
+.dark .text-green-900,  .dark .text-green-800,  .dark .text-green-700  { color: #6ee7b7 !important; }
+.dark .text-green-600                                                   { color: #34d399 !important; }
+.dark .text-emerald-900,.dark .text-emerald-800,.dark .text-emerald-700{ color: #6ee7b7 !important; }
+.dark .text-yellow-900, .dark .text-yellow-800, .dark .text-yellow-700 { color: #fcd34d !important; }
+.dark .text-yellow-600                                                  { color: #fbbf24 !important; }
+.dark .text-amber-900,  .dark .text-amber-800,  .dark .text-amber-700  { color: #fcd34d !important; }
+.dark .text-blue-900,   .dark .text-blue-800,   .dark .text-blue-700   { color: #93c5fd !important; }
+.dark .text-blue-600                                                    { color: #60a5fa !important; }
+.dark .text-indigo-900, .dark .text-indigo-800, .dark .text-indigo-700 { color: #a5b4fc !important; }
+.dark .text-indigo-600                                                  { color: #818cf8 !important; }
+.dark .text-purple-900, .dark .text-purple-700                          { color: #d8b4fe !important; }
+.dark .text-orange-900, .dark .text-orange-800, .dark .text-orange-700 { color: #fdba74 !important; }
+.dark .text-orange-600                                                  { color: #fb923c !important; }
+.dark .text-red-900,    .dark .text-red-800,    .dark .text-red-700    { color: #fca5a5 !important; }
+.dark .text-red-600,    .dark .text-red-500                            { color: #f87171 !important; }
+
 /* Поиск и инпуты */
 .dark input,
 .dark select,

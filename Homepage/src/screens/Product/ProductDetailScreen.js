@@ -13,6 +13,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import {
   getProductDetail, getProductReviews, getProductReviewStats,
   getSimilarProducts, submitReview, voteReview, getProductVariants,
+  getProductQuestions, askProductQuestion,
 } from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
@@ -45,6 +46,10 @@ export default function ProductDetailScreen() {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  // ❓ Вопросы о товаре
+  const [questions, setQuestions] = useState([]);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [imgErrors, setImgErrors] = useState({});
   const imgRef = useRef(null);
 
@@ -57,13 +62,15 @@ export default function ProductDetailScreen() {
   const loadAll = async () => {
     setIsLoading(true);
     try {
-      const [prodData, revData, statsData, simData, varData] = await Promise.allSettled([
+      const [prodData, revData, statsData, simData, varData, qData] = await Promise.allSettled([
         getProductDetail(productId),
         getProductReviews(productId, user?.phone),
         getProductReviewStats(productId),
         getSimilarProducts(productId),
         getProductVariants(productId),
+        getProductQuestions(productId),
       ]);
+      if (qData.status === 'fulfilled') setQuestions(qData.value);
       if (prodData.status === 'fulfilled') setProduct(prodData.value);
       if (revData.status === 'fulfilled') {
         setReviews(revData.value);
@@ -223,6 +230,33 @@ export default function ProductDetailScreen() {
       Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить отзыв');
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  const handleAskQuestion = async () => {
+    if (!user) {
+      Alert.alert('Вход', 'Войдите в аккаунт, чтобы задать вопрос');
+      return;
+    }
+    if (!newQuestion.trim()) {
+      Alert.alert('Вопрос', 'Введите текст вопроса');
+      return;
+    }
+    setIsSubmittingQuestion(true);
+    try {
+      await askProductQuestion(productId, {
+        userPhone: user.phone,
+        userName: user.name,
+        question: newQuestion.trim(),
+      });
+      setNewQuestion('');
+      // Обновляем список вопросов с сервера
+      try { setQuestions(await getProductQuestions(productId)); } catch { /* ignore */ }
+      Alert.alert('Спасибо!', 'Ваш вопрос отправлен продавцу. Ответ появится здесь.');
+    } catch (err) {
+      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить вопрос');
+    } finally {
+      setIsSubmittingQuestion(false);
     }
   };
 
@@ -646,6 +680,57 @@ export default function ProductDetailScreen() {
             )}
           </View>
 
+          {/* ❓ Вопросы о товаре */}
+          <View style={styles.reviewsSection}>
+            <Text style={[styles.sectionLabel, { color: colors.text }]}>
+              Вопросы о товаре {questions.length > 0 ? `(${questions.length})` : ''}
+            </Text>
+
+            <View style={[styles.questionInputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+              <TextInput
+                style={[styles.questionInput, { color: colors.text }]}
+                value={newQuestion}
+                onChangeText={setNewQuestion}
+                placeholder={user ? 'Задайте вопрос продавцу...' : 'Войдите, чтобы задать вопрос'}
+                placeholderTextColor={colors.textMuted}
+                editable={!!user}
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.questionSendBtn, { backgroundColor: colors.primary, opacity: isSubmittingQuestion || !user ? 0.5 : 1 }]}
+                onPress={handleAskQuestion}
+                disabled={isSubmittingQuestion || !user}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="send" size={18} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            {questions.length === 0 ? (
+              <Text style={[styles.noReviews, { color: colors.textMuted }]}>Пока нет вопросов. Задайте первый!</Text>
+            ) : (
+              questions.map((q) => (
+                <View key={q.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <View style={styles.questionRow}>
+                    <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.reviewName, { color: colors.text }]}>{q.userName || 'Покупатель'}</Text>
+                      <Text style={[styles.reviewComment, { color: colors.textSecondary, marginTop: 2 }]}>{q.question}</Text>
+                    </View>
+                  </View>
+                  {q.isAnswered && q.answer ? (
+                    <View style={[styles.answerBox, { backgroundColor: colors.cardAlt, borderLeftColor: colors.primary }]}>
+                      <Text style={[styles.answerLabel, { color: colors.primary }]}>Ответ продавца</Text>
+                      <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{q.answer}</Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.reviewDate, { color: colors.textMuted, marginTop: 6 }]}>Ожидает ответа продавца</Text>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+
           {similar.length > 0 && (
             <View style={styles.similarSection}>
               <Text style={[styles.sectionLabel, { color: colors.text }]}>Похожие товары</Text>
@@ -804,6 +889,12 @@ const styles = StyleSheet.create({
   voteRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
   voteBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   voteCount: { fontSize: 12, fontWeight: '600' },
+  questionInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderWidth: 1, borderRadius: 12, padding: 8, marginVertical: 10 },
+  questionInput: { flex: 1, fontSize: 14, minHeight: 38, maxHeight: 100, paddingHorizontal: 6, textAlignVertical: 'top' },
+  questionSendBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  questionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  answerBox: { marginTop: 8, padding: 10, borderRadius: 10, borderLeftWidth: 3 },
+  answerLabel: { fontSize: 12, fontWeight: '700', marginBottom: 3 },
   similarSection: { marginBottom: 20 },
   similarCard: { width: 130, borderRadius: 14, borderWidth: 1, overflow: 'hidden', padding: 8 },
   similarImg: { width: '100%', height: 100, borderRadius: 8 },

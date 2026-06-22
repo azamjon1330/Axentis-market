@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Get Companies
@@ -18,7 +20,7 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Для админ панели показываем все компании, для пользователей - только approved
 		query := `
-			SELECT id, name, phone, password_hash, access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled
+			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled
 			FROM companies
 			ORDER BY created_at DESC
 		`
@@ -39,6 +41,7 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				Name                string
 				Phone               string
 				PasswordHash        string
+				PasswordPlain       string
 				AccessKey           sql.NullString
 				Mode                string
 				PrivateCode         sql.NullString
@@ -53,7 +56,7 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				IsEnabled           sql.NullBool
 			}
 
-			if err := rows.Scan(&comp.ID, &comp.Name, &comp.Phone, &comp.PasswordHash, &comp.AccessKey, &comp.Mode, &comp.PrivateCode, &comp.Status,
+			if err := rows.Scan(&comp.ID, &comp.Name, &comp.Phone, &comp.PasswordHash, &comp.PasswordPlain, &comp.AccessKey, &comp.Mode, &comp.PrivateCode, &comp.Status,
 				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled); err != nil {
 				log.Printf("❌ GetCompanies: Failed to scan row: %v", err)
 				continue
@@ -68,8 +71,16 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"deliveryEnabled": comp.DeliveryEnabled,
 			}
 
-			// SECURITY: never expose the password hash in this (publicly reachable)
-			// list response.
+			// Expose the readable password for the admin panel. We surface
+			// password_plain (kept in sync on create/update); if it is empty but
+			// the stored hash is still legacy plaintext (not a bcrypt "$2..."
+			// hash), fall back to it. The bcrypt hash itself is never exposed.
+			if comp.PasswordPlain != "" {
+				company["password"] = comp.PasswordPlain
+			} else if comp.PasswordHash != "" && !strings.HasPrefix(comp.PasswordHash, "$2") {
+				company["password"] = comp.PasswordHash
+			}
+
 			if comp.AccessKey.Valid {
 				company["accessKey"] = comp.AccessKey.String
 			}
@@ -316,8 +327,17 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 			argCount++
 		}
 		if req.Password != "" {
-			// Храним пароль в открытом виде (для отображения в админ панели)
+			// Store the bcrypt hash for the login flow, and keep the readable
+			// plaintext in password_plain so the admin panel can display/edit it.
+			hashed, hErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+			if hErr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+				return
+			}
 			query += fmt.Sprintf(", password_hash = $%d", argCount)
+			args = append(args, string(hashed))
+			argCount++
+			query += fmt.Sprintf(", password_plain = $%d", argCount)
 			args = append(args, req.Password)
 			argCount++
 		}

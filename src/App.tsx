@@ -276,6 +276,9 @@ function AppContent() {
             return;
           } else if (session.userType === 'admin' && session.userData) {
             console.log('👨‍💼 [App] Restoring admin session...');
+            // Re-obtain a fresh admin JWT so protected admin endpoints (editing
+            // companies/passwords, etc.) keep working after the stored token expires.
+            try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token refresh error:', e); }
             setPendingUser(session.userData);
             setUserType('admin');
             
@@ -636,6 +639,8 @@ function AppContent() {
       // 🔑 Проверка на админа по телефону
       if (companyData?.phone === '914751330' || companyData?.company?.phone === '914751330') {
         console.log('🔐 Admin detected, redirecting to admin panel...');
+        // Obtain a real admin JWT so the admin panel can call protected endpoints.
+        try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
         setCurrentCompany({
           id: 0,
           name: 'Admin',
