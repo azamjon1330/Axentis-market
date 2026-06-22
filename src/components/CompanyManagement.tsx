@@ -778,22 +778,36 @@ export default function CompanyManagement() {
                   <p className="text-xs text-gray-600 font-medium mb-1">🔑 Ключ доступа (30 символов)</p>
                   {editingCompany === company.id ? (
                     <>
-                      <input
-                        type="text"
-                        value={editingAccessKey}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '').slice(0, 30);
-                          setEditingAccessKey(value);
-                        }}
-                        className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none font-mono text-sm select-all ${
-                          editingAccessKey.length === 30
-                            ? 'border-green-400 focus:border-green-500'
-                            : 'border-red-300 focus:border-red-500'
-                        }`}
-                        maxLength={30}
-                        placeholder="Только цифры, ровно 30"
-                        style={{ userSelect: 'text' }}
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editingAccessKey}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/\D/g, '').slice(0, 30);
+                            setEditingAccessKey(value);
+                          }}
+                          className={`flex-1 px-3 py-2 border-2 rounded-lg focus:outline-none font-mono text-sm select-all ${
+                            editingAccessKey.length === 30
+                              ? 'border-green-400 focus:border-green-500'
+                              : 'border-red-300 focus:border-red-500'
+                          }`}
+                          maxLength={30}
+                          placeholder="Только цифры, ровно 30"
+                          style={{ userSelect: 'text' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const chars = '0123456789';
+                            let key = '';
+                            for (let i = 0; i < 30; i++) key += chars[Math.floor(Math.random() * chars.length)];
+                            setEditingAccessKey(key);
+                          }}
+                          className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-medium whitespace-nowrap"
+                        >
+                          Генерировать
+                        </button>
+                      </div>
                       <p className={`text-xs mt-1 ${editingAccessKey.length === 30 ? 'text-green-600' : 'text-red-500'}`}>
                         {editingAccessKey.length}/30 цифр {editingAccessKey.length === 30 ? '✓' : '— нужно ровно 30'}
                       </p>
