@@ -104,6 +104,10 @@ export default function CompanyManagement() {
   };
 
   const saveCompanyChanges = async (companyId: number) => {
+    if (editingAccessKey && (editingAccessKey.length !== 30 || /\D/.test(editingAccessKey))) {
+      alert('❌ Ключ доступа должен содержать ровно 30 цифр (без букв и символов)');
+      return;
+    }
     try {
       await api.companies.update(companyId.toString(), {
         name: editingName,
@@ -773,26 +777,47 @@ export default function CompanyManagement() {
                 <div className="flex-1">
                   <p className="text-xs text-gray-600 font-medium mb-1">🔑 Ключ доступа (30 символов)</p>
                   {editingCompany === company.id ? (
-                    <input
-                      type="text"
-                      value={editingAccessKey}
-                      onChange={(e) => {
-                        const value = e.target.value.slice(0, 30);
-                        setEditingAccessKey(value);
-                      }}
-                      className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:border-purple-500 font-mono text-sm select-all"
-                      maxLength={30}
-                      style={{ userSelect: 'text' }}
-                    />
+                    <>
+                      <input
+                        type="text"
+                        value={editingAccessKey}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '').slice(0, 30);
+                          setEditingAccessKey(value);
+                        }}
+                        className={`w-full px-3 py-2 border-2 rounded-lg focus:outline-none font-mono text-sm select-all ${
+                          editingAccessKey.length === 30
+                            ? 'border-green-400 focus:border-green-500'
+                            : 'border-red-300 focus:border-red-500'
+                        }`}
+                        maxLength={30}
+                        placeholder="Только цифры, ровно 30"
+                        style={{ userSelect: 'text' }}
+                      />
+                      <p className={`text-xs mt-1 ${editingAccessKey.length === 30 ? 'text-green-600' : 'text-red-500'}`}>
+                        {editingAccessKey.length}/30 цифр {editingAccessKey.length === 30 ? '✓' : '— нужно ровно 30'}
+                      </p>
+                    </>
                   ) : (
-                    <code 
-                      className="block font-mono text-sm break-all bg-white px-3 py-2 rounded border border-purple-200 select-all cursor-pointer hover:bg-purple-50 transition-colors"
-                      onClick={() => handleCopyToClipboard(company.accessKey, `key-${company.id}`)}
-                      title="Нажмите для копирования"
-                      style={{ userSelect: 'text' }}
-                    >
-                      {company.accessKey}
-                    </code>
+                    <>
+                      <code
+                        className={`block font-mono text-sm break-all bg-white px-3 py-2 rounded border select-all cursor-pointer hover:bg-purple-50 transition-colors ${
+                          company.accessKey?.length === 30 && /^\d+$/.test(company.accessKey)
+                            ? 'border-purple-200'
+                            : 'border-red-300 bg-red-50'
+                        }`}
+                        onClick={() => handleCopyToClipboard(company.accessKey, `key-${company.id}`)}
+                        title="Нажмите для копирования"
+                        style={{ userSelect: 'text' }}
+                      >
+                        {company.accessKey || '(не задан)'}
+                      </code>
+                      {company.accessKey && (company.accessKey.length !== 30 || !/^\d+$/.test(company.accessKey)) && (
+                        <p className="text-xs text-red-500 mt-1">
+                          ⚠ {company.accessKey.length} символов{/[^\d]/.test(company.accessKey) ? ', содержит не-цифры' : ''} — нажмите «Редактировать» и исправьте до 30 цифр
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
