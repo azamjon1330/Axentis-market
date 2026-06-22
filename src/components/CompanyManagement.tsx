@@ -22,7 +22,7 @@ export default function CompanyManagement() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showPasswords, setShowPasswords] = useState<{ [key: number]: boolean }>({});
+  const [hiddenPasswords, setHiddenPasswords] = useState<{ [key: number]: boolean }>({});
   const [showAccessKeys, setShowAccessKeys] = useState<{ [key: number]: boolean }>({});
   const [editingCompany, setEditingCompany] = useState<number | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -229,7 +229,7 @@ export default function CompanyManagement() {
   };
 
   const togglePasswordVisibility = (companyId: number) => {
-    setShowPasswords(prev => ({
+    setHiddenPasswords(prev => ({
       ...prev,
       [companyId]: !prev[companyId]
     }));
@@ -718,7 +718,7 @@ export default function CompanyManagement() {
                   <p className="text-xs text-gray-500 font-medium mb-1">🔐 Пароль</p>
                   {editingCompany === company.id ? (
                     <input
-                      type={showPasswords[company.id] ? 'text' : 'password'}
+                      type="text"
                       value={editingPassword}
                       onChange={(e) => setEditingPassword(e.target.value)}
                       className="w-full px-3 py-2 border border-purple-300 rounded focus:outline-none focus:border-purple-500 font-mono"
@@ -735,13 +735,13 @@ export default function CompanyManagement() {
                       }}
                       title="Нажмите для копирования"
                     >
-                      {showPasswords[company.id]
-                        ? (company.password
+                      {hiddenPasswords[company.id]
+                        ? '••••••••'
+                        : (company.password
                             ? company.password.startsWith('$2')
                               ? '🔒 зашифрован — пересохраните пароль'
                               : company.password
-                            : '(не задан)')
-                        : '••••••••'}
+                            : '(не задан — нажмите редактировать)')}
                     </code>
                   )}
                 </div>
@@ -750,11 +750,11 @@ export default function CompanyManagement() {
                     type="button"
                     onClick={() => togglePasswordVisibility(company.id)}
                     className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    title={showPasswords[company.id] ? 'Скрыть' : 'Показать'}
+                    title={hiddenPasswords[company.id] ? 'Показать' : 'Скрыть'}
                   >
-                    {showPasswords[company.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {hiddenPasswords[company.id] ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                   </button>
-                  {editingCompany !== company.id && showPasswords[company.id] && company.password && !company.password.startsWith('$2') && (
+                  {editingCompany !== company.id && !hiddenPasswords[company.id] && company.password && !company.password.startsWith('$2') && (
                     <button
                       type="button"
                       onClick={() => handleCopyToClipboard(company.password || '', `pwd-${company.id}`)}
