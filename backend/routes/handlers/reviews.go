@@ -18,11 +18,13 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 		log.Printf("📝 GetProductReviews called for productId=%s", productID)
 
 		rows, err := db.Query(`
-			SELECT id, product_id, user_phone, user_name, rating, comment, created_at, 
-			       COALESCE(likes, 0) as likes, COALESCE(dislikes, 0) as dislikes
-			FROM reviews 
-			WHERE product_id = $1 
-			ORDER BY (COALESCE(likes, 0) - COALESCE(dislikes, 0)) DESC, created_at DESC
+			SELECT r.id, r.product_id, r.user_phone, r.user_name, r.rating, r.comment, r.created_at,
+			       COALESCE(r.likes, 0) as likes, COALESCE(r.dislikes, 0) as dislikes,
+			       COALESCE(u.avatar_url, '') as user_avatar_url
+			FROM reviews r
+			LEFT JOIN users u ON u.phone = r.user_phone
+			WHERE r.product_id = $1
+			ORDER BY (COALESCE(r.likes, 0) - COALESCE(r.dislikes, 0)) DESC, r.created_at DESC
 		`, productID)
 		if err != nil {
 			log.Printf("❌ GetProductReviews error: %v", err)
@@ -34,15 +36,16 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 		reviews := make([]map[string]interface{}, 0)
 		for rows.Next() {
 			var review struct {
-				ID         int64
-				ProductID  int64
-				UserPhone  string
-				UserName   string
-				Rating     int
-				Comment    string
-				CreatedAt  string
-				Likes      int
-				Dislikes   int
+				ID            int64
+				ProductID     int64
+				UserPhone     string
+				UserName      string
+				Rating        int
+				Comment       string
+				CreatedAt     string
+				Likes         int
+				Dislikes      int
+				UserAvatarURL string
 			}
 
 			err := rows.Scan(
@@ -55,6 +58,7 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 				&review.CreatedAt,
 				&review.Likes,
 				&review.Dislikes,
+				&review.UserAvatarURL,
 			)
 			if err != nil {
 				log.Printf("❌ GetProductReviews scan error: %v", err)
@@ -62,15 +66,16 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 			}
 
 			reviewData := map[string]interface{}{
-				"id":         review.ID,
-				"product_id": review.ProductID,
-				"user_phone": review.UserPhone,
-				"user_name":  review.UserName,
-				"rating":     review.Rating,
-				"comment":    review.Comment,
-				"created_at": review.CreatedAt,
-				"likes":      review.Likes,
-				"dislikes":   review.Dislikes,
+				"id":              review.ID,
+				"product_id":      review.ProductID,
+				"user_phone":      review.UserPhone,
+				"user_name":       review.UserName,
+				"rating":          review.Rating,
+				"comment":         review.Comment,
+				"created_at":      review.CreatedAt,
+				"likes":           review.Likes,
+				"dislikes":        review.Dislikes,
+				"user_avatar_url": review.UserAvatarURL,
 			}
 
 			// Если передан телефон пользователя, проверяем его голос

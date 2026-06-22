@@ -1,9 +1,32 @@
 import { User, ArrowLeft, Heart, List, MessageCircle, Star, UserPlus, UserCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
-// TODO: User stats, reviews, subscriptions not yet in new API
-import api from '../utils/api';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { getImageUrl } from '../utils/api';
+
+// Wired to the existing backend (/api/users/:phone/*). These were referenced
+// but never defined, which crashed the profile page at runtime.
+const getUserStats = async (phone: string) => {
+  try {
+    const r: any = await api.users.getStats(phone);
+    return { following: r?.following ?? 0, followers: r?.followers ?? 0, views: r?.views ?? 0 };
+  } catch { return { following: 0, followers: 0, views: 0 }; }
+};
+const getUserReviews = async (phone: string) => {
+  try { const r = await api.users.getReviews(phone); return Array.isArray(r) ? r : []; }
+  catch { return []; }
+};
+const checkSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.subscriptionStatus(from, to); return r?.subscribed ?? false; }
+  catch { return false; }
+};
+const toggleSubscription = async (from: string, to: string) => {
+  try { const r: any = await api.users.toggleSubscription(from, to); return r?.subscribed ?? false; }
+  catch { return false; }
+};
+const incrementProfileViews = async (phone: string) => {
+  try { await api.users.incrementViews(phone); } catch { /* non-critical */ }
+};
 
 interface UserProfilePageProps {
   targetUserPhone: string;
@@ -37,6 +60,7 @@ export default function UserProfilePage({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReviews, setShowReviews] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // Colors
   const headerColor = '#C4A484';
@@ -54,13 +78,18 @@ export default function UserProfilePage({
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsData, reviewsData] = await Promise.all([
+      const [statsData, reviewsData, profileData] = await Promise.all([
         getUserStats(targetUserPhone),
-        getUserReviews(targetUserPhone)
+        getUserReviews(targetUserPhone),
+        api.users.getProfile(targetUserPhone).catch(() => null),
       ]);
-      
+
       setStats(statsData);
       setReviews(reviewsData);
+      const profile = profileData as any;
+      if (profile?.avatar_url) {
+        setAvatarUrl(getImageUrl(profile.avatar_url));
+      }
 
       if (currentUserPhone) {
         const subStatus = await checkSubscription(currentUserPhone, targetUserPhone);
@@ -119,7 +148,11 @@ export default function UserProfilePage({
           {/* Profile Photo */}
           <div className="absolute -top-12 left-8 z-20">
             <div className="w-24 h-24 rounded-full bg-gray-300 border-4 border-white overflow-hidden shadow-md flex items-center justify-center">
-              <User className="w-12 h-12 text-gray-500" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={targetUserName || ''} className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-12 h-12 text-gray-500" />
+              )}
             </div>
           </div>
 

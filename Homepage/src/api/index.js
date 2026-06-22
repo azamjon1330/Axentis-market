@@ -42,6 +42,7 @@ const mapReview = (r) => ({
   productId: r.productId ?? r.product_id,
   userPhone: r.userPhone ?? r.user_phone,
   userName: r.userName ?? r.user_name,
+  userAvatarUrl: r.userAvatarUrl ?? r.user_avatar_url ?? null,
   rating: r.rating,
   comment: r.comment,
   likes: r.likes ?? 0,
@@ -118,6 +119,7 @@ const mapCartItem = (item) => {
     quantity: item.quantity,
     selected_color: item.selected_color ?? item.selectedColor ?? undefined,
     selected_size: item.selected_size ?? item.selectedSize ?? undefined,
+    stockQuantity: item.stock_quantity ?? item.stockQuantity ?? undefined,
     product,
   };
 };
@@ -302,6 +304,55 @@ export const deletePaymentCard = async (id) => {
 
 export const setDefaultCard = async (id) => {
   await api.put(ENDPOINTS.paymentCardDefault(id));
+};
+
+// ─── Delivery Addresses ────────────────────────────────────────────────────────
+export const getUserAddresses = async (phone) => {
+  const res = await api.get(ENDPOINTS.userAddresses(phone));
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const addUserAddress = async (phone, data) => {
+  const res = await api.post(ENDPOINTS.userAddresses(phone), data);
+  return res.data;
+};
+
+export const updateUserAddress = async (phone, id, data) => {
+  const res = await api.put(ENDPOINTS.userAddressDetail(phone, id), data);
+  return res.data;
+};
+
+export const deleteUserAddress = async (phone, id) => {
+  await api.delete(ENDPOINTS.userAddressDetail(phone, id));
+};
+
+export const setDefaultAddress = async (phone, id) => {
+  const res = await api.put(ENDPOINTS.userAddressDefault(phone, id));
+  return res.data;
+};
+
+// ─── ❓ Вопросы к товару ────────────────────────────────────────────────────────
+export const getProductQuestions = async (productId) => {
+  const res = await api.get(ENDPOINTS.productQuestions(productId));
+  return Array.isArray(res.data) ? res.data : (res.data?.questions || []);
+};
+
+export const askProductQuestion = async (productId, data) => {
+  // data: { userPhone, userName, question }
+  const res = await api.post(ENDPOINTS.productQuestions(productId), data);
+  return res.data;
+};
+
+// ─── ↩️ Возвраты / возврат средств ──────────────────────────────────────────────
+export const createReturn = async (data) => {
+  // data: { orderId, companyId, customerPhone, reason, refundAmount }
+  const res = await api.post(ENDPOINTS.returns, data);
+  return res.data;
+};
+
+export const getUserReturns = async (phone) => {
+  const res = await api.get(`${ENDPOINTS.returns}?customerPhone=${encodeURIComponent(phone)}`);
+  return Array.isArray(res.data) ? res.data : (res.data?.returns || []);
 };
 
 export default api;

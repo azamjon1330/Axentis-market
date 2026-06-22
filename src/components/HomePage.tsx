@@ -1,7 +1,10 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag } from 'lucide-react';
+import DeliveryLocationPicker from './DeliveryLocationPicker';
+import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import CartItemImage from './CartItemImage';
+import HitCompanies from './HitCompanies';
 import BottomNavigation from './BottomNavigation';
 import LoadingAnimation from './LoadingAnimation'; // 🎨 Анимация загрузки
 import CompanyProfile from './CompanyProfile'; // 🏢 НОВОЕ: Профиль компании
@@ -94,8 +97,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [internalCart, setInternalCart] = useState<{ [key: number]: number }>({});
-  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({}); 
-  
+  const [internalSelectedColors, setInternalSelectedColors] = useState<{ [key: number]: string }>({});
+  const [selectedSizes, setSelectedSizes] = useState<{ [key: number]: string }>({});
+  const [variantStocks, setVariantStocks] = useState<{ [key: number]: number }>({});
+
   const cart = externalCart !== undefined ? externalCart : internalCart;
   const selectedColors = externalSelectedColors !== undefined ? externalSelectedColors : internalSelectedColors;
   const setSelectedColors = externalSetSelectedColors !== undefined ? externalSetSelectedColors : setInternalSelectedColors;
@@ -188,10 +193,18 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   // Checkout flow state
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'delivery' | 'payment'>('cart');
-  const [checkoutDeliveryType, setCheckoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
+  // Самовывоз отключён — заказы оформляются только с доставкой курьером.
+  const [checkoutDeliveryType] = useState<'pickup' | 'delivery'>('delivery');
   const [checkoutDeliveryAddress, setCheckoutDeliveryAddress] = useState('');
+  const [checkoutDeliveryCoords, setCheckoutDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'cash' | 'card'>('cash');
   const [savedPaymentCards, setSavedPaymentCards] = useState<any[]>([]);
+  // 🎟️ Promo code + ⭐ loyalty points at checkout
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ id: number; code: string; discount: number } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+  const [usePoints, setUsePoints] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<number | null>(null);
   const [showAddCardForm, setShowAddCardForm] = useState(false);
   const [newCard, setNewCard] = useState({ number: '', expiry: '', firstName: '', lastName: '', cvc: '', type: '' });
@@ -794,21 +807,24 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const product = products.find(p => p.id === productId);
     if (!product) return;
     const currentInCart = cart[productId] || 0;
-    if (currentInCart >= product.quantity) {
-      alert(`"${product.name}" tovaridan omborda ${product.quantity} ta qolgan. Bundan ko'p buyurtma bera olmaysiz.`);
+    // Use variant-specific stock if known, otherwise fall back to total product stock
+    const maxStock = variantStocks[productId] !== undefined ? variantStocks[productId] : product.quantity;
+    if (currentInCart >= maxStock) {
+      const variantDesc = [selectedColors[productId], selectedSizes[productId]].filter(v => v && v !== 'юбй').join(' / ');
+      alert(variantDesc
+        ? `На складе только ${maxStock} шт. (${variantDesc}). Больше добавить нельзя.`
+        : `На складе только ${maxStock} шт. "${product.name}". Больше добавить нельзя.`);
       return;
     }
     const newQty = currentInCart + 1;
-    console.log(`🛒 [addToCart] productId=${productId}, currentQty=${currentInCart}, newQty=${newQty}`);
     // 1. Update UI instantly
     setCart(prev => ({ ...prev, [productId]: newQty }));
-    if (!selectedColors[productId]) {
-      setSelectedColors(prev => ({ ...prev, [productId]: 'юбй' }));
-    }
     // 2. Single direct API call — no GET, no race condition
     if (userPhone) {
-      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty})`);
-      api.users.setCartQty(userPhone, productId, newQty)
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [addToCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${newQty}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, newQty, color, size)
         .then(() => console.log(`✅ [addToCart] API call successful`))
         .catch((err) => console.error(`❌ [addToCart] API call failed:`, err));
     }
@@ -828,8 +844,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     setCart(newCart);
     // 2. Single direct API call — setCartQty(0) deletes, no GET needed
     if (userPhone) {
-      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)})`);
-      api.users.setCartQty(userPhone, productId, Math.max(0, newQty))
+      const color = selectedColors[productId] || '';
+      const size = selectedSizes[productId] || '';
+      console.log(`🔄 [removeFromCart] Calling api.users.setCartQty(${userPhone}, ${productId}, ${Math.max(0, newQty)}, color=${color}, size=${size})`);
+      api.users.setCartQty(userPhone, productId, Math.max(0, newQty), color, size)
         .then(() => console.log(`✅ [removeFromCart] API call successful`))
         .catch((err) => console.error(`❌ [removeFromCart] API call failed:`, err));
     } else {
@@ -898,6 +916,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       const markupPercent = product.markupPercent || 0;
       const markupAmount = priceWithMarkup - product.price;
       totalAmount += priceWithMarkup * purchasedQty;
+      const itemColor = product.hasColorOptions ? (selectedColors[productId] || null) : null;
+      const itemSize = selectedSizes[productId] || null;
       purchasedItems.push({
         id: product.id,
         name: product.name,
@@ -907,13 +927,20 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         markupPercent,
         markupAmount,
         total: priceWithMarkup * purchasedQty,
-        color: product.hasColorOptions ? (selectedColors[productId] || 'Любой') : null,
+        color: itemColor,
+        size: itemSize,
         image_url: product.images && product.images.length > 0 ? getImageUrl(product.images[0]) : null,
         company_id: product.company_id
       });
     }
 
     if (purchasedItems.length === 0) { setIsCheckingOut(false); return; }
+
+    // 🎟️⭐ Apply promo code and loyalty points to the charged total.
+    const promoDisc = appliedPromo?.discount || 0;
+    const afterPromo = Math.max(0, totalAmount - promoDisc);
+    const pointsDisc = usePoints ? Math.min(loyaltyBalance, afterPromo) : 0;
+    const finalTotal = Math.max(0, afterPromo - pointsDisc);
 
     try {
       const firstPurchasedItem = purchasedItems[0];
@@ -927,9 +954,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         customerName: userName || 'Гость',
         customerPhone: userPhone || '',
         items: purchasedItems,
-        totalAmount,
+        totalAmount: finalTotal,
         deliveryType: checkoutDeliveryType,
         deliveryAddress: checkoutDeliveryType === 'delivery' ? checkoutDeliveryAddress : undefined,
+        deliveryCoordinates: checkoutDeliveryType === 'delivery' && checkoutDeliveryCoords
+          ? `${checkoutDeliveryCoords.lat},${checkoutDeliveryCoords.lng}`
+          : undefined,
         paymentMethod: checkoutPaymentMethod,
         cardSubtype
       });
@@ -937,12 +967,23 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       const orderCode = result.orderCode || result.order_code || `ORD-${result.id}`;
       const orderId = result.id;
 
+      // Record promo-code use and redeem loyalty points against this order.
+      if (appliedPromo && promoDisc > 0) {
+        api.promoCodes.redeem({ promoId: appliedPromo.id, userPhone: userPhone || '', orderId, discount: promoDisc }).catch(() => {});
+      }
+      if (pointsDisc > 0) {
+        api.loyalty.redeem({ userPhone: userPhone || '', points: pointsDisc, orderId, description: 'Оплата баллами' }).catch(() => {});
+      }
+      setAppliedPromo(null);
+      setPromoInput('');
+      setUsePoints(false);
+
       setMyOrders(prev => [{
         code: orderCode,
-        total: totalAmount,
+        total: finalTotal,
         itemsCount: purchasedItems.length,
         date: getUzbekistanISOString(),
-        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color })),
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color, size: item.size })),
         status: 'pending',
         orderId
       }, ...prev]);
@@ -955,13 +996,18 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         code: orderCode,
         total: totalAmount,
         itemsCount: purchasedItems.length,
-        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color }))
+        items: purchasedItems.map(item => ({ name: item.name, quantity: item.quantity, price: item.price, total: item.total, color: item.color, size: item.size }))
       });
       setShowOrderConfirmation(true);
       setCartTab('orders');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing checkout:', error);
-      alert('Ошибка при оформлении заказа');
+      const msg = error?.message || '';
+      if (msg.includes('Недостаточно') || msg.includes('складе')) {
+        alert(msg);
+      } else {
+        alert('Ошибка при оформлении заказа');
+      }
     } finally {
       setIsCheckingOut(false);
     }
@@ -1033,6 +1079,51 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     return Object.values(cart).reduce((sum, qty) => sum + qty, 0);
   };
 
+  // 🎟️⭐ Checkout discount helpers (promo code + loyalty points).
+  const getCartCompanyId = (): number | null => {
+    const firstId = Object.keys(cart)[0];
+    if (!firstId) return null;
+    const p = products.find((pr: Product) => pr.id === Number(firstId));
+    return (p as any)?.company_id ?? null;
+  };
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code) return;
+    setPromoChecking(true);
+    try {
+      const res = await api.promoCodes.validate({
+        code,
+        userPhone: userPhone || '',
+        companyId: getCartCompanyId(),
+        orderAmount: getTotalCart(),
+      });
+      if (res.valid) {
+        setAppliedPromo({ id: res.promoId, code: res.code, discount: res.discount });
+      } else {
+        setAppliedPromo(null);
+        alert(res.message || 'Промокод недействителен');
+      }
+    } catch (e) {
+      console.error('Promo validate failed:', e);
+      alert('Не удалось проверить промокод');
+    } finally {
+      setPromoChecking(false);
+    }
+  };
+
+  const promoDiscountValue = appliedPromo?.discount || 0;
+  const afterPromoTotal = Math.max(0, getTotalCart() - promoDiscountValue);
+  const pointsDiscountValue = usePoints ? Math.min(loyaltyBalance, afterPromoTotal) : 0;
+  const finalCheckoutTotal = Math.max(0, afterPromoTotal - pointsDiscountValue);
+
+  // Load the loyalty balance when the cart is opened.
+  useEffect(() => {
+    if (showCart && userPhone) {
+      api.loyalty.get(userPhone).then((d: any) => setLoyaltyBalance(d?.pointsBalance || 0)).catch(() => {});
+    }
+  }, [showCart, userPhone]);
+
   const toggleLike = (productId: number) => {
     if (isTogglingLike || !setLikedProductIds) return;
     setIsTogglingLike(true);
@@ -1067,16 +1158,36 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         o.code === order.code ? { ...o, status: 'cancelled' } : o
       );
       setMyOrders(updatedOrders);
-      
-      // TODO: API call when cancelOrder endpoint is ready
-      // if (order.orderId) {
-      //   await cancelOrder(order.orderId);
-      // }
-      
+
+      // Persist the cancellation. The backend restores stock for a
+      // previously-confirmed order and notifies the customer.
+      if (order.orderId) {
+        await api.orders.cancel(order.orderId);
+      }
+
       alert('Заказ отменен');
     } catch (error) {
       console.error('Error cancelling order:', error);
       alert('Ошибка при отмене заказа');
+    }
+  };
+
+  const handleReturnOrder = async (order: any) => {
+    const reason = prompt('Опишите причину возврата:');
+    if (reason === null) return; // user cancelled the prompt
+    try {
+      await api.returns.create({
+        orderId: order.orderId || null,
+        companyId: order.companyId || order.company_id || null,
+        customerPhone: userPhone,
+        reason: reason || '',
+        items: order.items || [],
+        refundAmount: order.totalAmount || order.total_amount || 0,
+      });
+      alert('Заявка на возврат отправлена продавцу');
+    } catch (error) {
+      console.error('Error requesting return:', error);
+      alert('Не удалось отправить заявку на возврат');
     }
   };
 
@@ -1210,26 +1321,33 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       
       {/* �🟢 NEW HEADER (FIXED & SAFE AREA) */}
       {!showCart && !selectedProduct && !showCatalog && !viewingCompanyId && !viewingUserProfile && (
-        <header className={`sticky top-0 z-40 transition-colors duration-500 shadow-sm ${
-          isNight ? 'bg-[#1a0b16] border-b border-[#2d1222]' : 'bg-transparent'
-        }`}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        <header
+          className={`sticky top-0 z-40 transition-colors duration-300 ${
+            isNight
+              ? 'bg-[#120a0f]/95 border-b border-white/5'
+              : 'bg-white/95 border-b border-gray-100'
+          }`}
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
         >
           {/* Location selector row */}
           <div className="px-4 pt-2 pb-0 relative">
             <button
               onClick={() => setShowRegionPicker(prev => !prev)}
-              className={`flex items-center gap-1 text-xs font-medium transition-colors ${
-                isNight ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+              className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
               <span className="text-sm">📍</span>
               <span className="max-w-[160px] truncate">{selectedRegion}</span>
-              <span className="text-[10px] opacity-60">▾</span>
+              <span className="text-[10px] opacity-50">▾</span>
             </button>
             {showRegionPicker && (
-              <div className={`absolute left-4 right-4 top-full mt-1 z-50 rounded-2xl shadow-xl border overflow-hidden ${
-                isNight ? 'bg-[#2d1222] border-[#4a2040]' : 'bg-white border-gray-100'
+              <div className={`absolute left-4 right-4 top-full mt-2 z-50 rounded-2xl shadow-2xl border overflow-hidden ${
+                isNight ? 'bg-[#1c0e19] border-white/10' : 'bg-white border-gray-100'
               }`}>
                 {UZ_REGIONS.map(region => (
                   <button
@@ -1241,7 +1359,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                     }}
                     className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center gap-2 ${
                       selectedRegion === region
-                        ? isNight ? 'bg-purple-900 text-purple-200 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold'
+                        ? isNight ? 'bg-indigo-900/60 text-indigo-300 font-semibold' : 'bg-indigo-50 text-indigo-700 font-semibold'
                         : isNight ? 'text-gray-300 hover:bg-white/5' : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
@@ -1253,29 +1371,31 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             )}
           </div>
 
-          <div className="px-4 py-2 flex items-center gap-3 bg-[rgba(255,255,255,0)]">
+          <div className="px-4 py-2.5 flex items-center gap-3">
             {/* Menu Button */}
             <button
               onClick={() => showCatalog ? handleCloseCatalog() : handleOpenCatalog()}
-              className={`p-2 rounded-lg transition-colors ${
-                isNight ? 'bg-[#C0BCBC] text-[#1a0b16] hover:bg-[#C0BCBC]/90' : 'bg-[#C0BCBC] text-black hover:bg-[#a0a0a0]'
+              className={`p-2.5 rounded-xl transition-colors flex-shrink-0 ${
+                isNight
+                  ? 'bg-white/10 text-white hover:bg-white/15'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
 
             {/* Search Bar */}
-            <div className={`flex-1 flex items-center px-4 py-2.5 rounded-xl transition-colors ${
-              isNight ? 'bg-[#C0BCBC]' : 'bg-[#C0BCBC]'
+            <div className={`flex-1 flex items-center px-3.5 py-2.5 rounded-xl transition-colors gap-2 ${
+              isNight ? 'bg-white/10 border border-white/10' : 'bg-gray-100 border border-transparent'
             }`}>
-              <Search className={`w-5 h-5 ${isNight ? 'text-[#1a0b16]' : 'text-black'}`} />
+              <Search className={`w-4 h-4 flex-shrink-0 ${isNight ? 'text-gray-400' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder="Search products"
+                placeholder="Qidirish..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full ml-3 bg-transparent outline-none ${
-                  isNight ? 'text-[#1a0b16] placeholder-[#1a0b16]/60' : 'text-black placeholder-black/60'
+                className={`w-full bg-transparent outline-none text-sm ${
+                  isNight ? 'text-white placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'
                 }`}
               />
             </div>
@@ -1307,13 +1427,16 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       {/* Product Details Panel */}
       {selectedProduct ? (
         <div className="fixed inset-0 z-50 bg-white h-screen">
-          <ProductDetails 
+          <ProductDetails
             product={selectedProduct}
             onBack={handleCloseProduct}
             onAddToCart={(p) => addToCart(p.id)}
             onBuyNow={(p) => {
               addToCart(p.id);
-              handleOpenCart();
+              // Close product details, go directly to cart (Savat) view
+              setSelectedProduct(null);
+              setCheckoutStep('cart');
+              setShowCart(true);
             }}
             isNight={isNight}
             cartQuantity={cart[selectedProduct.id] || 0}
@@ -1325,8 +1448,15 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             userPhone={userPhone}
             userName={userName}
             onUserClick={handleOpenUserProfile}
-            isLiked={likedProductIds.includes(selectedProduct.id)} // 💖 Передаем статус лайка
-            onToggleLike={toggleLike} // 💖 Передаем функцию переключения лайка
+            isLiked={likedProductIds.includes(selectedProduct.id)}
+            onToggleLike={toggleLike}
+            onVariantChange={(productId, color, size, stock) => {
+              setSelectedColors(prev => ({ ...prev, [productId]: color }));
+              setSelectedSizes(prev => ({ ...prev, [productId]: size }));
+              if (stock !== undefined) {
+                setVariantStocks(prev => ({ ...prev, [productId]: stock }));
+              }
+            }}
           />
         </div>
       ) : viewingUserProfile ? (
@@ -1343,25 +1473,25 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         <>
             {/* ── DEMO BANNER CAROUSEL ── */}
             {!searchQuery && !activeCategory && (
-              <div className="mb-4 relative overflow-hidden rounded-2xl" style={{ height: 160 }}>
+              <div className="mb-5 relative overflow-hidden rounded-3xl" style={{ height: 152 }}>
                 {DEMO_BANNERS.map((banner, idx) => (
                   <div
                     key={idx}
-                    className="absolute inset-0 flex items-center px-6 transition-opacity duration-700"
+                    className="absolute inset-0 flex items-center px-5 transition-opacity duration-600"
                     style={{
                       background: banner.bg,
                       opacity: idx === bannerIndex ? 1 : 0,
                       pointerEvents: idx === bannerIndex ? 'auto' : 'none',
                     }}
                   >
-                    <div className="flex-1">
-                      <p className="text-white text-xl font-bold leading-tight mb-1">{banner.title}</p>
-                      <p className="text-white/70 text-sm mb-3">{banner.subtitle}</p>
-                      <button className="bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-lg font-bold leading-tight mb-0.5">{banner.title}</p>
+                      <p className="text-white/65 text-xs mb-3">{banner.subtitle}</p>
+                      <button className="bg-white/25 hover:bg-white/35 text-white text-xs font-semibold px-4 py-1.5 rounded-full transition-colors backdrop-blur-sm">
                         Ko'rish →
                       </button>
                     </div>
-                    <span className="text-7xl select-none ml-4">{banner.emoji}</span>
+                    <span className="text-6xl select-none ml-3 flex-shrink-0">{banner.emoji}</span>
                   </div>
                 ))}
                 {/* Dot indicators */}
@@ -1400,7 +1530,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               </div>
             )}
 
-            {/* ── CATEGORY ICONS ROW ── */}
+            {/* ── CATEGORY CHIPS ROW ── */}
             {!loading && uniqueCategories.length > 0 && (() => {
               const ICONS: Record<string, string> = {
                 'электроника': '📱', 'electronics': '📱',
@@ -1418,43 +1548,31 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               };
               const getIcon = (cat: string) => ICONS[cat.toLowerCase()] || '📦';
               return (
-                <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-5" style={{ scrollbarWidth: 'none' }}>
-                  <div className="flex gap-4 pb-1" style={{ width: 'max-content' }}>
+                <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-4" style={{ scrollbarWidth: 'none' }}>
+                  <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
                     <button
                       onClick={() => setActiveCategory(null)}
-                      className="flex flex-col items-center gap-1.5 shrink-0"
-                    >
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                         activeCategory === null
-                          ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
-                          : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
-                      }`}>
-                        🏪
-                      </div>
-                      <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] ${
-                        activeCategory === null ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        Все
-                      </span>
+                          ? 'bg-gray-900 text-white shadow-sm'
+                          : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span className="text-base">🏪</span>
+                      <span>Barchasi</span>
                     </button>
                     {uniqueCategories.map(cat => (
                       <button
                         key={cat}
                         onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                        className="flex flex-col items-center gap-1.5 shrink-0"
-                      >
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl transition-all ${
+                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
                           activeCategory === cat
-                            ? 'bg-indigo-600 shadow-lg shadow-indigo-300/40 scale-105'
-                            : isNight ? 'bg-white/10 hover:bg-white/15' : 'bg-white shadow-sm hover:shadow-md'
-                        }`}>
-                          {getIcon(cat)}
-                        </div>
-                        <span className={`text-[10px] font-medium leading-tight text-center max-w-[56px] truncate ${
-                          activeCategory === cat ? 'text-indigo-600' : isNight ? 'text-gray-400' : 'text-gray-500'
-                        }`}>
-                          {cat}
-                        </span>
+                            ? 'bg-gray-900 text-white shadow-sm'
+                            : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        <span className="text-base">{getIcon(cat)}</span>
+                        <span className="max-w-[80px] truncate">{cat}</span>
                       </button>
                     ))}
                   </div>
@@ -1462,22 +1580,24 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               );
             })()}
 
+            {/* ── ХИТОВЫЕ МАГАЗИНЫ — горизонтальный скролл ── */}
+            {!loading && !searchQuery && !activeCategory && (
+              <HitCompanies isNight={isNight} onOpenCompany={(companyId) => handleOpenCompany(companyId)} />
+            )}
+
             {/* ── ПОПУЛЯРНОЕ — горизонтальный скролл ── */}
             {!loading && !searchQuery && !activeCategory && products.length > 0 && (() => {
               const popular = [...products]
                 .filter(p => p.availableForCustomers !== false)
-                .sort((a: any, b: any) => (b.soldCount || 0) - (a.soldCount || 0))
+                .sort((a: any, b: any) => (b.soldCount || b.sold_count || 0) - (a.soldCount || a.sold_count || 0))
                 .slice(0, 12);
               if (popular.length < 2) return null;
               return (
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
-                      🔥 Популярное
+                    <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
+                      Ommabop
                     </h2>
-                    <span className={`text-xs font-medium ${isNight ? 'text-indigo-400' : 'text-indigo-600'}`}>
-                      Смотреть все →
-                    </span>
                   </div>
                   <div
                     className="-mx-4 px-4 overflow-x-auto scrollbar-none"
@@ -1496,8 +1616,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                           <button
                             key={product.id}
                             onClick={() => handleOpenProduct(product)}
-                            className={`shrink-0 w-36 rounded-2xl overflow-hidden text-left transition-transform active:scale-95 ${
-                              isNight ? 'bg-white/8' : 'bg-white shadow-sm'
+                            className={`shrink-0 w-36 rounded-2xl overflow-hidden text-left transition-transform active:scale-[0.97] ${
+                              isNight ? 'bg-white/6' : 'bg-white shadow-[0_1px_8px_rgba(0,0,0,0.07)]'
                             }`}
                           >
                             {/* Image */}
@@ -1510,22 +1630,22 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center text-3xl">
-                                  📦
+                                <div className={`w-full h-full flex items-center justify-center ${isNight ? 'text-gray-600' : 'text-gray-300'}`}>
+                                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                 </div>
                               )}
                               {inCart && (
-                                <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center">
+                                <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center">
                                   <span className="text-white text-[9px] font-bold">{cart[product.id]}</span>
                                 </div>
                               )}
                             </div>
                             {/* Info */}
                             <div className="p-2.5">
-                              <p className={`text-xs font-medium line-clamp-2 leading-tight mb-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                              <p className={`text-xs font-medium line-clamp-2 leading-tight mb-1.5 ${isNight ? 'text-gray-200' : 'text-gray-800'}`}>
                                 {product.name}
                               </p>
-                              <p className="text-xs font-bold text-indigo-600">
+                              <p className={`text-xs font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                 {formatPrice(price)}
                               </p>
                             </div>
@@ -1538,36 +1658,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               );
             })()}
 
-            {/* ── CATEGORY PILLS (фильтр) ── */}
-            {!loading && uniqueCategories.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-                <button
-                  onClick={() => setActiveCategory(null)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                    activeCategory === null
-                      ? 'bg-indigo-600 text-white'
-                      : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
-                  }`}
-                >
-                  Все
-                </button>
-                {uniqueCategories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                      activeCategory === cat
-                        ? 'bg-indigo-600 text-white'
-                        : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-black/8 text-gray-600 hover:bg-black/12'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+            {/* ── PRODUCT GRID ── */}
+            {!loading && filteredProducts.length > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
+                  {activeCategory || 'Barcha mahsulotlar'}
+                </h2>
+                <span className={`text-xs ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {filteredProducts.length} ta
+                </span>
               </div>
             )}
-
-            {/* ── PRODUCT GRID ── */}
             {loading ? (
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
@@ -1689,23 +1790,15 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                       </div>
-                      <p className={`text-sm font-semibold mb-3 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Тип доставки</p>
-                      <div className="grid grid-cols-2 gap-3 mb-5">
-                        {(['delivery', 'pickup'] as const).map(type => (
-                          <button key={type} onClick={() => setCheckoutDeliveryType(type)}
-                            className={`py-3 rounded-xl border-2 font-medium text-sm transition-all ${
-                              checkoutDeliveryType === type
-                                ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
-                            }`}>
-                            {type === 'delivery' ? 'Доставка' : 'Самовывоз'}
-                          </button>
-                        ))}
+                      {/* Доставка — единственный способ получения заказа (самовывоз отключён) */}
+                      <div className={`flex items-center gap-2 mb-5 py-3 px-4 rounded-xl border-2 border-purple-500 bg-purple-50 text-purple-700 font-medium text-sm`}>
+                        <Truck className="w-4 h-4" />
+                        <span>Доставка курьером</span>
                       </div>
                       {checkoutDeliveryType === 'delivery' && (
                         <div className="mb-5">
                           <p className={`text-sm font-semibold mb-2 ${isNight ? 'text-gray-300' : 'text-gray-700'}`}>Адрес доставки</p>
-                          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${isNight ? 'border-slate-600 bg-slate-700' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 mb-2 ${isNight ? 'border-slate-600 bg-slate-700' : 'border-gray-200 bg-gray-50'}`}>
                             <input
                               type="text"
                               placeholder="Введите адрес..."
@@ -1713,7 +1806,28 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                               onChange={e => setCheckoutDeliveryAddress(e.target.value)}
                               className={`flex-1 bg-transparent outline-none text-sm ${isNight ? 'text-white placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'}`}
                             />
+                            {checkoutDeliveryCoords && (
+                              <button
+                                onClick={() => setCheckoutDeliveryCoords(null)}
+                                className="text-xs text-red-400 hover:text-red-500"
+                                title="Сбросить координаты"
+                              >✕</button>
+                            )}
                           </div>
+                          {/* Map location picker */}
+                          <DeliveryLocationPicker
+                            isNight={isNight}
+                            onLocationSelect={(coords, address) => {
+                              setCheckoutDeliveryCoords(coords);
+                              if (address) setCheckoutDeliveryAddress(address);
+                            }}
+                            selectedCoords={checkoutDeliveryCoords}
+                          />
+                          {checkoutDeliveryCoords && (
+                            <p className="text-xs text-green-500 mt-1">
+                              📍 Местоположение выбрано на карте ({checkoutDeliveryCoords.lat.toFixed(4)}, {checkoutDeliveryCoords.lng.toFixed(4)})
+                            </p>
+                          )}
                         </div>
                       )}
                       <button
@@ -1869,10 +1983,62 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                         </div>
                       )}
 
-                      <div className={`py-3 px-4 rounded-xl mb-4 ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
-                        <div className="flex justify-between items-center">
+                      {/* 🎟️ Promo code */}
+                      <div className="mb-3">
+                        {appliedPromo ? (
+                          <div className={`flex items-center justify-between py-2.5 px-4 rounded-xl ${isNight ? 'bg-green-900/30' : 'bg-green-50'}`}>
+                            <span className="text-sm text-green-600 font-medium">🎟️ {appliedPromo.code} −{formatPrice(appliedPromo.discount)}</span>
+                            <button onClick={() => { setAppliedPromo(null); setPromoInput(''); }} className="text-xs text-red-500">убрать</button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              value={promoInput}
+                              onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                              placeholder="Промокод"
+                              className={`flex-1 px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                            />
+                            <button onClick={applyPromo} disabled={promoChecking || !promoInput.trim()}
+                              className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-medium disabled:opacity-50">
+                              {promoChecking ? '...' : 'Применить'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ⭐ Pay with loyalty points */}
+                      {loyaltyBalance > 0 && (
+                        <label className={`flex items-center justify-between py-2.5 px-4 rounded-xl mb-3 cursor-pointer ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                          <span className={`text-sm ${isNight ? 'text-gray-300' : 'text-gray-600'}`}>
+                            ⭐ Списать баллы (доступно {loyaltyBalance})
+                          </span>
+                          <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} />
+                        </label>
+                      )}
+
+                      {/* Totals breakdown */}
+                      <div className={`py-3 px-4 rounded-xl mb-4 space-y-1 ${isNight ? 'bg-slate-700' : 'bg-gray-50'}`}>
+                        {(promoDiscountValue > 0 || pointsDiscountValue > 0) && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className={isNight ? 'text-gray-400' : 'text-gray-500'}>Сумма:</span>
+                              <span className={isNight ? 'text-gray-300' : 'text-gray-700'}>{formatPrice(getTotalCart())}</span>
+                            </div>
+                            {promoDiscountValue > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Промокод:</span><span>−{formatPrice(promoDiscountValue)}</span>
+                              </div>
+                            )}
+                            {pointsDiscountValue > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Баллы:</span><span>−{formatPrice(pointsDiscountValue)}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <div className="flex justify-between items-center pt-1">
                           <span className={`text-sm ${isNight ? 'text-gray-300' : 'text-gray-600'}`}>Итого:</span>
-                          <span className={`text-lg font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>{formatPrice(getTotalCart())}</span>
+                          <span className={`text-lg font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>{formatPrice(finalCheckoutTotal)}</span>
                         </div>
                       </div>
 
@@ -1899,25 +2065,27 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             <div key={productId} className={`p-3 rounded-xl flex gap-3 ${
                               isNight ? 'bg-slate-700' : 'bg-gray-50'
                             }`}>
-                              {/* Image Thumbnail */}
+                              {/* Image Thumbnail (auto-rotates through photos every 3s) */}
                               <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                                {product.images && product.images.length > 0 ? (
-                                  <img src={getImageUrl(product.images[0]) || ''} className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Нет фото</div>
-                                )}
+                                <CartItemImage images={product.images} name={product.name} />
                               </div>
                               
                               <div className="flex-1">
                                 <h3 className={`text-sm font-medium line-clamp-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                   {product.name}
                                 </h3>
+                                {/* Show selected variant (color + size) */}
+                                {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').length > 0 && (
+                                  <p className="text-xs mt-0.5" style={{ color: '#A78BFA' }}>
+                                    {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').join(' · ')}
+                                  </p>
+                                )}
                                 <div className={`text-sm font-bold mt-1 ${isNight ? 'text-blue-400' : 'text-blue-600'}`}>
                                   {formatPrice(getPriceWithMarkup(product) * quantity)}
                                 </div>
-                                
+
                                 <div className="flex items-center gap-3 mt-2">
-                                  <button 
+                                  <button
                                     onClick={() => removeFromCart(product.id)}
                                     className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
                                   >
@@ -1926,10 +2094,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                   <span className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-900'}`}>
                                     {quantity}
                                   </span>
-                                  <button 
+                                  <button
                                     onClick={() => addToCart(product.id)}
                                     className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
-                                    disabled={quantity >= product.quantity}
+                                    disabled={quantity >= (variantStocks[product.id] !== undefined ? variantStocks[product.id] : product.quantity)}
                                   >
                                     <Plus className="w-4 h-4 text-gray-700" />
                                   </button>
@@ -2004,7 +2172,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             {order.items.map((item, idx) => (
                               <div key={idx} className="flex justify-between py-1">
                                 <span className="line-clamp-1 flex-1 pr-2">
-                                  {item.quantity}x {item.name} {item.color && item.color !== 'Любой' ? `(${item.color})` : ''}
+                                  {item.quantity}x {item.name}
+                                  {[item.color && item.color !== 'Любой' ? item.color : '', (item as any).size || ''].filter(Boolean).length > 0
+                                    ? ` (${[item.color && item.color !== 'Любой' ? item.color : '', (item as any).size || ''].filter(Boolean).join(', ')})`
+                                    : ''}
                                 </span>
                                 <span className="font-medium">{formatPrice(item.total)}</span>
                               </div>
@@ -2019,6 +2190,15 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                             >
                               <X className="w-4 h-4" />
                               Отменить заказ
+                            </button>
+                          )}
+                          {(order.status === 'delivered' || order.status === 'completed') && (
+                            <button
+                              onClick={() => handleReturnOrder(order)}
+                              className="w-full py-2.5 rounded-xl border border-orange-200 text-orange-600 font-medium hover:bg-orange-50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              Вернуть товар
                             </button>
                           )}
                         </div>

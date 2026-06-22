@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateCache } from '../utils/productsCache';
 import { Upload, Edit2, Trash2, Package, Plus, X, Check, Search, Download, Image as ImageIcon, ShoppingCart } from 'lucide-react';
-import api, { API_BASE } from '../utils/api';
+import api, { API_BASE, getImageUrl } from '../utils/api';
 import { useCompanyProducts, ramCache } from '../utils/cache';
 import ImageUploader from './ImageUploader';
 import ExcelColumnMapper, { ColumnMapping } from './ExcelColumnMapper';
@@ -511,17 +511,26 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
       return;
     }
     try {
-      await api.products.createVariant(productId, {
-        color: form.color || undefined,
-        size: form.size || undefined,
-        price: parseFloat(form.price) || 0,
-        markupPercent: parseFloat(form.markupPercent) || 0,
-        stockQuantity: parseInt(form.stockQuantity) || 0,
-        barcode: form.barcode || undefined,
-        sku: form.sku || undefined,
-        barid: form.barid || undefined,
-        description: form.description || undefined,
-      });
+      // Comma-separated sizes generate one variant per size (same color/price/
+      // markup/quantity) — same smart behaviour as the product-creation form.
+      const sizes = (form.size || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+      const sizeList: (string | undefined)[] = sizes.length > 0 ? sizes : [undefined];
+      const single = sizeList.length === 1;
+      for (const sz of sizeList) {
+        await api.products.createVariant(productId, {
+          color: form.color || undefined,
+          size: sz || undefined,
+          price: parseFloat(form.price) || 0,
+          markupPercent: parseFloat(form.markupPercent) || 0,
+          stockQuantity: parseInt(form.stockQuantity) || 0,
+          // barcode/barid are unique per variant — only carry them over for a
+          // single size, otherwise they'd collide across generated variants.
+          barcode: single ? (form.barcode || undefined) : undefined,
+          sku: single ? (form.sku || undefined) : undefined,
+          barid: single ? (form.barid || undefined) : undefined,
+          description: form.description || undefined,
+        });
+      }
       await loadVariants(productId);
       await updateProductMinPrice(productId);
       setNewVariantForms(prev => ({
@@ -1408,7 +1417,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
   if (error) return <div className="p-8 text-center text-red-600">{t.errorLoadingWarehouse} {(error as Error).message}</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 sm:p-8">
+    <div className="min-h-screen p-4 sm:p-8" style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-4 sm:mb-6 lg:mb-8">
@@ -1419,40 +1428,51 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.productsCount}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-purple-600">{warehouseStats.totalProducts}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.totalInStock}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-blue-600">{warehouseStats.totalQuantity.toLocaleString()}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.cost}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-green-600">{warehouseStats.totalValue.toLocaleString()} {t.sum}</div>
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm">
-              <div className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">{t.categoriesCount}</div>
-              <div className="text-lg sm:text-xl lg:text-2xl text-orange-600">{warehouseStats.categories}</div>
-            </div>
+            {[
+              { label: t.productsCount, value: warehouseStats.totalProducts, color: '#7C5CF0' },
+              { label: t.totalInStock, value: warehouseStats.totalQuantity.toLocaleString(), color: '#38BDF8' },
+              { label: t.cost, value: `${warehouseStats.totalValue.toLocaleString()} ${t.sum}`, color: '#22C55E' },
+              { label: t.categoriesCount, value: warehouseStats.categories, color: '#FBBF24' },
+            ].map((s, i) => (
+              <div key={i} style={{
+                background: 'var(--ax-card)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: 14,
+                padding: '14px 16px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              }}>
+                <div style={{ color: '#8B8BAA', fontSize: 12, marginBottom: 6 }}>{s.label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
           </div>
 
           {/* Search and filters */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#8B8BAA' }} />
               <input
                 type="text"
                 placeholder={t.searchPlaceholder}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-purple-500 outline-none"
+                style={{
+                  width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 12, paddingBottom: 12,
+                  borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)',
+                  background: 'var(--ax-input)', color: 'var(--ax-text)',
+                  outline: 'none', fontSize: 14,
+                }}
               />
             </div>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 focus:border-purple-500 outline-none"
+              style={{
+                padding: '12px 16px', borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--ax-input)', color: 'var(--ax-text)',
+                outline: 'none', fontSize: 14,
+              }}
             >
               <option value="all">{t.allCategories}</option>
               {categories.map(cat => (
@@ -1463,45 +1483,41 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2 sm:gap-3">
-            <button
-              onClick={() => { setShowAddForm(true); if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]); }}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-green-600 text-white rounded-lg sm:rounded-xl hover:bg-green-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.addProduct}</span>
-              <span className="sm:hidden">{t.addProductShort}</span>
-            </button>
-
-            <label className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-purple-600 text-white rounded-lg sm:rounded-xl hover:bg-purple-700 transition-colors cursor-pointer shadow-lg text-sm sm:text-base">
+            {[
+              { icon: <Plus className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.addProduct, labelShort: t.addProductShort, onClick: () => { setShowAddForm(true); if (smartColors.length === 0) setSmartColors([{ color: '', qty: '', sizes: '' }]); }, bg: '#22C55E', isLabel: false },
+              { icon: <Download className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.exportToExcel, labelShort: t.exportShort, onClick: exportToExcel, bg: '#38BDF8', isLabel: false },
+              { icon: <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />, labelFull: t.deleteAllProducts, labelShort: t.deleteAll, onClick: handleDeleteAllProducts, bg: '#F87171', isLabel: false },
+            ].map((btn, i) => (
+              <button
+                key={i}
+                onClick={btn.onClick}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 18px',
+                  background: btn.bg,
+                  color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  fontWeight: 600, fontSize: 14, transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.85'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}
+              >
+                {btn.icon}
+                <span className="hidden sm:inline">{btn.labelFull}</span>
+                <span className="sm:hidden">{btn.labelShort}</span>
+              </button>
+            ))}
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 18px',
+              background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)',
+              color: '#fff', borderRadius: 10, border: 'none', cursor: 'pointer',
+              fontWeight: 600, fontSize: 14,
+            }}>
               <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="hidden lg:inline">{importing ? importProgress : t.importFromExcelCSV}</span>
               <span className="lg:hidden">{importing ? importProgress : t.importShort}</span>
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv,.txt"
-                onChange={handleFileImport}
-                disabled={importing}
-                className="hidden"
-              />
+              <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={handleFileImport} disabled={importing} className="hidden" />
             </label>
-
-            <button
-              onClick={exportToExcel}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-blue-600 text-white rounded-lg sm:rounded-xl hover:bg-blue-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.exportToExcel}</span>
-              <span className="sm:hidden">{t.exportShort}</span>
-            </button>
-
-            <button
-              onClick={handleDeleteAllProducts}
-              className="flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 lg:py-3 bg-red-600 text-white rounded-lg sm:rounded-xl hover:bg-red-700 transition-colors shadow-lg text-sm sm:text-base"
-            >
-              <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="hidden sm:inline">{t.deleteAllProducts}</span>
-              <span className="sm:hidden">{t.deleteAll}</span>
-            </button>
           </div>
         </div>
 
@@ -1832,343 +1848,306 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
           </div>
         )}
 
-        {/* Products Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-purple-600 to-blue-600">
-                <tr>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.productName}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.categoryHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.quantityHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.basePriceHeader}</th>
-                  <th className="px-6 py-4 text-left text-white font-semibold">{t.sellingPriceHeader}</th>
-                  <th className="px-6 py-4 text-right text-white font-semibold">{t.actionsHeader}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                      {searchTerm || selectedCategory !== 'all' 
-                        ? t.productsNotFound
-                        : t.noProducts}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProducts.map((product: any) => (
-                    <React.Fragment key={product.id}>
-                      <tr className="border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <td className="px-6 py-4">
-                          <span className="text-gray-800 dark:text-gray-200">{product.name}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {changingCategoryId === String(product.id) ? (
-                            <select
-                              autoFocus
-                              value={product.category || ''}
-                              onChange={(e) => handleInlineCategoryChange(String(product.id), e.target.value)}
-                              onBlur={() => setChangingCategoryId(null)}
-                              className="text-sm border border-indigo-400 rounded-lg px-2 py-1 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-400"
-                            >
-                              <option value="">{t.noCategory}</option>
-                              {globalCategories.map(cat => (
-                                <option key={cat.id} value={cat.name}>{cat.name}</option>
-                              ))}
-                            </select>
-                          ) : (
-                            <span
-                              className="category-badge text-sm text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg font-medium cursor-pointer hover:ring-2 hover:ring-indigo-400 transition-all"
-                              title={language === 'uz' ? 'Kategoriyani o\'zgartirish' : 'Изменить категорию'}
-                              onClick={() => setChangingCategoryId(String(product.id))}
-                            >
-                              {product.category || t.noCategory}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-gray-700 dark:text-gray-300">{product.quantity}</span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {product.price > 0 ? (
-                            <span className="text-gray-700 dark:text-gray-300">{product.price.toLocaleString()} сум</span>
-                          ) : (
-                            <span className="text-indigo-500 text-xs italic">{language === 'uz' ? 'Turlarda' : 'В вариантах'}</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {(() => {
-                            const variants = productVariants[String(product.id)] || [];
-                            const skuPrices = variants.map((v: any) => v.sellingPrice || v.price || 0).filter((p: number) => p > 0);
-                            if (skuPrices.length > 0) {
-                              const minPrice = Math.min(...skuPrices);
-                              return <span className="text-green-700 dark:text-green-400 font-semibold">{minPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
-                            }
-                            if ((product.sellingPrice || 0) > 0) {
-                              return <span className="text-green-700 dark:text-green-400">{product.sellingPrice.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
-                            }
-                            if ((product.price || 0) > 0) {
-                              return <span className="text-green-700 dark:text-green-400">{product.price.toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</span>;
-                            }
-                            return <span className="text-indigo-400 text-xs italic">SKU</span>;
-                          })()}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => toggleVariants(String(product.id))}
-                              style={{
-                                backgroundColor: expandedVariants.has(String(product.id)) ? '#4338ca' : '#4f46e5',
-                                color: '#ffffff',
-                              }}
-                              className="px-3 py-2 rounded-lg transition-all duration-200 font-bold text-xs hover:opacity-90 shadow-sm"
-                              title={language === 'uz' ? 'Variantlar' : 'Варианты'}
-                            >
-                              SKU
+        {/* Products List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filteredProducts.length === 0 ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center', color: '#5A5A78', background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14 }}>
+              {searchTerm || selectedCategory !== 'all' ? t.productsNotFound : t.noProducts}
+            </div>
+          ) : (
+            filteredProducts.map((product: any) => {
+              const isEditing = editingId === product.id;
+              const imgUrl = product.images?.[0] ? getImageUrl(product.images[0]) : null;
+              const inStock = product.quantity > 0;
+              const sellingPr = product.sellingPrice || product.price || 0;
+              return (
+                <div key={product.id} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, overflow: 'hidden' }}>
+                  {/* Main product row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px' }}>
+                    {/* Image */}
+                    <div style={{ width: 56, height: 56, borderRadius: 10, background: 'rgba(255,255,255,0.04)', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {imgUrl ? (
+                        <img src={imgUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Package className="w-6 h-6" style={{ color: '#5A5A78' }} />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF', truncate: true }}>{product.name}</span>
+                        {product.category && (
+                          <span style={{ fontSize: 11, background: 'rgba(124,92,240,0.15)', color: '#A78BFA', borderRadius: 8, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}>{product.category}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, color: inStock ? '#22C55E' : '#F87171', background: inStock ? 'rgba(34,197,94,0.1)' : 'rgba(248,113,113,0.1)', borderRadius: 6, padding: '2px 8px' }}>
+                          {inStock ? (language === 'uz' ? 'Mavjud' : 'В наличии') : (language === 'uz' ? 'Tugagan' : 'Нет в наличии')}
+                        </span>
+                        <span style={{ fontSize: 12, color: '#8B8BAA' }}>{product.quantity} {language === 'uz' ? 'dona' : 'шт'}</span>
+                        {product.price > 0 && <span style={{ fontSize: 12, color: '#8B8BAA' }}>{language === 'uz' ? 'Tan narx:' : 'Себест:'} {product.price.toLocaleString()} сум</span>}
+                        {sellingPr > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: '#7C5CF0' }}>{language === 'uz' ? 'Sotuv:' : 'Продажа:'} {sellingPr.toLocaleString()} сум</span>}
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button
+                        onClick={() => toggleVariants(String(product.id))}
+                        style={{ padding: '6px 10px', borderRadius: 8, background: expandedVariants.has(String(product.id)) ? 'rgba(124,92,240,0.2)' : 'rgba(255,255,255,0.05)', border: 'none', color: expandedVariants.has(String(product.id)) ? '#A78BFA' : '#8B8BAA', cursor: 'pointer', fontSize: 11 }}
+                      >
+                        SKU
+                      </button>
+                      <button
+                        onClick={() => { setShowImageUploader(showImageUploader === product.id ? null : product.id); }}
+                        style={{ padding: '6px 8px', borderRadius: 8, background: showImageUploader === product.id ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.05)', border: 'none', color: showImageUploader === product.id ? '#38BDF8' : '#8B8BAA', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (editingId === product.id) {
+                            setEditingId(null);
+                          } else {
+                            setEditingId(product.id);
+                            setEditForm({
+                              name: product.name, quantity: product.quantity, price: product.price,
+                              markupPercent: product.markupPercent || 0, barcode: product.barcode || '',
+                              category: product.category || '', barid: product.barid || '',
+                              description: product.description || '', color: product.color || '',
+                              size: product.size || '', brand: product.brand || '',
+                              hasColorOptions: product.hasColorOptions || false,
+                              availableForCustomers: product.availableForCustomers !== false,
+                            });
+                          }
+                        }}
+                        style={{ padding: '6px 8px', borderRadius: 8, background: editingId === product.id ? 'rgba(124,92,240,0.2)' : 'rgba(255,255,255,0.05)', border: 'none', color: editingId === product.id ? '#A78BFA' : '#8B8BAA', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product.id)}
+                        style={{ padding: '6px 8px', borderRadius: 8, background: 'rgba(248,113,113,0.08)', border: 'none', color: '#F87171', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {/* Edit form (if editing this product) */}
+                  {isEditing && (
+                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, marginTop: 12 }}>
+                        {/* Название */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.productName}</label>
+                          <input type="text" value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any }} />
+                        </div>
+                        {/* Базовая цена */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.basePriceHeader}</label>
+                          <input type="number" value={editForm.price} onChange={e => setEditForm(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: '#FFFFFF', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any }} />
+                        </div>
+                        {/* Количество - только просмотр */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.quantityHeader}</label>
+                          <div style={{ padding: '7px 10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 8, color: '#5A5A78', fontSize: 13 }}>
+                            {product.quantity} {language === 'uz' ? 'dona' : 'шт'} <span style={{ fontSize: 10, opacity: 0.6 }}>(только просмотр)</span>
+                          </div>
+                        </div>
+                        {/* Категория - выпадающий список из глобальных категорий */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 11, color: '#8B8BAA', marginBottom: 4 }}>{t.categoryHeader}</label>
+                          <select value={editForm.category} onChange={e => setEditForm(prev => ({ ...prev, category: e.target.value }))}
+                            style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: editForm.category ? '#FFFFFF' : '#5A5A78', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any, cursor: 'pointer' }}>
+                            <option value="">— {language === 'uz' ? 'Kategoriya' : 'Категория'} —</option>
+                            {globalCategories.map(cat => (
+                              <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <button
+                          onClick={() => handleSave(String(product.id))}
+                          style={{ padding: '8px 16px', borderRadius: 8, background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
+                        >
+                          {t.save}
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(255,255,255,0.06)', color: '#8B8BAA', border: 'none', cursor: 'pointer', fontSize: 13 }}
+                        >
+                          {t.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {/* Image uploader (if showing for this product) */}
+                  {showImageUploader === product.id && (
+                    <div style={{ padding: '0 16px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 0 }}>
+                      <h4 style={{ color: '#FFFFFF', fontSize: 13, margin: '12px 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <ImageIcon className="w-4 h-4" style={{ color: '#7C5CF0' }} />
+                        {language === 'uz' ? 'Tovar rasmlari' : 'Фотографии товара'}: {product.name}
+                      </h4>
+                      <ImageUploader productId={product.id} images={product.images || []} onImagesChange={handleImagesChange} />
+                    </div>
+                  )}
+                  {/* Variants (if expanded) */}
+                  {expandedVariants.has(String(product.id)) && (
+                    <div style={{ padding: '0 16px 14px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      {(() => {
+                        const variants = productVariants[String(product.id)];
+                        if (loadingVariants.has(String(product.id))) return <div style={{ color: '#8B8BAA', fontSize: 12, padding: '8px 0' }}>{language === 'uz' ? 'Yuklanmoqda...' : 'Загрузка...'}</div>;
+                        if (!variants || variants.length === 0) return (
+                          <div style={{ padding: '8px 0' }}>
+                            <p style={{ color: '#5A5A78', fontSize: 12, marginBottom: 8 }}>{language === 'uz' ? 'Variantlar yoʻq' : 'Вариантов нет'}</p>
+                          </div>
+                        );
+                        // Group variants by color for merged cells
+                        const colorGroups: { [color: string]: any[] } = {};
+                        variants.forEach((v: any) => {
+                          const c = v.color || '—';
+                          if (!colorGroups[c]) colorGroups[c] = [];
+                          colorGroups[c].push(v);
+                        });
+                        return (
+                          <div style={{ marginTop: 10, overflowX: 'auto' }}>
+                            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                                  {['Цвет', 'Размер', 'Кол-во', 'Цена', 'Наценка%', 'Цена продажи', 'Bar ID', 'Barcode', ''].map(h => (
+                                    <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: '#8B8BAA', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {Object.entries(colorGroups).map(([color, colorVariants]) =>
+                                  colorVariants.map((v: any, vIdx: number) => {
+                                    const isEditingThisVariant = editingVariant?.productId === String(product.id) && editingVariant?.variantId === String(v.id);
+                                    const sellingPrice = isEditingThisVariant
+                                      ? (parseFloat(editVariantForm.price) || 0) * (1 + (parseFloat(editVariantForm.markupPercent) || 0) / 100)
+                                      : (v.sellingPrice || (v.price || 0) * (1 + (v.markupPercent || 0) / 100));
+                                    return (
+                                      <tr key={v.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        {/* Color cell - merged for same color */}
+                                        {vIdx === 0 && (
+                                          <td rowSpan={colorVariants.length} style={{ padding: '7px 10px', color: '#FFFFFF', fontWeight: 600, verticalAlign: 'middle', borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(124,92,240,0.05)' }}>
+                                            {color}
+                                          </td>
+                                        )}
+                                        <td style={{ padding: '7px 10px', color: '#C4B5FD' }}>{v.size || '—'}</td>
+                                        <td style={{ padding: '7px 10px', color: '#FFFFFF' }}>{v.stockQuantity || 0}</td>
+                                        {isEditingThisVariant ? (
+                                          <>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm(prev => ({ ...prev, price: e.target.value }))}
+                                                style={{ width: 80, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm(prev => ({ ...prev, markupPercent: e.target.value }))}
+                                                style={{ width: 55, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '7px 10px', color: '#22C55E', fontWeight: 600 }}>
+                                              {sellingPrice.toLocaleString()}
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="text" value={editVariantForm.barid} onChange={e => setEditVariantForm(prev => ({ ...prev, barid: e.target.value }))}
+                                                placeholder="Bar ID"
+                                                style={{ width: 60, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none' }} />
+                                            </td>
+                                            <td style={{ padding: '4px 6px' }}>
+                                              <input type="text" value={editVariantForm.barcode} onChange={e => setEditVariantForm(prev => ({ ...prev, barcode: e.target.value }))}
+                                                placeholder="Barcode"
+                                                style={{ width: 90, padding: '4px 7px', background: 'var(--ax-input)', border: '1px solid rgba(124,92,240,0.5)', borderRadius: 6, color: '#FFFFFF', fontSize: 12, outline: 'none', fontFamily: 'monospace' }} />
+                                            </td>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <td style={{ padding: '7px 10px', color: '#8B8BAA' }}>{(v.price || 0).toLocaleString()}</td>
+                                            <td style={{ padding: '7px 10px', color: '#7C5CF0' }}>{v.markupPercent || 0}%</td>
+                                            <td style={{ padding: '7px 10px', color: '#22C55E', fontWeight: 600 }}>{sellingPrice.toLocaleString()}</td>
+                                            <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11 }}>{v.barid || '—'}</td>
+                                            <td style={{ padding: '7px 10px', color: '#5A5A78', fontSize: 11, fontFamily: 'monospace' }}>{v.barcode || '—'}</td>
+                                          </>
+                                        )}
+                                        <td style={{ padding: '7px 6px', whiteSpace: 'nowrap' }}>
+                                          {isEditingThisVariant ? (
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button onClick={handleSaveVariant} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(124,92,240,0.3)', color: '#A78BFA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                <Check className="w-3 h-3" />
+                                              </button>
+                                              <button onClick={() => setEditingVariant(null)} style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', color: '#8B8BAA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div style={{ display: 'flex', gap: 4 }}>
+                                              <button
+                                                onClick={() => startEditVariant(String(product.id), v)}
+                                                style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(124,92,240,0.1)', color: '#A78BFA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                title={language === 'uz' ? 'Tahrirlash' : 'Редактировать'}
+                                              >
+                                                <Edit2 className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                onClick={() => { setShowVariantPurchaseModal(true); setPurchasingVariant({ variant: v, product }); setVariantPurchaseForm({ quantity: '', purchasePrice: '' }); }}
+                                                style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(34,197,94,0.1)', color: '#22C55E', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                title={language === 'uz' ? 'Zakupka' : 'Закупка'}
+                                              >
+                                                <ShoppingCart className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })()}
+                      {/* Add variant form toggle */}
+                      {!newVariantForms[String(product.id)] ? (
+                        <button onClick={() => setNewVariantForms(prev => ({ ...prev, [String(product.id)]: { color: '', size: '', price: '', markupPercent: '0', stockQuantity: '0', barcode: '', barid: '', description: '' } }))}
+                          style={{ marginTop: 8, padding: '5px 12px', borderRadius: 8, background: 'rgba(124,92,240,0.12)', color: '#A78BFA', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+                          + {language === 'uz' ? 'Variant qoʻshish' : 'Добавить вариант'}
+                        </button>
+                      ) : (
+                        <div style={{ marginTop: 10, padding: 12, background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <p style={{ color: '#8B8BAA', fontSize: 12, marginBottom: 8 }}>{language === 'uz' ? 'Yangi variant' : 'Новый вариант'}</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8 }}>
+                            {[
+                              { key: 'color', placeholder: language === 'uz' ? 'Rang' : 'Цвет' },
+                              { key: 'size', placeholder: language === 'uz' ? 'Razmer (S,M,L)' : 'Размер (S,M,L)' },
+                              { key: 'price', placeholder: language === 'uz' ? 'Narx' : 'Цена', type: 'number' },
+                              { key: 'stockQuantity', placeholder: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number' },
+                            ].map(f => (
+                              <input key={f.key} type={f.type || 'text'} placeholder={f.placeholder}
+                                value={(newVariantForms[String(product.id)] as any)[f.key]}
+                                onChange={e => setNewVariantForms(prev => ({ ...prev, [String(product.id)]: { ...prev[String(product.id)], [f.key]: e.target.value } }))}
+                                style={{ padding: '6px 8px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 7, color: '#FFFFFF', fontSize: 12, outline: 'none' }}
+                              />
+                            ))}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => handleAddVariant(String(product.id))} style={{ padding: '6px 14px', borderRadius: 8, background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+                              {language === 'uz' ? 'Qoʻshish' : 'Добавить'}
                             </button>
-                            <button
-                              onClick={() => setShowImageUploader(showImageUploader === product.id ? null : product.id)}
-                              className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                              title={t.addPhotoTitle}
-                            >
-                              <ImageIcon className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(product.id)}
-                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
+                            <button onClick={() => setNewVariantForms(prev => { const n = { ...prev }; delete n[String(product.id)]; return n; })} style={{ padding: '6px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.05)', color: '#8B8BAA', border: 'none', cursor: 'pointer', fontSize: 12 }}>
+                              {language === 'uz' ? 'Bekor' : 'Отмена'}
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                      {/* Variants Tree Panel */}
-                      {expandedVariants.has(String(product.id)) && (
-                        <tr>
-                          <td colSpan={7} className="px-4 py-4 bg-indigo-50 dark:bg-indigo-950/30 border-b border-indigo-100 dark:border-indigo-900">
-                            <div className="max-w-5xl mx-auto">
-                              <h4 className="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3 flex items-center gap-2">
-                                <Package className="w-4 h-4" />
-                                {language === 'uz' ? 'Tovar turlari' : 'Виды товара'}: {product.name}
-                              </h4>
-
-                              {loadingVariants.has(String(product.id)) ? (
-                                <p className="text-sm text-indigo-500 italic">
-                                  {language === 'uz' ? 'Yuklanmoqda...' : 'Загрузка...'}
-                                </p>
-                              ) : (
-                                <>
-                                  {/* Tree variant table */}
-                                  {(productVariants[String(product.id)] || []).length > 0 && (
-                                    <div className="overflow-x-auto mb-4">
-                                      <table className="w-full text-sm border border-indigo-200 dark:border-indigo-800 rounded-lg overflow-hidden">
-                                        <thead className="bg-gradient-to-r from-[#1a3a4a] to-[#1e5478] text-white">
-                                          <tr>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Rang' : 'Цвет'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Razmer' : 'Размер'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Narx' : 'Цена'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Naцen %' : 'Наценка %'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Sotish narxi' : 'Цена продажи'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Miqdor' : 'Кол-во'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Barcode' : 'Штрих-код'}</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">Barid</th>
-                                            <th className="px-3 py-2.5 text-left font-semibold">{language === 'uz' ? 'Tavsif' : 'Описание'}</th>
-                                            <th className="px-3 py-2.5 text-right font-semibold">{language === 'uz' ? 'Amallar' : 'Действия'}</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {(() => {
-                                            const allVariants: any[] = productVariants[String(product.id)] || [];
-                                            const isEditing = editingVariant?.productId === String(product.id);
-
-                                            // Flat display when any variant is being edited
-                                            if (isEditing) {
-                                              return allVariants.map((variant: any) => (
-                                                <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
-                                                  {editingVariant?.variantId === String(variant.id) ? (
-                                                    <>
-                                                      <td className="px-2 py-1.5"><input value={editVariantForm.color} onChange={e => setEditVariantForm({...editVariantForm, color: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'rang' : 'цвет'} /></td>
-                                                      <td className="px-2 py-1.5"><input value={editVariantForm.size} onChange={e => setEditVariantForm({...editVariantForm, size: e.target.value})} className="w-20 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder={language === 'uz' ? 'razmer' : 'размер'} /></td>
-                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.price} onChange={e => setEditVariantForm({...editVariantForm, price: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                      <td className="px-2 py-1.5"><input type="number" value={editVariantForm.markupPercent} onChange={e => setEditVariantForm({...editVariantForm, markupPercent: e.target.value})} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" /></td>
-                                                      <td className="px-2 py-1.5 text-green-600 text-xs font-medium">
-                                                        {((parseFloat(editVariantForm.price)||0) * (1 + (parseFloat(editVariantForm.markupPercent)||0)/100)).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}
-                                                      </td>
-                                                      <td className="px-2 py-1.5 text-xs text-indigo-700 dark:text-indigo-300 font-bold">{editVariantForm.stockQuantity}</td>
-                                                      <td className="px-2 py-1.5"><input value={editVariantForm.barcode} onChange={e => setEditVariantForm({...editVariantForm, barcode: e.target.value})} className="w-24 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>
-                                                      <td className="px-2 py-1.5"><input value={editVariantForm.barid} onChange={e => setEditVariantForm({...editVariantForm, barid: e.target.value.replace(/\D/g,'')})} maxLength={6} className="w-16 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>
-                                                      <td className="px-2 py-1.5"><input value={editVariantForm.description} onChange={e => setEditVariantForm({...editVariantForm, description: e.target.value})} className="w-28 px-2 py-1 text-xs border-2 border-indigo-300 rounded focus:outline-none dark:bg-gray-700 dark:text-white" placeholder="—" /></td>
-                                                      <td className="px-2 py-1.5">
-                                                        <div className="flex justify-end gap-1">
-                                                          <button onClick={handleSaveVariant} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"><Check className="w-3 h-3" /></button>
-                                                          <button onClick={() => setEditingVariant(null)} className="p-1 bg-gray-400 text-white rounded hover:bg-gray-500 transition-colors"><X className="w-3 h-3" /></button>
-                                                        </div>
-                                                      </td>
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.color || '—'}</td>
-                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{variant.size || '—'}</td>
-                                                      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{variant.markupPercent || 0}%</td>
-                                                      <td className="px-3 py-2 text-green-600 dark:text-green-400 font-medium">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                      <td className="px-3 py-2"><span className={`font-bold ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>{variant.stockQuantity || 0}</span></td>
-                                                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">{variant.barcode || '—'}</td>
-                                                      <td className="px-3 py-2 text-purple-600 dark:text-purple-400 font-medium text-xs">{variant.barid || '—'}</td>
-                                                      <td className="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs max-w-[100px] truncate" title={variant.description || ''}>{variant.description || '—'}</td>
-                                                      <td className="px-3 py-2">
-                                                        <div className="flex justify-end gap-1">
-                                                          <button onClick={() => { setPurchasingVariant({ variant, product }); setShowVariantPurchaseModal(true); }} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title={language === 'uz' ? 'Sotib olish' : 'Закупить'}><ShoppingCart className="w-3 h-3" /></button>
-                                                          <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
-                                                          <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
-                                                        </div>
-                                                      </td>
-                                                    </>
-                                                  )}
-                                                </tr>
-                                              ));
-                                            }
-
-                                            // Tree display: group by color → size
-                                            const colorGroups = new Map<string, any[]>();
-                                            allVariants.forEach((v: any) => {
-                                              const key = v.color || '';
-                                              if (!colorGroups.has(key)) colorGroups.set(key, []);
-                                              colorGroups.get(key)!.push(v);
-                                            });
-
-                                            const rows: React.ReactElement[] = [];
-                                            colorGroups.forEach((colorVars, color) => {
-                                              const sizeGroups = new Map<string, any[]>();
-                                              colorVars.forEach((v: any) => {
-                                                const key = v.size || '';
-                                                if (!sizeGroups.has(key)) sizeGroups.set(key, []);
-                                                sizeGroups.get(key)!.push(v);
-                                              });
-
-                                              let sizeIdx = 0;
-                                              sizeGroups.forEach((sizeVars, size) => {
-                                                sizeVars.forEach((variant: any, varIdx: number) => {
-                                                  const isFirstInColor = sizeIdx === 0 && varIdx === 0;
-                                                  const isFirstInSize = varIdx === 0;
-                                                  rows.push(
-                                                    <tr key={variant.id} className="border-t border-indigo-100 dark:border-indigo-800 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-indigo-900/20 transition-colors">
-                                                      {isFirstInColor && (
-                                                        <td rowSpan={colorVars.length} className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-200 bg-blue-50 dark:bg-blue-900/30 border-r-2 border-indigo-200 dark:border-indigo-700 text-center align-middle text-sm">
-                                                          {color || '—'}
-                                                        </td>
-                                                      )}
-                                                      {isFirstInSize && (
-                                                        <td rowSpan={sizeVars.length} className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300 bg-indigo-50 dark:bg-indigo-900/20 border-r border-indigo-200 dark:border-indigo-700 text-center align-middle text-sm">
-                                                          {size || '—'}
-                                                        </td>
-                                                      )}
-                                                      <td className="px-3 py-2.5 text-gray-800 dark:text-gray-200">{(variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                      <td className="px-3 py-2.5 text-gray-500 dark:text-gray-400">{variant.markupPercent || 0}%</td>
-                                                      <td className="px-3 py-2.5 text-green-600 dark:text-green-400 font-semibold">{(variant.sellingPrice||variant.price||0).toLocaleString()} {language === 'uz' ? "so'm" : 'сум'}</td>
-                                                      <td className="px-3 py-2.5">
-                                                        <span className={`font-bold text-sm ${(variant.stockQuantity||0) === 0 ? 'text-red-500' : 'text-indigo-700 dark:text-indigo-300'}`}>
-                                                          {variant.stockQuantity || 0}
-                                                        </span>
-                                                      </td>
-                                                      <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500 text-xs">{variant.barcode || '—'}</td>
-                                                      <td className="px-3 py-2.5 text-purple-600 dark:text-purple-400 font-medium text-xs">{variant.barid || '—'}</td>
-                                                      <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500 text-xs max-w-[100px] truncate" title={variant.description || ''}>{variant.description || '—'}</td>
-                                                      <td className="px-3 py-2.5">
-                                                        <div className="flex justify-end gap-1">
-                                                          <button onClick={() => { setPurchasingVariant({ variant, product }); setShowVariantPurchaseModal(true); }} className="p-1 bg-green-600 text-white rounded hover:bg-green-700 transition-colors" title={language === 'uz' ? 'Sotib olish' : 'Закупить'}><ShoppingCart className="w-3 h-3" /></button>
-                                                          <button onClick={() => startEditVariant(String(product.id), variant)} className="p-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"><Edit2 className="w-3 h-3" /></button>
-                                                          <button onClick={() => handleDeleteVariant(String(product.id), String(variant.id))} className="p-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"><Trash2 className="w-3 h-3" /></button>
-                                                        </div>
-                                                      </td>
-                                                    </tr>
-                                                  );
-                                                });
-                                                sizeIdx++;
-                                              });
-                                            });
-                                            return rows;
-                                          })()}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  )}
-
-                                  {/* Add new variant form */}
-                                  {newVariantForms[String(product.id)] && (
-                                    <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-indigo-300 dark:border-indigo-700 rounded-xl p-4">
-                                      <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 mb-3">
-                                        + {language === 'uz' ? 'Yangi tur qo\'shish' : 'Добавить новый вид'}
-                                      </p>
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 mb-3">
-                                        {[
-                                          { key: 'color', label: language === 'uz' ? 'Rang' : 'Цвет', type: 'text', placeholder: language === 'uz' ? 'Qora...' : 'Чёрный...' },
-                                          { key: 'size', label: language === 'uz' ? 'Razmer' : 'Размер', type: 'text', placeholder: 'XL, L...' },
-                                          { key: 'price', label: language === 'uz' ? 'Narx *' : 'Цена *', type: 'number', placeholder: '0' },
-                                          { key: 'markupPercent', label: language === 'uz' ? 'Naцen %' : 'Наценка %', type: 'number', placeholder: '0' },
-                                          { key: 'stockQuantity', label: language === 'uz' ? 'Miqdor' : 'Кол-во', type: 'number', placeholder: '0' },
-                                          { key: 'barcode', label: language === 'uz' ? 'Barcode' : 'Штрих-код', type: 'text', placeholder: '—' },
-                                          { key: 'barid', label: 'Barid', type: 'text', placeholder: '—' },
-                                          { key: 'description', label: language === 'uz' ? 'Tavsif' : 'Описание', type: 'text', placeholder: '—' },
-                                        ].map(({ key, label, type, placeholder }) => (
-                                          <div key={key}>
-                                            <label className="block text-xs text-gray-500 mb-1">{label}</label>
-                                            <input
-                                              type={type}
-                                              placeholder={placeholder}
-                                              value={(newVariantForms[String(product.id)] as any)[key]}
-                                              onChange={e => {
-                                                let val = e.target.value;
-                                                if (key === 'barid') val = val.replace(/\D/g, '').slice(0, 6);
-                                                setNewVariantForms(prev => ({
-                                                  ...prev,
-                                                  [String(product.id)]: { ...prev[String(product.id)], [key]: val }
-                                                }));
-                                              }}
-                                              className="w-full px-2 py-1.5 text-xs border-2 border-gray-200 dark:border-gray-600 rounded focus:border-indigo-400 outline-none bg-white dark:bg-gray-700 dark:text-white"
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                      <button
-                                        onClick={() => handleAddVariant(String(product.id))}
-                                        className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 transition-colors"
-                                      >
-                                        <Plus className="w-4 h-4" />
-                                        {language === 'uz' ? 'Tur qo\'shish' : 'Добавить вид'}
-                                      </button>
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
+                        </div>
                       )}
-                      {/* 📸 Image Uploader Row */}
-                      {showImageUploader === product.id && (
-                        <tr>
-                          <td colSpan={9} className="px-6 py-4 bg-purple-50">
-                            <div className="max-w-2xl">
-                              <h4 className="text-lg mb-3 text-purple-800 flex items-center gap-2">
-                                <ImageIcon className="w-5 h-5" />
-                                Фотографии товара: {product.name}
-                              </h4>
-                              <ImageUploader
-                                productId={product.id}
-                                images={product.images || []}
-                                onImagesChange={handleImagesChange}
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Help text */}

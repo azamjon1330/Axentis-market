@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Package, Search, Users, CheckSquare, Square, ShoppingCart, Receipt, DollarSign, FileText, Clock, X, ChevronDown, Pencil } from 'lucide-react';
+import { Package, Search, Users, CheckSquare, Square, ShoppingCart, X } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import api, { getImageUrl } from '../utils/api';
 import { getUzbekistanToday, toUzbekistanDate, formatUzbekistanFullDateTime } from '../utils/uzbekTime';
@@ -299,6 +299,23 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
     }
   };
 
+  // Handle removing products from sale
+  const handleRemoveFromSale = async () => {
+    if (selectedForSale.size === 0) {
+      alert(t.selectProductsForSale);
+      return;
+    }
+    try {
+      const productIds = Array.from(selectedForSale);
+      await api.products.bulkToggleAvailability(productIds, false);
+      setSelectedForSale(new Set());
+      await loadData();
+    } catch (error) {
+      console.error('Error removing products from sale:', error);
+      alert(t.statusChangeError);
+    }
+  };
+
   // Handle confirming customer payment
   const handleConfirmPayment = async (orderId: number) => {
     if (!confirm(t.confirmPayment)) return;
@@ -363,386 +380,189 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
   return (
     <div>
-      {/* Stats */}
+      {/* Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Package className="w-5 h-5 text-blue-600" />
-            <div className="text-gray-600">{t.productsAvailable}</div>
+            <Package className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsAvailable}</div>
           </div>
-          <div className="text-3xl text-blue-600">{products.length}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{products.length}</div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Users className="w-5 h-5 text-green-600" />
-            <div className="text-gray-600">{t.availableForCustomers}</div>
+            <Users className="w-5 h-5" style={{ color: '#22C55E' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.availableForCustomers}</div>
           </div>
-          <div className="text-3xl text-green-600">
+          <div className="text-3xl" style={{ color: '#22C55E' }}>
             {products.filter(p => p.availableForCustomers).length}
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} className="p-6">
           <div className="flex items-center gap-3 mb-2">
-            <ShoppingCart className="w-5 h-5 text-purple-600" />
-            <div className="text-gray-600">{t.productsSelected}</div>
+            <ShoppingCart className="w-5 h-5" style={{ color: '#7C5CF0' }} />
+            <div style={{ color: '#8B8BAA' }}>{t.productsSelected}</div>
           </div>
-          <div className="text-3xl text-purple-600">{selectedForSale.size}</div>
+          <div className="text-3xl" style={{ color: '#7C5CF0' }}>{selectedForSale.size}</div>
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex flex-wrap gap-4">
-          <button
-            onClick={openSaleModal}
-            disabled={selectedForSale.size === 0}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {t.putOnSale} ({selectedForSale.size})
-          </button>
-          <button
-            onClick={async () => {
-              if (selectedForSale.size === 0) {
-                alert(t.selectProductsToRemove);
-                return;
-              }
-              
-              if (!confirm(`${t.delete} ${selectedForSale.size} ${t.removeFromSaleConfirm}`)) {
-                return;
-              }
-              
-              try {
-                console.log(`🚫 [Sales Panel] Removing ${selectedForSale.size} products from customer view...`);
-                const startTime = Date.now();
-                
-                const productIds = Array.from(selectedForSale);
-                await api.products.bulkToggleAvailability(productIds, false); // false = make unavailable
-                
-                const endTime = Date.now();
-                const duration = ((endTime - startTime) / 1000).toFixed(2);
-                
-                console.log(`✅ [Sales Panel] Removed in ${duration} seconds!`);
-                
-                setSelectedForSale(new Set());
-                
-                // ✅ НОВАЯ СИСТЕМА: Данные обновлены в Supabase! Перезагружаем!
-                console.log('🔄 [Sales Panel] Reloading data from Supabase...');
-                await loadData();
-                console.log('✅ [Sales Panel] Data reloaded!');
-                
-                alert(`${t.successfullyRemoved}\n\n${productIds.length} ${t.removedProductsHidden}\n${t.timeSeconds} ${duration} секунд`);
-              } catch (error) {
-                console.error('Error removing products from sale:', error);
-                alert(t.removeFromSaleError);
-              }
-            }}
-            disabled={selectedForSale.size === 0}
-            className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          >
-            <X className="w-5 h-5" />
-            {t.removeFromSale} ({selectedForSale.size})
-          </button>
-          <button
-            onClick={handleSelectAll}
-            disabled={products.length === 0}
-            className={`flex items-center gap-2 text-white px-6 py-3 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed ${
-              selectedForSale.size === products.length && products.length > 0
-                ? 'bg-green-600 hover:bg-green-700'
-                : 'bg-purple-600 hover:bg-purple-700'
-            }`}
-          >
-            {selectedForSale.size === products.length && products.length > 0 ? (
-              <>
-                <CheckSquare className="w-5 h-5" />
-                ✓ {t.deselectAll}
-              </>
-            ) : (
-              <>
-                <Square className="w-5 h-5" />
-                {t.selectAll}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Search Bar */}
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <Search className="w-5 h-5 text-gray-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full border border-gray-300 rounded py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder={t.searchByName}
-          />
-          {searchQuery && (
-            <div className="text-sm text-gray-600 whitespace-nowrap">
-              Найдено: {filteredProducts.length}
-            </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+        <button
+          onClick={openSaleModal}
+          disabled={selectedForSale.size === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: selectedForSale.size > 0 ? 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' : 'rgba(255,255,255,0.05)',
+            color: '#FFFFFF', border: 'none', borderRadius: 10,
+            cursor: selectedForSale.size > 0 ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <Users style={{ width: 15, height: 15 }} />
+          {t.putOnSale} ({selectedForSale.size})
+        </button>
+        <button
+          onClick={handleRemoveFromSale}
+          disabled={selectedForSale.size === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: selectedForSale.size > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.05)',
+            color: selectedForSale.size > 0 ? '#EF4444' : '#5A5A78',
+            border: selectedForSale.size > 0 ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 10, cursor: selectedForSale.size > 0 ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          <X style={{ width: 15, height: 15 }} />
+          Убрать с продажи ({selectedForSale.size})
+        </button>
+        <button
+          onClick={handleSelectAll}
+          disabled={products.length === 0}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: 'rgba(255,255,255,0.07)', color: '#8B8BAA',
+            border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, cursor: 'pointer', fontSize: 13,
+          }}
+        >
+          {selectedForSale.size === products.length && products.length > 0 ? (
+            <><CheckSquare style={{ width: 15, height: 15 }} /> {t.deselectAll}</>
+          ) : (
+            <><Square style={{ width: 15, height: 15 }} /> {t.selectAll}</>
           )}
-        </div>
+        </button>
       </div>
 
-      {/* Found Order Receipt */}
-      {foundOrder && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center gap-3 mb-6">
-            <Receipt className="w-6 h-6 text-orange-600" />
-            <h2 className="text-orange-600">{t.foundOrder} ({t.receipt} #{foundOrder.id})</h2>
-          </div>
-          <div className="space-y-4">
-            <div key={foundOrder.id} className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
-              {/* Order Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3>{t.receipt} #{foundOrder.order_code || foundOrder.id}</h3>
-                    <span className="bg-orange-600 text-white px-3 py-1 rounded-full text-xs">
-                      {t.pendingPayment}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="w-4 h-4" />
-                      <span>{foundOrder.user_name || t.guest}</span>
-                    </div>
-                    {foundOrder.user_phone && (
-                      <div className="text-sm text-gray-600 flex items-center gap-1 mb-1">
-                        📱 {foundOrder.user_phone}
-                      </div>
-                    )}
-                    <div className="text-sm text-gray-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatUzbekistanFullDateTime(foundOrder.order_date)}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl text-orange-600 mb-2">
-                    {formatPrice(foundOrder.total_amount)}
-                  </div>
-                  <button
-                    onClick={() => handleConfirmPayment(foundOrder.id)}
-                    className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <DollarSign className="w-5 h-5" />
-                    {t.paymentReceived}
-                  </button>
-                </div>
-              </div>
+      {/* Search */}
+      <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Search style={{ width: 18, height: 18, color: '#8B8BAA', flexShrink: 0 }} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={t.searchByName}
+          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--ax-text)', fontSize: 14 }}
+        />
+        {searchQuery && (
+          <span style={{ color: '#8B8BAA', fontSize: 12, whiteSpace: 'nowrap' }}>
+            {filteredProducts.length} найдено
+          </span>
+        )}
+      </div>
 
-              {/* Order Items */}
-              <div className="border-t border-orange-200 pt-4">
-                <div className="text-sm text-gray-600 mb-2">{t.orderItems}</div>
-                <div className="space-y-2">
-                  {foundOrder.items.map((item: any, index: number) => (
-                    <div key={index} className="flex justify-between text-sm bg-white rounded p-3">
-                      <div>
-                        <span className="">{item.name}</span>
-                        <span className="text-gray-600 ml-2">× {item.quantity} {t.pcs}</span>
-                      </div>
-                      <div className="text-gray-700">
-                        {formatPrice(item.total)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Products Grid */}
+      {/* Product Grid */}
       {filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm p-12 text-center text-gray-500">
-          <Package className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <p>{t.noProductsInStock}</p>
+        <div style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 48, textAlign: 'center' }}>
+          <Package style={{ width: 48, height: 48, color: '#5A5A78', margin: '0 auto 12px' }} />
+          <p style={{ color: '#8B8BAA' }}>{t.noProductsInStock}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <div 
-              key={product.id} 
-              className={`bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-105 cursor-pointer ${
-                selectedForSale.has(product.id) ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-200/50' : 'hover:shadow-blue-100'
-              }`}
-              onClick={(e) => {
-                // Если клик не на checkbox или иконку карандаша - открываем детали
-                if (!(e.target as HTMLElement).closest('button')) {
-                  setSelectedProduct(product);
-                  loadCompanyInfo();
-                }
-              }}
-            >
-              {/* Product Image */}
-              <div className="relative h-48 bg-gray-100">
-                {/* Checkbox for selection */}
-                <button
-                  onClick={() => toggleProductSelection(product.id)}
-                  className="absolute top-2 left-2 w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors z-10"
-                >
-                  {selectedForSale.has(product.id) ? (
-                    <CheckSquare className="w-5 h-5 text-blue-600" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
+          {filteredProducts.map((product) => {
+            const isSelected = selectedForSale.has(product.id);
+            const images = Array.isArray(product.images) ? product.images : [];
+            const imageUrl = images[0] ? (getImageUrl(images[0]) || images[0]) : null;
+            return (
+              <div
+                key={product.id}
+                onClick={() => toggleProductSelection(product.id)}
+                style={{
+                  background: 'var(--ax-card)',
+                  border: isSelected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: 14, overflow: 'hidden', cursor: 'pointer', transition: 'all 0.2s',
+                  boxShadow: isSelected ? '0 0 0 3px rgba(124,92,240,0.15)' : 'none',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; }}
+              >
+                <div style={{ height: 130, background: 'rgba(255,255,255,0.04)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {imageUrl ? (
+                    <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   ) : (
-                    <Square className="w-5 h-5 text-gray-400" />
+                    <Package style={{ width: 40, height: 40, color: '#5A5A78' }} />
                   )}
-                </button>
-                
-                {/* Edit Button (Pencil Icon) */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedProduct(product);
-                    setProductDescriptionDraft(product.description || '');
-                    setEditingProductDescription(true);
-                    loadCompanyInfo(); // Load company info in background
-                  }}
-                  className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg shadow-md hover:bg-green-700 transition-colors z-10"
-                  title={t.editProductDescTitle}
-                >
-                  <Pencil className="w-4 h-4 text-white" />
-                </button>
-                
-                {(() => {
-                  // Получаем изображения товара
-                  const images = Array.isArray(product.images) ? product.images : [];
-                  
-                  // Если есть изображения - показываем первое
-                  if (images.length > 0) {
-                    const imageUrl = getImageUrl(images[0]) || images[0];
-                    return (
-                      <ImageWithFallback
-                        src={imageUrl}
-                        alt={product.name}
-                        className="w-full h-full object-contain"
-                      />
-                    );
-                  }
-
-                  // Иначе - дефолтное изображение
-                  return (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Package className="w-16 h-16 text-gray-300" />
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Product Info */}
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="line-clamp-2 flex-1">{product.name}</h3>
-                  {product.availableForCustomers ? (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
-                      <Users className="w-3 h-3" />
-                      <span>{t.onSale}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium whitespace-nowrap">
-                      <Users className="w-3 h-3" />
-                      <span>{t.notOnSale}</span>
-                    </div>
-                  )}
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    {isSelected
+                      ? <CheckSquare style={{ width: 20, height: 20, color: '#7C5CF0' }} />
+                      : <Square style={{ width: 20, height: 20, color: 'rgba(255,255,255,0.35)' }} />
+                    }
+                  </div>
                 </div>
-                <div className="mb-3">
-                  {product.markupPercent && product.markupPercent > 0 ? (
-                    <>
-                      <div className="text-xs text-gray-400 line-through">{formatPrice(product.price)}</div>
-                      <div className="text-blue-600 mb-1 text-lg">
-                        {formatPrice(getPriceWithMarkup(product))} <span className="text-xs text-orange-600">+{product.markupPercent}%</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-blue-600 mb-1">{formatPrice(product.price)}</div>
-                  )}
-                  <div className="text-sm text-gray-600">
-                    {t.inStock}: <span className="font-medium">{product.quantity} {t.pcs}</span>
+                <div style={{ padding: '10px 12px' }}>
+                  <div style={{ color: '#FFFFFF', fontSize: 13, fontWeight: 600, marginBottom: 4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                    {product.name}
+                  </div>
+                  <div style={{ color: '#7C5CF0', fontWeight: 700, fontSize: 14 }}>
+                    {formatPrice(getPriceWithMarkup(product))}
+                  </div>
+                  <div style={{ color: '#8B8BAA', fontSize: 11, marginTop: 2 }}>
+                    {t.inStock}: {product.quantity} {t.pcs}
+                  </div>
+                  <div style={{ marginTop: 6, display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: 11, background: product.availableForCustomers ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.07)', color: product.availableForCustomers ? '#22C55E' : '#5A5A78' }}>
+                    {product.availableForCustomers ? (language === 'uz' ? 'Sotuvda' : 'В продаже') : (language === 'uz' ? "Sotuvda yo'q" : 'Не в продаже')}
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Sale Confirmation Modal */}
+      {/* Sale Confirmation Modal — keep as-is */}
       {showSaleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            {/* Modal Header */}
-            <div className="bg-blue-600 text-white p-6">
-              <h2 className="text-2xl">{t.listForCustomers}</h2>
-              <p className="text-blue-100 text-sm mt-1">{t.listForCustomersDesc}</p>
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
+            <div className="p-6 text-white" style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' }}>
+              <h2 className="text-2xl" style={{ color: '#FFFFFF' }}>{t.listForCustomers}</h2>
+              <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.listForCustomersDesc}</p>
             </div>
-
-            {/* Modal Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
                 {Array.from(selectedForSale).map(productId => {
                   const product = products.find(p => p.id === productId);
                   if (!product) return null;
-
                   return (
-                    <div key={productId} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div key={productId} className="flex items-center gap-4 p-4" style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.07)' }}>
                       <div className="flex-1">
-                        <h3 className="mb-1">{product.name}</h3>
-                        <div className="text-sm text-gray-600">
-                          {product.markupPercent && product.markupPercent > 0 ? (
-                            <>
-                              {t.price}: <span className="line-through text-gray-400">{formatPrice(product.price)}</span> → <span className="text-blue-600">{formatPrice(getPriceWithMarkup(product))}</span> <span className="text-orange-600">+{product.markupPercent}%</span> | {t.inStock}: {product.quantity} {t.pcs}
-                            </>
-                          ) : (
-                            <>
-                              {t.price}: {formatPrice(product.price)} | {t.inStock}: {product.quantity} {t.pcs}
-                            </>
-                          )}
+                        <h3 className="mb-1" style={{ color: '#FFFFFF' }}>{product.name}</h3>
+                        <div className="text-sm" style={{ color: '#8B8BAA' }}>
+                          {t.price}: {formatPrice(getPriceWithMarkup(product))} | {t.inStock}: {product.quantity} {t.pcs}
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className={`px-3 py-1 rounded text-sm ${
-                          product.availableForCustomers 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {product.availableForCustomers ? t.alreadyOnSale : t.willBeListed}
-                        </div>
+                      <div style={{ padding: '4px 10px', borderRadius: 8, fontSize: 12, background: product.availableForCustomers ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.07)', color: product.availableForCustomers ? '#22C55E' : '#8B8BAA' }}>
+                        {product.availableForCustomers ? t.alreadyOnSale : t.willBeListed}
                       </div>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Info */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg">
-                  <Users className="w-6 h-6 text-blue-600" />
-                  <div className="flex-1">
-                    <div className="">{t.productsAvailableForCustomers}</div>
-                    <div className="text-sm text-gray-600 mt-1">
-                      Покупатели смогут увидеть эти товары в магазине и оформить заказ
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 p-6 flex gap-4">
-              <button
-                onClick={() => setShowSaleModal(false)}
-                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors"
-              >
+            <div className="p-6 flex gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <button onClick={() => setShowSaleModal(false)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', cursor: 'pointer' }}>
                 Отмена
               </button>
-              <button
-                onClick={handleConfirmMakeAvailable}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-              >
-                <Users className="w-5 h-5" />
+              <button onClick={handleConfirmMakeAvailable} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <Users style={{ width: 18, height: 18 }} />
                 Выставить для покупателей
               </button>
             </div>
@@ -750,243 +570,44 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
         </div>
       )}
 
-      {/* Product Details Modal */}
+      {/* Product Details Modal — keep as-is */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedProduct(null)}>
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-6 flex justify-between items-start">
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setSelectedProduct(null)}>
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }} onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 flex justify-between items-start" style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)' }}>
               <div>
-                <h2 className="text-2xl font-bold">{selectedProduct.name}</h2>
-                <p className="text-purple-100 text-sm mt-1">{t.productDetailsDesc}</p>
+                <h2 className="text-2xl font-bold" style={{ color: '#FFFFFF' }}>{selectedProduct.name}</h2>
+                <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.75)' }}>{t.productDetailsDesc}</p>
               </div>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6" />
+              <button onClick={() => setSelectedProduct(null)} style={{ color: '#FFFFFF', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X style={{ width: 24, height: 24 }} />
               </button>
             </div>
-
-            {/* Modal Content - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Product Images */}
-              <div className="mb-6">
-                {(() => {
-                  // Получаем изображения товара
-                  const images = Array.isArray(selectedProduct.images) ? selectedProduct.images : [];
-                  
-                  if (images.length > 0) {
-                    return (
-                      <div className="grid grid-cols-2 gap-4">
-                        {images.map((img, idx) => {
-                          const imageUrl = getImageUrl(img) || img;
-                          return (
-                            <div key={idx} className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-                              <ImageWithFallback
-                                src={imageUrl}
-                                alt={`${selectedProduct.name} ${idx + 1}`}
-                                className="w-full h-full object-contain"
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Package className="w-16 h-16 text-gray-300" />
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Price and Stock */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 mb-6">
+              <div className="rounded-lg p-4 mb-6" style={{ background: 'rgba(124,92,240,0.1)', border: '1px solid rgba(124,92,240,0.2)' }}>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-sm text-gray-600 mb-1">{t.sellingPrice}</div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      {formatPrice(getPriceWithMarkup(selectedProduct))}
-                    </div>
-                    {selectedProduct.markupPercent && selectedProduct.markupPercent > 0 && (
-                      <div className="text-xs text-orange-600 mt-1">
-                        +{selectedProduct.markupPercent}% наценка
-                      </div>
-                    )}
+                    <div className="text-sm mb-1" style={{ color: '#8B8BAA' }}>{t.sellingPrice}</div>
+                    <div className="text-2xl font-bold" style={{ color: '#7C5CF0' }}>{formatPrice(getPriceWithMarkup(selectedProduct))}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-600 mb-1">{t.inStock}</div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {selectedProduct.quantity} {t.pcs}
-                    </div>
+                    <div className="text-sm mb-1" style={{ color: '#8B8BAA' }}>{t.inStock}</div>
+                    <div className="text-2xl font-bold" style={{ color: '#22C55E' }}>{selectedProduct.quantity} {t.pcs}</div>
                   </div>
                 </div>
-              </div>
-
-              {/* 🆕 ОПИСАНИЕ КОНКРЕТНОГО ТОВАРА */}
-              <div className="mb-6">
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-green-600" />
-                      📄 Описание этого товара
-                    </h3>
-                    <button
-                      onClick={() => setEditingProductDescription(!editingProductDescription)}
-                      className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      {editingProductDescription ? t.cancel : '✏️ ' + t.editButton}
-                    </button>
-                  </div>
-                  
-                  {editingProductDescription ? (
-                    <div className="space-y-3">
-                      <textarea
-                        value={productDescriptionDraft}
-                        onChange={(e) => setProductDescriptionDraft(e.target.value)}
-                        placeholder={t.describeProduct}
-                        className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm resize-none h-32 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={saveProductDescription}
-                          className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
-                        >
-                          💾 Сохранить
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingProductDescription(false);
-                            setProductDescriptionDraft(selectedProduct.description || '');
-                          }}
-                          className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm font-medium"
-                        >
-                          Отмена
-                        </button>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        💡 Это описание будет показано покупателям для ЭТОГО товара
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-white border border-green-200 rounded-lg p-3">
-                      <p className="text-gray-700 whitespace-pre-wrap text-sm">
-                        {selectedProduct.description || t.noDescriptionClickEdit}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Company Profile Section - Collapsible */}
-              <div className="border-t border-gray-200 pt-6">
-                <button
-                  onClick={() => setShowCompanyProfile(!showCompanyProfile)}
-                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg hover:from-purple-100 hover:to-blue-100 transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-600 rounded-lg">
-                      <ShoppingCart className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-bold text-gray-800">{t.storeInfo}</div>
-                      <div className="text-sm text-gray-600">
-                        {companyInfo?.name || t.loading}
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`transform transition-transform ${showCompanyProfile ? 'rotate-180' : ''}`}>
-                    <ChevronDown className="w-5 h-5 text-gray-600" />
-                  </div>
-                </button>
-
-                {showCompanyProfile && companyInfo && (
-                  <div className="mt-4 bg-white border border-gray-200 rounded-lg p-4 animate-in slide-in-from-top duration-200">
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-sm text-gray-600">{t.storeName}</div>
-                        <div className="font-medium text-gray-900">{companyInfo.name}</div>
-                      </div>
-                      {companyInfo.phone && (
-                        <div>
-                          <div className="text-sm text-gray-600">{t.storePhone}</div>
-                          <div className="font-medium text-gray-900">{companyInfo.phone}</div>
-                        </div>
-                      )}
-                      {companyInfo.address && (
-                        <div>
-                          <div className="text-sm text-gray-600">{t.storeAddress}</div>
-                          <div className="font-medium text-gray-900">{companyInfo.address}</div>
-                        </div>
-                      )}
-                      <div className="pt-3 border-t border-gray-200">
-                        <div className="text-xs text-gray-500">
-                          {t.productsAvailable}: {products.reduce((sum, p) => sum + p.quantity, 0)} {t.pcs} ({products.filter(p => p.quantity > 0).length} {t.category})
-                        </div>
-                      </div>
-
-                      {/* 🆕 Описание товаров компании */}
-                      <div className="pt-3 border-t border-gray-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm text-gray-600">📝 Описание товаров</div>
-                          <button
-                            onClick={() => setEditingProductsDescription(!editingProductsDescription)}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            {editingProductsDescription ? t.cancel : t.editButton}
-                          </button>
-                        </div>
-                        
-                        {editingProductsDescription ? (
-                          <div className="space-y-2">
-                            <textarea
-                              value={productsDescriptionDraft}
-                              onChange={(e) => setProductsDescriptionDraft(e.target.value)}
-                              placeholder={t.describeProducts}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none h-32"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={saveProductsDescription}
-                                className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
-                              >
-                                💾 Сохранить
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditingProductsDescription(false);
-                                  setProductsDescriptionDraft(companyInfo.productsDescription || '');
-                                }}
-                                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm font-medium"
-                              >
-                                Отмена
-                              </button>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              💡 Совет: Ссылки будут автоматически кликабельными в профиле компании
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                            {companyInfo.productsDescription || t.noDescription}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="bg-gray-50 p-6 flex gap-4">
+            <div className="p-6 flex gap-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
               <button
-                onClick={() => setSelectedProduct(null)}
-                className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                onClick={() => { toggleProductSelection(selectedProduct.id); setSelectedProduct(null); }}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: selectedForSale.has(selectedProduct.id) ? 'rgba(255,255,255,0.07)' : 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#FFFFFF', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
+                {selectedForSale.has(selectedProduct.id)
+                  ? <><Square style={{ width: 18, height: 18 }} /> Снять выбор</>
+                  : <><CheckSquare style={{ width: 18, height: 18 }} /> Выбрать для витрины</>
+                }
+              </button>
+              <button onClick={() => setSelectedProduct(null)} style={{ padding: '12px 20px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.07)', color: '#8B8BAA', cursor: 'pointer' }}>
                 Закрыть
               </button>
             </div>

@@ -10,6 +10,8 @@ import LikesPage from './components/LikesPage';
 import SettingsPage from './components/SettingsPage';
 import AdminPanel from './components/AdminPanel';
 import ReferralAgentPanel from './components/ReferralAgentPanel'; // 👥 Панель реферальных агентов
+import CourierPanel from './components/CourierPanel'; // 🚚 Панель курьера
+import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
 import CompanyPanel from './components/CompanyPanel';
 import LoadingScreen from './components/LoadingScreen';
 import PaymentPage from './components/PaymentPage';
@@ -33,22 +35,29 @@ export default function App() {
 }
 
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent'>(() => {
+  const [currentCourier, setCurrentCourier] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState<'register' | 'userLogin' | 'login' | 'sms' | 'companyLogin' | 'companyKey' | 'home' | 'likes' | 'settings' | 'admin' | 'company' | 'payment' | 'referralAgent' | 'courier' | 'courierLogin'>(() => {
     // 🔄 Восстановление страницы при загрузке
     if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname.replace(/^\//, '');
       const hash = window.location.hash.replace('#', '');
       const state = window.history.state;
-      
+
+      // Direct URL routes: axentis.uz/courier → courier login
+      if (pathname === 'courier') return 'courierLogin';
+
       if (state && state.page) {
         return state.page;
       }
-      
-      // Попытка определить по хешу
+
+      // Hash-based routing
       if (hash === 'home') return 'home';
       if (hash === 'admin') return 'admin';
       if (hash === 'company') return 'company';
       if (hash === 'warehouse' || hash === 'sales' || hash === 'orders' || hash === 'analytics') return 'company';
       if (hash === 'cart' || hash === 'catalog' || hash.startsWith('product-') || hash.startsWith('company-')) return 'home';
+      if (hash === 'courier') return 'courierLogin';
+      if (hash === 'courier-login') return 'courierLogin';
     }
     return 'companyLogin'; // 🎯 Дефолтная страница - вход для компаний/админа
   });
@@ -245,8 +254,13 @@ function AppContent() {
                 console.error('❌ [App] Failed to load likes:', error);
               }
               try {
-                const savedCart = await getUserCart(session.userData.phone);
-                setCart(savedCart && typeof savedCart === 'object' ? savedCart : {});
+                const cartData = await getUserCart(session.userData.phone);
+                if (cartData && typeof cartData === 'object' && 'quantities' in cartData) {
+                  setCart((cartData as any).quantities || {});
+                  if ((cartData as any).colors) setSelectedColors((cartData as any).colors);
+                } else {
+                  setCart(cartData && typeof cartData === 'object' ? cartData as any : {});
+                }
               } catch (error) {
                 console.error('❌ [App] Failed to load cart:', error);
               }
@@ -262,6 +276,9 @@ function AppContent() {
             return;
           } else if (session.userType === 'admin' && session.userData) {
             console.log('👨‍💼 [App] Restoring admin session...');
+            // Re-obtain a fresh admin JWT so protected admin endpoints (editing
+            // companies/passwords, etc.) keep working after the stored token expires.
+            try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token refresh error:', e); }
             setPendingUser(session.userData);
             setUserType('admin');
             
@@ -287,13 +304,20 @@ function AppContent() {
           } else if (session.userType === 'referralAgent' && session.agentData) {
             console.log('👥 [App] Restoring referral agent session...');
             setCurrentReferralAgent(session.agentData);
-            
+
             // ⏱️ Ждем минимальное время загрузки
             await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
-            
+
             navigateTo('referralAgent', true);
             setLoading(false);
             console.log('✅ [App] Referral agent session restored successfully!');
+            return;
+          } else if (session.userType === 'courier' && session.courierData) {
+            console.log('🚚 [App] Restoring courier session...');
+            setCurrentCourier(session.courierData);
+            await ensureMinimumLoadingTime(startTime, MINIMUM_LOADING_TIME);
+            navigateTo('courier', true);
+            setLoading(false);
             return;
           } else {
             console.log('⚠️ [App] Invalid session data, clearing...');
@@ -409,13 +433,15 @@ function AppContent() {
     return key;
   };
 
-  const handleUserLogin = (userData: any) => {
+  const handleUserLogin = async (userData: any) => {
     console.log('🔐 handleUserLogin called with userData:', userData);
     setPendingUser(userData);
-    
+
     // Check if this is admin login (already verified in LoginPage)
     if (userData.phone === '914751330') {
       console.log('✅ Admin detected! Opening admin panel...');
+      // Obtain a real admin JWT so the admin panel can call protected endpoints.
+      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       // Admin login - go directly to admin panel
       setUserType('admin');
       navigateTo('admin', true);
@@ -505,6 +531,8 @@ function AppContent() {
   const handleSmsVerify = async (code: string) => {
     // Check for admin access
     if (pendingUser.phone === '914751330' && code === '15051') {
+      // Obtain a real admin JWT so the admin panel can call protected endpoints.
+      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       setUserType('admin');
       navigateTo('admin', true);
       
@@ -577,7 +605,13 @@ function AppContent() {
   const handleCompanyLogin = async (companyData: any) => {
     try {
       console.log('🔐 Company login with data:', companyData);
-      
+
+      // 🚚 Redirect to courier login page
+      if (companyData?.goCourierLogin) {
+        navigateTo('courierLogin', true);
+        return true;
+      }
+
       // 👥 Проверка на реферального агента
       if (companyData?.isReferralAgent && companyData?.agent) {
         console.log('👥 Referral agent detected, redirecting to agent panel...');
@@ -605,6 +639,8 @@ function AppContent() {
       // 🔑 Проверка на админа по телефону
       if (companyData?.phone === '914751330' || companyData?.company?.phone === '914751330') {
         console.log('🔐 Admin detected, redirecting to admin panel...');
+        // Obtain a real admin JWT so the admin panel can call protected endpoints.
+        try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
         setCurrentCompany({
           id: 0,
           name: 'Admin',
@@ -825,11 +861,31 @@ function AppContent() {
             />
           )}
           {currentPage === 'payment' && (
-            <PaymentPage 
+            <PaymentPage
               onBackToHome={() => setCurrentPage('home')}
               onLogout={handleLogout}
               userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
               userPhone={pendingUser?.phone}
+            />
+          )}
+          {currentPage === 'courierLogin' && (
+            <CourierLoginPage
+              onLogin={(data) => {
+                setCurrentCourier(data);
+                localStorage.setItem('userSession', JSON.stringify({ userType: 'courier', courierData: data }));
+                navigateTo('courier', true);
+              }}
+              onBack={() => navigateTo('companyLogin', true)}
+            />
+          )}
+          {currentPage === 'courier' && currentCourier && (
+            <CourierPanel
+              courierData={currentCourier}
+              onLogout={() => {
+                setCurrentCourier(null);
+                localStorage.removeItem('userSession');
+                navigateTo('companyLogin', true);
+              }}
             />
           )}
 

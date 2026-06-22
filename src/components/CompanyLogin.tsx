@@ -159,7 +159,6 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
             </button>
           </form>
 
-
         </div>
       </div>
     </div>

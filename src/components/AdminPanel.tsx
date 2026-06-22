@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket } from 'lucide-react';
+import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck } from 'lucide-react';
 import api from '../utils/api';
 // TODO: Main company management not yet in new API
 import CompanyManagement from './CompanyManagement';
@@ -11,7 +11,9 @@ import AdminNotificationsPanel from './AdminNotificationsPanel';
 import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
 import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
+import AdminPromoCodesPanel from './AdminPromoCodesPanel';
 import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
+import CouriersManagementPanel from './CouriersManagementPanel'; // 🚚 Курьеры
 import { broadcastReload } from '../utils/reloadBroadcast';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 
@@ -20,7 +22,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -437,6 +439,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => handleNavigate('promo')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'promo'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Tag className="w-5 h-5" />
+              <span className="font-medium">{language === 'uz' ? 'Promokodlar' : 'Промокоды'}</span>
+            </button>
+
+            <button
               onClick={() => handleNavigate('referrals')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'referrals'
@@ -446,6 +460,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             >
               <Ticket className="w-5 h-5" />
               <span className="font-medium">Реферальные агенты</span>
+            </button>
+
+            <button
+              onClick={() => handleNavigate('couriers')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'couriers'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Truck className="w-5 h-5" />
+              <span className="font-medium">Курьеры</span>
             </button>
           </nav>
 
@@ -485,6 +511,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'notifications' && 'Уведомления'}
               {activeTab === 'companyMessages' && 'Сообщения компаниям'}
               {activeTab === 'discounts' && 'Модерация скидок'}
+              {activeTab === 'promo' && (language === 'uz' ? 'Promokodlar' : 'Промокоды')}
               {activeTab === 'referrals' && 'Реферальные агенты'}
             </h1>
           </div>
@@ -764,6 +791,10 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <AdminDiscountsPanel />
           ) : activeTab === 'referrals' ? (
             <AdminReferralPanel />
+          ) : activeTab === 'promo' ? (
+            <AdminPromoCodesPanel />
+          ) : activeTab === 'couriers' ? (
+            <CouriersManagementPanel />
           ) : (
             <AdminAdsPanel />
           )}

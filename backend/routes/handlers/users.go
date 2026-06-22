@@ -69,6 +69,7 @@ func GetUserByPhone(db *sql.DB) gin.HandlerFunc {
 			FROM users
 			WHERE phone = $1
 		`, phone).Scan(&user.ID, &user.Phone, &user.Name, &user.Role, &user.AvatarURL)
+		// Note: 'role' column added in base schema; defaults to 'user' for customers.
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -245,13 +246,19 @@ func ToggleSubscription(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Update counts
+			// Update counts (best-effort; subscription itself already succeeded)
 			if req.CompanyID != nil {
-				db.Exec("UPDATE companies SET followers_count = followers_count - 1 WHERE id = $1", *req.CompanyID)
+				if _, e := db.Exec("UPDATE companies SET followers_count = followers_count - 1 WHERE id = $1", *req.CompanyID); e != nil {
+					log.Printf("⚠️ Failed to decrement company followers_count: %v", e)
+				}
 			} else if targetUserID != nil {
-				db.Exec("UPDATE users SET followers_count = followers_count - 1 WHERE id = $1", *targetUserID)
+				if _, e := db.Exec("UPDATE users SET followers_count = followers_count - 1 WHERE id = $1", *targetUserID); e != nil {
+					log.Printf("⚠️ Failed to decrement user followers_count: %v", e)
+				}
 			}
-			db.Exec("UPDATE users SET following_count = following_count - 1 WHERE id = $1", userID)
+			if _, e := db.Exec("UPDATE users SET following_count = following_count - 1 WHERE id = $1", userID); e != nil {
+				log.Printf("⚠️ Failed to decrement following_count: %v", e)
+			}
 
 			c.JSON(http.StatusOK, gin.H{"subscribed": false})
 		} else {
@@ -273,13 +280,19 @@ func ToggleSubscription(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// Update counts
+			// Update counts (best-effort; subscription itself already succeeded)
 			if req.CompanyID != nil {
-				db.Exec("UPDATE companies SET followers_count = followers_count + 1 WHERE id = $1", *req.CompanyID)
+				if _, e := db.Exec("UPDATE companies SET followers_count = followers_count + 1 WHERE id = $1", *req.CompanyID); e != nil {
+					log.Printf("⚠️ Failed to increment company followers_count: %v", e)
+				}
 			} else if targetUserID != nil {
-				db.Exec("UPDATE users SET followers_count = followers_count + 1 WHERE id = $1", *targetUserID)
+				if _, e := db.Exec("UPDATE users SET followers_count = followers_count + 1 WHERE id = $1", *targetUserID); e != nil {
+					log.Printf("⚠️ Failed to increment user followers_count: %v", e)
+				}
 			}
-			db.Exec("UPDATE users SET following_count = following_count + 1 WHERE id = $1", userID)
+			if _, e := db.Exec("UPDATE users SET following_count = following_count + 1 WHERE id = $1", userID); e != nil {
+				log.Printf("⚠️ Failed to increment following_count: %v", e)
+			}
 
 			c.JSON(http.StatusOK, gin.H{"subscribed": true})
 		}

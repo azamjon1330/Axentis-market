@@ -82,45 +82,84 @@ func DeleteUserAvatar(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-// Get User Profile
+// Get User Profile — returns all user fields the mobile app expects (camelCase).
 func GetUserProfile(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		phone := c.Param("phone")
 
-		var user struct {
-			ID        int64          `json:"id"`
-			Phone     string         `json:"phone"`
-			Name      sql.NullString `json:"name"`
-			AvatarURL sql.NullString `json:"avatar_url"`
-			CreatedAt string         `json:"created_at"`
-		}
+		var (
+			id                         int64
+			phone_                     string
+			name, surname              sql.NullString
+			avatarURL                  sql.NullString
+			mode                       sql.NullString
+			privateCompanyID           sql.NullInt64
+			defaultDeliveryAddress     sql.NullString
+			defaultDeliveryCoordinates sql.NullString
+			defaultRecipientName       sql.NullString
+			expoPushToken              sql.NullString
+			followersCount             int
+			followingCount             int
+			profileViews               int
+			createdAt, updatedAt       string
+		)
 
 		err := db.QueryRow(`
-			SELECT id, phone, name, avatar_url, created_at 
+			SELECT id, phone,
+			       COALESCE(name, ''), COALESCE(surname, ''),
+			       avatar_url, COALESCE(mode, 'public'), private_company_id,
+			       default_delivery_address, default_delivery_coordinates, default_recipient_name,
+			       expo_push_token,
+			       COALESCE(followers_count, 0), COALESCE(following_count, 0), COALESCE(profile_views, 0),
+			       created_at, updated_at
 			FROM users WHERE phone = $1
-		`, phone).Scan(&user.ID, &user.Phone, &user.Name, &user.AvatarURL, &user.CreatedAt)
+		`, phone).Scan(
+			&id, &phone_,
+			&name, &surname,
+			&avatarURL, &mode, &privateCompanyID,
+			&defaultDeliveryAddress, &defaultDeliveryCoordinates, &defaultRecipientName,
+			&expoPushToken,
+			&followersCount, &followingCount, &profileViews,
+			&createdAt, &updatedAt,
+		)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
-
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
 
 		response := gin.H{
-			"id":         user.ID,
-			"phone":      user.Phone,
-			"created_at": user.CreatedAt,
+			"id":             id,
+			"phone":          phone_,
+			"name":           name.String,
+			"surname":        surname.String,
+			"avatarUrl":      avatarURL.String,
+			"mode":           mode.String,
+			"followersCount": followersCount,
+			"followingCount": followingCount,
+			"profileViews":   profileViews,
+			"createdAt":      createdAt,
+			"updatedAt":      updatedAt,
 		}
 
-		if user.Name.Valid {
-			response["name"] = user.Name.String
+		if privateCompanyID.Valid {
+			response["privateCompanyId"] = privateCompanyID.Int64
 		}
-		if user.AvatarURL.Valid {
-			response["avatar_url"] = user.AvatarURL.String
+		if defaultDeliveryAddress.Valid && defaultDeliveryAddress.String != "" {
+			response["defaultDeliveryAddress"] = defaultDeliveryAddress.String
+		}
+		if defaultDeliveryCoordinates.Valid && defaultDeliveryCoordinates.String != "" {
+			response["defaultDeliveryCoordinates"] = defaultDeliveryCoordinates.String
+		}
+		if defaultRecipientName.Valid && defaultRecipientName.String != "" {
+			response["defaultRecipientName"] = defaultRecipientName.String
+		}
+		if expoPushToken.Valid && expoPushToken.String != "" {
+			response["expoPushToken"] = expoPushToken.String
 		}
 
 		c.JSON(http.StatusOK, response)

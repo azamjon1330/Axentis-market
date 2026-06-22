@@ -24,6 +24,8 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;
   const hasDiscount = !!product.discountPercent && product.discountPercent > 0;
   const hasVariants = product.hasColorOptions;
+  const soldCount = product.sold_count ?? product.soldCount ?? 0;
+  const companyName = product.company_name || product.companyName;
 
   const formatPrice = p => `${(p || 0).toLocaleString('ru-RU')} сум`;
   const priceLabel = hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
@@ -100,6 +102,11 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
             />
           )}
 
+          {/* Bottom gradient overlay */}
+          {imageUri && !imgError && (
+            <View style={styles.imageGradient} pointerEvents="none" />
+          )}
+
           {/* Discount badge */}
           {hasDiscount && (
             <View style={styles.discountBadge}>
@@ -113,14 +120,14 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
               onPress={handleFavorite}
               style={[
                 styles.heartBtn,
-                { backgroundColor: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.9)' },
+                { backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.92)' },
               ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Animated.View style={{ transform: [{ scale: heartScale }] }}>
                 <Ionicons
                   name={isFavorite ? 'heart' : 'heart-outline'}
-                  size={15}
+                  size={16}
                   color={isFavorite ? '#FF3B6A' : isDark ? '#888' : '#999'}
                 />
               </Animated.View>
@@ -130,17 +137,32 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
 
         {/* ── Product info ── */}
         <View style={styles.info}>
+          {companyName ? (
+            <Text
+              style={[styles.company, { color: colors.primary }]}
+              numberOfLines={1}
+            >
+              {companyName}
+            </Text>
+          ) : null}
           <Text
-            style={[styles.name, { color: isDark ? '#D0D0E0' : '#333333' }]}
+            style={[styles.name, { color: isDark ? '#D8D8EC' : '#1A1A2E' }]}
             numberOfLines={2}
           >
             {product.name}
           </Text>
-          <Text style={[styles.price, { color: isDark ? '#FFFFFF' : '#0F0F1E' }]}>
-            {priceLabel}
-          </Text>
+          <View style={styles.priceRow}>
+            <Text style={[styles.price, { color: isDark ? '#FFFFFF' : '#0F0F1E' }]}>
+              {priceLabel}
+            </Text>
+            {soldCount > 0 && (
+              <Text style={[styles.sold, { color: isDark ? '#55556A' : '#AAAABC' }]}>
+                {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} продано
+              </Text>
+            )}
+          </View>
           {originalPrice ? (
-            <Text style={[styles.oldPrice, { color: isDark ? '#555566' : '#AAAAAA' }]}>
+            <Text style={[styles.oldPrice, { color: isDark ? '#555566' : '#BBBBCC' }]}>
               {formatPrice(originalPrice)}
             </Text>
           ) : null}
@@ -155,9 +177,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 10,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 4,
   },
   imageBox: {
@@ -172,6 +194,13 @@ const styles = StyleSheet.create({
     top: 0, left: 0, right: 0, bottom: 0,
     width: '100%',
     height: '100%',
+  },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    height: 48,
+    // React Native doesn't support CSS gradients directly — use a semi-transparent overlay
+    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   discountBadge: {
     position: 'absolute',
@@ -196,18 +225,35 @@ const styles = StyleSheet.create({
   },
   info: {
     paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 4,
+    paddingTop: 9,
+    paddingBottom: 11,
+    gap: 3,
+  },
+  company: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   name: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 17,
+    lineHeight: 18,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 2,
   },
   price: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+  },
+  sold: {
+    fontSize: 10,
+    fontWeight: '500',
   },
   oldPrice: {
     fontSize: 11,

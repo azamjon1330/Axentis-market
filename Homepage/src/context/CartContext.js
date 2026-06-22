@@ -26,21 +26,35 @@ export const CartProvider = ({ children }) => {
     refresh();
   }, [refresh]);
 
-  const addItem = async (productId, quantity = 1, color) => {
+  const addItem = async (productId, quantity = 1, color, size) => {
     if (!user) return;
-    await addToCart({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
+    await addToCart({
+      user_phone: user.phone,
+      product_id: productId,
+      quantity,
+      selected_color: color || '',
+      selected_size: size || '',
+    });
     await refresh();
   };
 
-  const updateItem = async (productId, quantity, color) => {
+  const updateItem = async (productId, quantity, color, size) => {
     if (!user) return;
     setItems(prev => prev.map(item =>
-      item.productId === productId && (item.selected_color || '') === (color || '')
+      item.productId === productId &&
+      (item.selected_color || '') === (color || '') &&
+      (item.selected_size || '') === (size || '')
         ? { ...item, quantity }
         : item
     ));
     try {
-      await setCartItem({ user_phone: user.phone, product_id: productId, quantity, selected_color: color });
+      await setCartItem({
+        user_phone: user.phone,
+        product_id: productId,
+        quantity,
+        selected_color: color || '',
+        selected_size: size || '',
+      });
     } catch {
       await refresh();
     }

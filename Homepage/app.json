@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Axentis Market",
-    "slug": "axentis-homepage",
+    "slug": "homepage",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -51,15 +51,15 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "92815e18-d136-4475-8357-a6156bfc5775"
+        "projectId": "a93b86bc-18bf-4662-b7e9-e01e8047efc7"
       }
     },
-    "owner": "spm_supreme",
+    "owner": "supreme001",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/92815e18-d136-4475-8357-a6156bfc5775"
+      "url": "https://u.expo.dev/a93b86bc-18bf-4662-b7e9-e01e8047efc7"
     }
   }
 }

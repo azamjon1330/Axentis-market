@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Lock, Building2, ArrowRight, Key, Search } from 'lucide-react';
+import api from '../utils/api';
 
 interface PrivateCompanyAccessProps {
   onAccessGranted: (companyId: string) => void;
@@ -27,20 +28,19 @@ export default function PrivateCompanyAccess({ onAccessGranted, onBack }: Privat
     setSearching(true);
     setError('');
 
-    // TODO: Implement API call to check if company exists
-    // Временная симуляция проверки
-    setTimeout(() => {
-      // Здесь будет проверка через API
-      const mockCompanyExists = true; // Временно всегда успешно
-      
-      if (mockCompanyExists) {
+    // Real existence check against the backend.
+    try {
+      const company: any = await api.companies.get(companyId);
+      if (company && (company.id || company.name)) {
         onAccessGranted(companyId);
       } else {
         setError('Компания с таким ID не найдена');
       }
-      
+    } catch {
+      setError('Компания с таким ID не найдена');
+    } finally {
       setSearching(false);
-    }, 1000);
+    }
   };
 
   return (

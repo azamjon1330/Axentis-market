@@ -18,15 +18,16 @@ type CartItem struct {
 	Quantity      int       `json:"quantity"`
 	SelectedColor string    `json:"selected_color,omitempty"`
 	SelectedSize  string    `json:"selected_size,omitempty"`
+	StockQuantity int       `json:"stock_quantity,omitempty"`
 	AddedAt       time.Time `json:"added_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 
 	// Дополнительная информация о товаре (для удобства фронтенда)
-	ProductName    string   `json:"product_name,omitempty"`
-	ProductPrice   float64  `json:"product_price,omitempty"`  // selling price (with markup)
-	ProductBasePrice float64  `json:"product_base_price,omitempty"` // purchase/cost price
-	MarkupPercent  float64  `json:"markup_percent,omitempty"`
-	ProductImages  []string `json:"product_images,omitempty"`
+	ProductName      string   `json:"product_name,omitempty"`
+	ProductPrice     float64  `json:"product_price,omitempty"`
+	ProductBasePrice float64  `json:"product_base_price,omitempty"`
+	MarkupPercent    float64  `json:"markup_percent,omitempty"`
+	ProductImages    []string `json:"product_images,omitempty"`
 }
 
 // GetUserCart - получить корзину пользователя
@@ -67,7 +68,16 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				) as product_price,
 				COALESCE(p.images::text, '[]') as images,
 				p.company_id,
-				p.markup_percent
+				p.markup_percent,
+				-- stock_quantity: variant stock or product-level quantity
+				COALESCE(
+					(SELECT pv.stock_quantity FROM product_variants pv
+					 WHERE pv.product_id = ci.product_id
+					   AND (ci.selected_color = '' OR pv.color = ci.selected_color)
+					   AND (ci.selected_size  = '' OR pv.size  = ci.selected_size)
+					 ORDER BY pv.id LIMIT 1),
+					p.quantity
+				) as stock_quantity
 			FROM cart_items ci
 			JOIN products p ON ci.product_id = p.id
 			WHERE ci.user_phone = $1
@@ -90,7 +100,7 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 				&item.SelectedColor, &item.SelectedSize,
 				&item.AddedAt, &item.UpdatedAt,
 				&item.ProductName, &item.ProductBasePrice, &item.ProductPrice, &imagesJSON,
-				&item.CompanyID, &item.MarkupPercent,
+				&item.CompanyID, &item.MarkupPercent, &item.StockQuantity,
 			)
 			if err != nil {
 				continue
@@ -145,12 +155,39 @@ func AddToCart(db *sql.DB) gin.HandlerFunc {
 		colorVal := input.SelectedColor
 		sizeVal := input.SelectedSize
 
+		// Check available stock for this variant
+		var availableStock int
+		stockErr := db.QueryRow(`
+			SELECT COALESCE(
+				(SELECT pv.stock_quantity FROM product_variants pv
+				 WHERE pv.product_id = $1
+				   AND ($2 = '' OR pv.color = $2)
+				   AND ($3 = '' OR pv.size  = $3)
+				 ORDER BY pv.id LIMIT 1),
+				(SELECT quantity FROM products WHERE id = $1)
+			)
+		`, input.ProductID, colorVal, sizeVal).Scan(&availableStock)
+		if stockErr == nil && availableStock >= 0 {
+			// Find how many already in cart for this variant
+			var inCartQty int
+			db.QueryRow(`
+				SELECT COALESCE(SUM(quantity), 0) FROM cart_items
+				WHERE user_phone = $1 AND product_id = $2
+				AND COALESCE(selected_color, '') = $3
+				AND COALESCE(selected_size, '') = $4
+			`, input.UserPhone, input.ProductID, colorVal, sizeVal).Scan(&inCartQty)
+			if inCartQty+input.Quantity > availableStock {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Недостаточно товара на складе", "available": availableStock - inCartQty})
+				return
+			}
+		}
+
 		// Проверяем — есть ли уже такой товар в корзине
 		var existingID int
 		checkErr := db.QueryRow(`
-			SELECT id FROM cart_items 
-			WHERE user_phone = $1 AND product_id = $2 
-			AND COALESCE(selected_color, '') = $3 
+			SELECT id FROM cart_items
+			WHERE user_phone = $1 AND product_id = $2
+			AND COALESCE(selected_color, '') = $3
 			AND COALESCE(selected_size, '') = $4
 		`, input.UserPhone, input.ProductID, colorVal, sizeVal).Scan(&existingID)
 
@@ -253,43 +290,74 @@ func RemoveFromCart(db *sql.DB) gin.HandlerFunc {
 }
 
 // SetCartItemQuantity - установить точное количество товара (upsert). Если quantity=0 — удаляет.
-// Тело: { user_phone, product_id, quantity }
+// Тело: { user_phone, product_id, quantity, selected_color?, selected_size? }
 func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			UserPhone string `json:"user_phone"`
-			ProductID int64  `json:"product_id"`
-			Quantity  int    `json:"quantity"`
+			UserPhone     string `json:"user_phone"`
+			ProductID     int64  `json:"product_id"`
+			Quantity      int    `json:"quantity"`
+			SelectedColor string `json:"selected_color"`
+			SelectedSize  string `json:"selected_size"`
 		}
 		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone, product_id and quantity are required"})
 			return
 		}
 
+		color := input.SelectedColor
+		size := input.SelectedSize
+		if color == "Любой" || color == "любой" {
+			color = ""
+		}
+
 		if input.Quantity <= 0 {
-			// quantity=0 → удаляем все варианты этого товара (любой color/size)
-			result, err := db.Exec(
-				"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
-				input.UserPhone, input.ProductID,
-			)
+			// quantity=0 → удаляем конкретный вариант (или все, если color/size пустые)
+			var err error
+			if color != "" || size != "" {
+				_, err = db.Exec(
+					"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2 AND selected_color = $3 AND selected_size = $4",
+					input.UserPhone, input.ProductID, color, size,
+				)
+			} else {
+				_, err = db.Exec(
+					"DELETE FROM cart_items WHERE user_phone = $1 AND product_id = $2",
+					input.UserPhone, input.ProductID,
+				)
+			}
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove cart item"})
 				return
 			}
-			rows, _ := result.RowsAffected()
-			log.Printf("✅ SetCartItemQty=0 (DELETE) user=%s product=%d removed=%d", input.UserPhone, input.ProductID, rows)
+			log.Printf("✅ SetCartItemQty=0 (DELETE) user=%s product=%d color=%s size=%s", input.UserPhone, input.ProductID, color, size)
 			c.JSON(http.StatusOK, gin.H{"success": true, "action": "deleted"})
 			return
 		}
 
+		// Validate against available stock
+		var availableStock int
+		stockErr := db.QueryRow(`
+			SELECT COALESCE(
+				(SELECT pv.stock_quantity FROM product_variants pv
+				 WHERE pv.product_id = $1
+				   AND ($2 = '' OR pv.color = $2)
+				   AND ($3 = '' OR pv.size  = $3)
+				 ORDER BY pv.id LIMIT 1),
+				(SELECT quantity FROM products WHERE id = $1)
+			)
+		`, input.ProductID, color, size).Scan(&availableStock)
+		if stockErr == nil && availableStock >= 0 && input.Quantity > availableStock {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Недостаточно товара на складе", "available": availableStock})
+			return
+		}
+
 		// Upsert с учётом UNIQUE(user_phone, product_id, selected_color, selected_size)
-		// Используем пустые строки для color/size (дефолт)
 		_, err := db.Exec(`
 			INSERT INTO cart_items (user_phone, product_id, quantity, selected_color, selected_size)
-			VALUES ($1, $2, $3, '', '')
+			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (user_phone, product_id, selected_color, selected_size)
 			DO UPDATE SET quantity = $3, updated_at = CURRENT_TIMESTAMP
-		`, input.UserPhone, input.ProductID, input.Quantity)
+		`, input.UserPhone, input.ProductID, input.Quantity, color, size)
 
 		if err != nil {
 			log.Printf("❌ SetCartItemQty error: %v", err)
@@ -297,7 +365,7 @@ func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d", input.UserPhone, input.ProductID, input.Quantity)
+		log.Printf("✅ SetCartItemQty user=%s product=%d qty=%d color=%s size=%s", input.UserPhone, input.ProductID, input.Quantity, color, size)
 		c.JSON(http.StatusOK, gin.H{"success": true, "action": "upserted", "quantity": input.Quantity})
 	}
 }

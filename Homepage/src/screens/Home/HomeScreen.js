@@ -3,6 +3,7 @@ import {
   View,
   Text,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -235,6 +236,59 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* ── Category chips ── */}
+      {categories.length > 0 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+          style={[styles.chipsScroll, { borderBottomColor: colors.border }]}
+        >
+          <TouchableOpacity
+            onPress={() => setActiveCategory(null)}
+            style={[
+              styles.chip,
+              activeCategory === null
+                ? { backgroundColor: colors.primary }
+                : { backgroundColor: colors.surface },
+            ]}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                { color: activeCategory === null ? '#FFFFFF' : colors.textSecondary },
+              ]}
+            >
+              Все
+            </Text>
+          </TouchableOpacity>
+          {categories.map(cat => (
+            <TouchableOpacity
+              key={cat.id}
+              onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
+              style={[
+                styles.chip,
+                activeCategory === cat.name
+                  ? { backgroundColor: colors.primary }
+                  : { backgroundColor: colors.surface },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: activeCategory === cat.name ? '#FFFFFF' : colors.textSecondary },
+                ]}
+                numberOfLines={1}
+              >
+                {cat.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* ── Products FlatList ── */}
       <FlatList
         data={displayProducts}
@@ -381,6 +435,26 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     paddingVertical: 0,
+  },
+  chipsScroll: {
+    flexGrow: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  chipsRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   bannerWrap: {
     paddingTop: 4,

@@ -32,9 +32,14 @@ export default function CartScreen() {
       await removeItem(item.id);
       return;
     }
+    // Block increment if it would exceed known variant stock
+    if (delta > 0 && item.stockQuantity !== undefined && newQty > item.stockQuantity) {
+      Alert.alert('Недостаточно товара', `На складе доступно только ${item.stockQuantity} шт.`);
+      return;
+    }
     setUpdatingId(item.id);
     try {
-      await updateItem(item.productId, newQty, item.selected_color || undefined);
+      await updateItem(item.productId, newQty, item.selected_color || undefined, item.selected_size || undefined);
     } finally {
       setUpdatingId(null);
     }
@@ -49,9 +54,14 @@ export default function CartScreen() {
     if (raw === undefined) return;
     const parsed = parseInt(raw, 10);
     if (!isNaN(parsed) && parsed > 0 && parsed !== item.quantity) {
+      if (item.stockQuantity !== undefined && parsed > item.stockQuantity) {
+        Alert.alert('Недостаточно товара', `На складе доступно только ${item.stockQuantity} шт.`);
+        setQtyInputs(prev => { const n = { ...prev }; delete n[item.id]; return n; });
+        return;
+      }
       setUpdatingId(item.id);
       try {
-        await updateItem(item.productId, parsed, item.selected_color || undefined);
+        await updateItem(item.productId, parsed, item.selected_color || undefined, item.selected_size || undefined);
       } finally {
         setUpdatingId(null);
       }
@@ -121,8 +131,13 @@ export default function CartScreen() {
               <Ionicons name="trash-outline" size={16} color={colors.error} />
             </TouchableOpacity>
           </View>
-          {item.selected_color && (
-            <Text style={[styles.itemColor, { color: colors.textMuted }]}>Цвет: {item.selected_color}</Text>
+          {(item.selected_color || item.selected_size) && (
+            <Text style={[styles.itemColor, { color: colors.textMuted }]}>
+              {[
+                item.selected_color ? `Цвет: ${item.selected_color}` : null,
+                item.selected_size ? `Размер: ${item.selected_size}` : null,
+              ].filter(Boolean).join(' · ')}
+            </Text>
           )}
 
           <View style={styles.itemBottom}>

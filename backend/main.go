@@ -20,6 +20,7 @@ func main() {
 
 	// Initialize configuration
 	cfg := config.Load()
+	cfg.Validate() // logs loud warnings for insecure defaults (never aborts)
 
 	// Initialize database connection
 	db, err := database.Connect(cfg)
@@ -32,6 +33,9 @@ func main() {
 	if err := database.Migrate(db); err != nil {
 		log.Fatal("Failed to run migrations:", err)
 	}
+
+	// Provide config to user auth handlers so they can issue JWT tokens.
+	handlers.InitUserConfig(cfg)
 
 	// Initialize Firebase Admin SDK (опционально - работает с Expo fallback)
 	_, err = handlers.InitFirebase()

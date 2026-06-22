@@ -7,7 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"azaton-backend/config"
 	"azaton-backend/models"
+	"azaton-backend/security"
 
 	"github.com/gin-gonic/gin"
 )
@@ -71,7 +73,7 @@ func GetUserPaymentCards(db *sql.DB) gin.HandlerFunc {
 }
 
 // AddPaymentCard добавляет новую карту
-func AddPaymentCard(db *sql.DB) gin.HandlerFunc {
+func AddPaymentCard(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			UserPhone           string  `json:"userPhone"`
@@ -132,10 +134,22 @@ func AddPaymentCard(db *sql.DB) gin.HandlerFunc {
 
 		var card models.PaymentCard
 		now := time.Now()
-		
-		// Простое "шифрование" - в реальном приложении используйте crypto
-		encryptedCardNumber := req.CardNumber // TODO: Implement proper encryption
-		
+
+		// SECURITY: never store the raw card number. When CARD_ENCRYPTION_KEY is
+		// configured, store an AES-256-GCM ciphertext; otherwise store nothing
+		// (the last-4 digits are kept separately for display). Either way the
+		// plaintext PAN never reaches the database.
+		var encryptedCardNumber sql.NullString
+		if cfg.CardEncryptionKey != "" {
+			if enc, encErr := security.Encrypt(cfg.CardEncryptionKey, req.CardNumber); encErr == nil {
+				encryptedCardNumber = sql.NullString{String: enc, Valid: true}
+			} else {
+				log.Printf("⚠️ AddPaymentCard: failed to encrypt card number: %v", encErr)
+			}
+		} else {
+			log.Println("ℹ️ AddPaymentCard: CARD_ENCRYPTION_KEY not set — storing only last-4 digits, full number is discarded.")
+		}
+
 		var expiry sql.NullString
 		err = db.QueryRow(
 			query,
