@@ -1,7 +1,18 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Package, Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Edit2, Trash2, Save, X, Package, Check, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { API_BASE } from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
+
+// Иконка категории может быть emoji или путём к загруженной картинке (/uploads/...).
+const isImageIcon = (icon: string) => !!icon && (icon.startsWith('/') || icon.startsWith('http'));
+
+// Рендер иконки категории: картинка или emoji.
+function CategoryIcon({ icon, className = '' }: { icon: string; className?: string }) {
+  if (isImageIcon(icon)) {
+    return <img src={getImageUrl(icon) || ''} alt="" className={`object-contain ${className}`} />;
+  }
+  return <span className={className}>{icon}</span>;
+}
 
 interface Category {
   id: number;
@@ -19,7 +30,9 @@ export default function AdminCategoriesPanel() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isAdding, setIsAdding] = useState(false);
-  
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -36,16 +49,32 @@ export default function AdminCategoriesPanel() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch(`${API_BASE.replace('/api', '')}/api/categories`);
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(data || []);
-      }
+      const data = await api.categories.list();
+      setCategories(data || []);
     } catch (error) {
       console.error('Error loading categories:', error);
       toast.error('Ошибка загрузки категорий');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleIconUpload = async (file: File) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Файл слишком большой (макс. 5 МБ)');
+      return;
+    }
+    try {
+      setUploading(true);
+      const { url } = await api.categories.uploadIcon(file);
+      setFormData((prev) => ({ ...prev, icon: url }));
+      toast.success('Иконка загружена');
+    } catch (error: any) {
+      console.error('Error uploading icon:', error);
+      toast.error(error.message || 'Ошибка загрузки иконки');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -56,27 +85,17 @@ export default function AdminCategoriesPanel() {
     }
 
     try {
-      const url = editingId 
-        ? `${API_BASE.replace('/api', '')}/api/categories/${editingId}`
-        : `${API_BASE.replace('/api', '')}/api/categories`;
-      
-      const response = await fetch(url, {
-        method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        toast.success(editingId ? 'Категория обновлена!' : 'Категория создана!');
-        loadCategories();
-        resetForm();
+      if (editingId) {
+        await api.categories.update(editingId, formData);
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Ошибка сохранения');
+        await api.categories.create(formData);
       }
-    } catch (error) {
+      toast.success(editingId ? 'Категория обновлена!' : 'Категория создана!');
+      loadCategories();
+      resetForm();
+    } catch (error: any) {
       console.error('Error saving category:', error);
-      toast.error('Ошибка сохранения категории');
+      toast.error(error.message || 'Ошибка сохранения категории');
     }
   };
 
@@ -84,35 +103,21 @@ export default function AdminCategoriesPanel() {
     if (!confirm('Удалить эту категорию?')) return;
 
     try {
-      const response = await fetch(`${API_BASE.replace('/api', '')}/api/categories/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        toast.success('Категория удалена');
-        loadCategories();
-      } else {
-        toast.error('Ошибка удаления');
-      }
-    } catch (error) {
-      toast.error('Ошибка удаления категории');
+      await api.categories.delete(id);
+      toast.success('Категория удалена');
+      loadCategories();
+    } catch (error: any) {
+      toast.error(error.message || 'Ошибка удаления категории');
     }
   };
 
   const handleToggleActive = async (category: Category) => {
     try {
-      const response = await fetch(`${API_BASE.replace('/api', '')}/api/categories/${category.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !category.isActive })
-      });
-
-      if (response.ok) {
-        toast.success(category.isActive ? 'Категория скрыта' : 'Категория активирована');
-        loadCategories();
-      }
-    } catch (error) {
-      toast.error('Ошибка изменения статуса');
+      await api.categories.update(category.id, { isActive: !category.isActive });
+      toast.success(category.isActive ? 'Категория скрыта' : 'Категория активирована');
+      loadCategories();
+    } catch (error: any) {
+      toast.error(error.message || 'Ошибка изменения статуса');
     }
   };
 
@@ -177,16 +182,45 @@ export default function AdminCategoriesPanel() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Иконка
+                Иконка (загрузите PNG / SVG)
               </label>
+              <div className="flex items-center gap-3 mb-3">
+                {/* Превью текущей иконки */}
+                <div className="w-14 h-14 rounded-lg border-2 border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                  <CategoryIcon icon={formData.icon} className="w-10 h-10 text-3xl" />
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/svg+xml,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleIconUpload(file);
+                    e.target.value = '';
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploading ? 'Загрузка...' : 'Загрузить картинку'}
+                </button>
+              </div>
+              {/* Быстрый выбор emoji (запасной вариант) */}
+              <p className="text-xs text-gray-500 mb-1">или выберите emoji:</p>
               <div className="flex flex-wrap gap-2">
                 {icons.map((icon) => (
                   <button
                     key={icon}
+                    type="button"
                     onClick={() => setFormData({ ...formData, icon })}
                     className={`w-10 h-10 text-xl rounded-lg border-2 transition ${
-                      formData.icon === icon 
-                        ? 'border-blue-500 bg-blue-50' 
+                      formData.icon === icon
+                        ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -274,7 +308,7 @@ export default function AdminCategoriesPanel() {
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <span className="text-3xl">{category.icon}</span>
+                  <CategoryIcon icon={category.icon} className="w-10 h-10 text-3xl" />
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-gray-900">{category.name}</h4>

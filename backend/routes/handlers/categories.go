@@ -3,8 +3,12 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -315,5 +319,57 @@ func GetProductsByCategory(db *sql.DB) http.HandlerFunc {
 		}
 
 		json.NewEncoder(w).Encode(products)
+	}
+}
+
+// UploadCategoryIcon - загрузка картинки-иконки категории (PNG/SVG), только админ.
+// Возвращает {"url": "/uploads/categories/<file>"} для сохранения в поле icon.
+func UploadCategoryIcon(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		if err := r.ParseMultipartForm(5 << 20); err != nil { // до 5 МБ
+			http.Error(w, `{"error": "File too large or invalid form"}`, http.StatusBadRequest)
+			return
+		}
+
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, `{"error": "No file uploaded"}`, http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		// Разрешаем только картинки
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		allowed := map[string]bool{".png": true, ".svg": true, ".jpg": true, ".jpeg": true, ".webp": true, ".gif": true}
+		if !allowed[ext] {
+			http.Error(w, `{"error": "Allowed: png, svg, jpg, jpeg, webp, gif"}`, http.StatusBadRequest)
+			return
+		}
+
+		uploadDir := "./uploads/categories"
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			http.Error(w, `{"error": "Failed to create upload dir"}`, http.StatusInternalServerError)
+			return
+		}
+
+		filename := fmt.Sprintf("cat_%d%s", time.Now().UnixNano(), ext)
+		savePath := filepath.Join(uploadDir, filename)
+
+		dst, err := os.Create(savePath)
+		if err != nil {
+			http.Error(w, `{"error": "Failed to save file"}`, http.StatusInternalServerError)
+			return
+		}
+		defer dst.Close()
+		if _, err := io.Copy(dst, file); err != nil {
+			http.Error(w, `{"error": "Failed to write file"}`, http.StatusInternalServerError)
+			return
+		}
+
+		url := "/uploads/categories/" + filename
+		log.Printf("✅ Category icon uploaded: %s", url)
+		json.NewEncoder(w).Encode(map[string]string{"url": url})
 	}
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Trash2, Eye, EyeOff, Key, Phone, Lock, Edit2, X, Check, Globe, LockIcon, Copy, Save, Truck, Power } from 'lucide-react';
+import { Building2, Plus, Trash2, Eye, EyeOff, Key, Phone, Lock, Edit2, X, Check, Globe, LockIcon, Copy, Save, Truck, Power, Percent } from 'lucide-react';
 import api from '../utils/api';
 
 interface Company {
@@ -11,6 +11,7 @@ interface Company {
   mode?: 'public' | 'private'; // 🔒 Режим компании
   privateCode?: string; // 🔒 Код доступа для приватной компании (5-6 цифр)
   deliveryEnabled?: boolean; // 🚚 Включена ли доставка для компании
+  platformCommissionPercent?: number; // 💰 Процент комиссии платформы от выручки
   is_enabled?: boolean; // 👥 Включена ли компания (реферальная система)
   trial_end_date?: string; // 👥 Дата окончания пробного периода
   referral_code?: string; // 👥 Реферальный код
@@ -219,6 +220,33 @@ export default function CompanyManagement() {
     } catch (error: any) {
       console.error('Error toggling company status:', error);
       alert('Ошибка при изменении статуса: ' + (error.message || 'Неизвестная ошибка'));
+    }
+  };
+
+  // 💰 Изменение процента комиссии платформы для компании (+ уведомление компании)
+  const handleEditCommission = async (company: Company) => {
+    const current = company.platformCommissionPercent ?? 3;
+    const input = window.prompt(
+      `Процент комиссии платформы для "${company.name}" (% от общей выручки, 0–100):`,
+      String(current)
+    );
+    if (input === null) return;
+    const value = parseFloat(input.replace(',', '.'));
+    if (isNaN(value) || value < 0 || value > 100) {
+      alert('Введите число от 0 до 100');
+      return;
+    }
+    const customMessage = window.prompt(
+      'Текст уведомления компании (оставьте пустым для стандартного текста о контракте):',
+      ''
+    );
+    try {
+      await api.referrals.updateCompanyCommission(company.id, value, customMessage || undefined);
+      alert(`✅ Комиссия платформы для "${company.name}" обновлена: ${value}%\n\nКомпании отправлено уведомление.`);
+      loadCompanies();
+    } catch (error: any) {
+      console.error('Error updating commission:', error);
+      alert('Ошибка обновления процента: ' + (error.message || 'Неизвестная ошибка'));
     }
   };
 
@@ -623,6 +651,16 @@ export default function CompanyManagement() {
               {/* Кнопки управления */}
               {company.id !== 1 && (
                 <div className="flex gap-2">
+                  {/* Кнопка изменения % комиссии платформы */}
+                  <button
+                    onClick={() => handleEditCommission(company)}
+                    className="flex items-center gap-1 px-2.5 py-2 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors text-sm font-medium"
+                    title="Изменить % комиссии платформы"
+                  >
+                    <Percent className="w-4 h-4" />
+                    {company.platformCommissionPercent ?? 3}%
+                  </button>
+
                   {/* Кнопка включения/выключения */}
                   <button
                     onClick={() => handleToggleCompanyStatus(company)}

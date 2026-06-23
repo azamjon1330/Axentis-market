@@ -309,6 +309,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			categories.GET("", gin.WrapF(handlers.GetCategories(db)))
 			categories.POST("", middleware.RequireAdmin(cfg), gin.WrapF(handlers.CreateCategory(db)))
+			categories.POST("/upload-icon", middleware.RequireAdmin(cfg), gin.WrapF(handlers.UploadCategoryIcon(db))) // Загрузка картинки-иконки (админ)
 			categories.PUT("/:id", middleware.RequireAdmin(cfg), gin.WrapF(handlers.UpdateCategory(db)))
 			categories.DELETE("/:id", middleware.RequireAdmin(cfg), gin.WrapF(handlers.DeleteCategory(db)))
 			categories.GET("/products", gin.WrapF(handlers.GetProductsByCategory(db)))
@@ -344,10 +345,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			referrals.GET("/agents/:id/stats", handlers.GetReferralAgentStats(db))         // Статистика агента
 			referrals.GET("/agents/:id/analytics", handlers.GetAgentFinancialAnalytics(db)) // 💰 Финансовая аналитика агента
 			referrals.PUT("/agents/:id/password", middleware.RequireAdmin(cfg), handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
+			referrals.PUT("/agents/:id/commission", middleware.RequireAdmin(cfg), handlers.UpdateReferralAgentCommission(db)) // Изменить % агента (админ)
 			referrals.DELETE("/agents/:id", middleware.RequireAdmin(cfg), handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
 			referrals.GET("/agents/:id/companies", handlers.GetMyReferredCompanies(db))    // Компании агента
 			referrals.GET("/validate/:code", handlers.ValidateReferralCode(db))            // Проверка кода
 			referrals.PUT("/companies/:id/toggle", middleware.RequireAdmin(cfg), handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
+			referrals.PUT("/companies/:id/commission", middleware.RequireAdmin(cfg), handlers.UpdateCompanyCommission(db)) // Изменить % платформы для компании (админ) + уведомление
 			referrals.GET("/companies/all", middleware.RequireAdmin(cfg), handlers.GetCompaniesWithReferralInfo(db)) // Компании с реф. инфо (админ)
 		}
 

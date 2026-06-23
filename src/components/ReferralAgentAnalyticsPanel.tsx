@@ -8,6 +8,7 @@ interface CompanyFinancials {
   company_name: string;
   company_phone: string;
   total_sales: number;
+  platform_percent: number;
   platform_fee: number;
   agent_commission: number;
   is_enabled: boolean;
@@ -20,6 +21,7 @@ interface AnalyticsData {
   total_company_sales: number;
   total_platform_fees: number;
   total_agent_earnings: number;
+  agent_percent: number;
 }
 
 interface ReferralAgentAnalyticsPanelProps {
@@ -124,18 +126,18 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
           <div className="flex items-center gap-3 mb-2">
             <Percent className="w-6 h-6" />
             <span className="text-sm font-medium opacity-90">
-              {t.platformFee || 'Комиссия платформы (10%)'}
+              {t.platformFee || 'Комиссия платформы'}
             </span>
           </div>
           <div className="text-3xl font-bold">
             {showEarnings ? `${formatCurrency(analytics.total_platform_fees)} сум` : '••••••'}
           </div>
           <div className="text-sm opacity-75 mt-1">
-            10% {t.fromSales || 'от продаж'}
+            {t.fromCompanyRevenue || 'от выручки компаний'}
           </div>
         </div>
 
-        {/* Доход агента (1%) */}
+        {/* Доход агента */}
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
           <div className="flex items-center gap-3 mb-2">
             <Wallet className="w-6 h-6" />
@@ -147,7 +149,7 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
             {showEarnings ? `${formatCurrency(analytics.total_agent_earnings)} сум` : '••••••'}
           </div>
           <div className="text-sm opacity-75 mt-1">
-            1% {t.fromSales || 'от продаж'}
+            {analytics.agent_percent}% {t.fromPlatformFee || 'от комиссии платформы'}
           </div>
         </div>
       </div>
@@ -161,9 +163,8 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
               {t.howCalculated || 'Как рассчитывается ваш доход?'}
             </h4>
             <ul className="space-y-1 text-sm text-blue-800">
-              <li>• {t.platformTakes10 || 'Платформа берёт 10% от продаж каждой компании'}</li>
-              <li>• {t.youGet10OfPlatform || 'Вы получаете 10% от комиссии платформы'}</li>
-              <li>• {t.totalYouGet1 || 'Итого: вы получаете 1% от всех продаж ваших компаний'}</li>
+              <li>• Платформа берёт индивидуальный процент от выручки каждой компании</li>
+              <li>• Вы получаете {analytics.agent_percent}% от этой комиссии платформы</li>
             </ul>
           </div>
         </div>
@@ -197,10 +198,10 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
                     {t.totalSales || 'Продажи'}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t.platformFee || 'Комиссия платформы'} (10%)
+                    {t.platformFee || 'Комиссия платформы'}
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t.yourCommission || 'Ваша комиссия'} (1%)
+                    {t.yourCommission || 'Ваша комиссия'}
                   </th>
                 </tr>
               </thead>
@@ -240,6 +241,7 @@ export default function ReferralAgentAnalyticsPanel({ agentId }: ReferralAgentAn
                       <div className="text-sm font-medium text-purple-600">
                         {showEarnings ? `${formatCurrency(company.platform_fee)} сум` : '••••••'}
                       </div>
+                      <div className="text-xs text-gray-400">{company.platform_percent}%</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="text-sm font-bold text-green-600">

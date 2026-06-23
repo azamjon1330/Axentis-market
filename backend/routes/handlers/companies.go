@@ -20,7 +20,7 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Для админ панели показываем все компании, для пользователей - только approved
 		query := `
-			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled
+			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled, COALESCE(platform_commission_percent, 3)
 			FROM companies
 			ORDER BY created_at DESC
 		`
@@ -54,10 +54,11 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				Longitude           sql.NullFloat64
 				DeliveryEnabled     bool
 				IsEnabled           sql.NullBool
+				PlatformCommission  float64
 			}
 
 			if err := rows.Scan(&comp.ID, &comp.Name, &comp.Phone, &comp.PasswordHash, &comp.PasswordPlain, &comp.AccessKey, &comp.Mode, &comp.PrivateCode, &comp.Status,
-				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled); err != nil {
+				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled, &comp.PlatformCommission); err != nil {
 				log.Printf("❌ GetCompanies: Failed to scan row: %v", err)
 				continue
 			}
@@ -69,6 +70,7 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"mode":            comp.Mode,
 				"status":          comp.Status,
 				"deliveryEnabled": comp.DeliveryEnabled,
+				"platformCommissionPercent": comp.PlatformCommission,
 			}
 
 			// Expose the readable password for the admin panel. We surface

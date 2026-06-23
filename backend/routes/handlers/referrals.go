@@ -18,14 +18,16 @@ import (
 
 // ReferralAgent структура реферального агента
 type ReferralAgent struct {
-	ID         int64     `json:"id"`
-	Phone      string    `json:"phone"`
-	Password   *string   `json:"password,omitempty"` // Пароль в открытом виде
-	UniqueCode string    `json:"unique_code"`
-	Name       string    `json:"name"`
-	IsActive   bool      `json:"is_active"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID               int64     `json:"id"`
+	Phone            string    `json:"phone"`
+	Password         *string   `json:"password,omitempty"` // Пароль в открытом виде
+	UniqueCode       string    `json:"unique_code"`
+	Name             string    `json:"name"`
+	Surname          string    `json:"surname"`
+	CommissionPercent float64  `json:"commission_percent"` // % от комиссии платформы
+	IsActive         bool      `json:"is_active"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // generateUniqueCode генерирует 7-значный уникальный код
@@ -46,14 +48,22 @@ func generateUniqueCode() (string, error) {
 func CreateReferralAgent(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			Phone    string `json:"phone" binding:"required"`
-			Password string `json:"password" binding:"required"`
-			Name     string `json:"name"`
+			Phone            string  `json:"phone" binding:"required"`
+			Password         string  `json:"password" binding:"required"`
+			Name             string  `json:"name"`
+			Surname          string  `json:"surname"`
+			CommissionPercent *float64 `json:"commission_percent"`
 		}
 
 		if err := c.BindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		// По умолчанию агент получает 10% от комиссии платформы.
+		commission := 10.0
+		if input.CommissionPercent != nil {
+			commission = *input.CommissionPercent
 		}
 
 		// Генерируем уникальный код
@@ -88,10 +98,10 @@ func CreateReferralAgent(db *sql.DB) gin.HandlerFunc {
 		// Создаем агента
 		var agentID int64
 		err = db.QueryRow(`
-			INSERT INTO referral_agents (phone, password_hash, password, unique_code, name, is_active)
-			VALUES ($1, $2, $3, $4, $5, true)
+			INSERT INTO referral_agents (phone, password_hash, password, unique_code, name, surname, commission_percent, is_active)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, true)
 			RETURNING id
-		`, input.Phone, string(hashedPassword), input.Password, uniqueCode, input.Name).Scan(&agentID)
+		`, input.Phone, string(hashedPassword), input.Password, uniqueCode, input.Name, input.Surname, commission).Scan(&agentID)
 
 		if err != nil {
 			log.Printf("❌ Error creating referral agent: %v", err)
@@ -102,12 +112,14 @@ func CreateReferralAgent(db *sql.DB) gin.HandlerFunc {
 		log.Printf("✅ Referral agent created: ID=%d, Code=%s", agentID, uniqueCode)
 
 		c.JSON(http.StatusCreated, gin.H{
-		"id":          agentID,
-		"phone":       input.Phone,
-		"password":    input.Password, // Возвращаем пароль только при создании
-		"unique_code": uniqueCode,
-		"name":        input.Name,
-		"is_active":   true,
+		"id":                 agentID,
+		"phone":              input.Phone,
+		"password":           input.Password, // Возвращаем пароль только при создании
+		"unique_code":        uniqueCode,
+		"name":               input.Name,
+		"surname":            input.Surname,
+		"commission_percent": commission,
+		"is_active":          true,
 		})
 	}
 }
@@ -183,7 +195,9 @@ func LoginReferralAgent(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 func GetReferralAgents(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(`
-			SELECT id, phone, password, unique_code, name, is_active, created_at, updated_at
+			SELECT id, phone, password, unique_code, name,
+			       COALESCE(surname, ''), COALESCE(commission_percent, 10),
+			       is_active, created_at, updated_at
 			FROM referral_agents
 			ORDER BY created_at DESC
 		`)
@@ -199,6 +213,7 @@ func GetReferralAgents(db *sql.DB) gin.HandlerFunc {
 			var password sql.NullString
 			err := rows.Scan(
 				&agent.ID, &agent.Phone, &password, &agent.UniqueCode, &agent.Name,
+				&agent.Surname, &agent.CommissionPercent,
 				&agent.IsActive, &agent.CreatedAt, &agent.UpdatedAt,
 			)
 			if err != nil {
@@ -388,6 +403,112 @@ func ToggleCompanyStatus(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// UpdateReferralAgentCommission - изменить процент агента (только админ)
+func UpdateReferralAgentCommission(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		agentID := c.Param("id")
+
+		var input struct {
+			CommissionPercent float64 `json:"commission_percent"`
+		}
+		if err := c.BindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if input.CommissionPercent < 0 || input.CommissionPercent > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Процент должен быть от 0 до 100"})
+			return
+		}
+
+		res, err := db.Exec(`
+			UPDATE referral_agents
+			SET commission_percent = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2
+		`, input.CommissionPercent, agentID)
+		if err != nil {
+			log.Printf("❌ Error updating agent commission: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update commission"})
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Agent not found"})
+			return
+		}
+
+		log.Printf("✅ Agent %s commission set to %.2f%%", agentID, input.CommissionPercent)
+		c.JSON(http.StatusOK, gin.H{"message": "Commission updated", "commission_percent": input.CommissionPercent})
+	}
+}
+
+// UpdateCompanyCommission - изменить процент платформы для компании (только админ).
+// При изменении отправляет уведомление компании в инбокс (company_messages).
+func UpdateCompanyCommission(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Param("id")
+
+		var input struct {
+			PlatformCommissionPercent float64 `json:"platform_commission_percent"`
+			// Необязательное произвольное сообщение для компании; если пусто — текст по умолчанию.
+			Message string `json:"message"`
+		}
+		if err := c.BindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if input.PlatformCommissionPercent < 0 || input.PlatformCommissionPercent > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Процент должен быть от 0 до 100"})
+			return
+		}
+
+		// Текущее значение и имя компании (для текста уведомления)
+		var oldPercent float64
+		var companyName string
+		err := db.QueryRow(`
+			SELECT COALESCE(platform_commission_percent, 3), name FROM companies WHERE id = $1
+		`, companyID).Scan(&oldPercent, &companyName)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+			return
+		}
+
+		if _, err := db.Exec(`
+			UPDATE companies
+			SET platform_commission_percent = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2
+		`, input.PlatformCommissionPercent, companyID); err != nil {
+			log.Printf("❌ Error updating company commission: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update commission"})
+			return
+		}
+
+		// Уведомление компании об условиях контракта
+		msg := input.Message
+		if msg == "" {
+			msg = fmt.Sprintf(
+				"Условия вашего контракта обновлены: комиссия платформы теперь составляет %.0f%% от общей выручки (ранее %.0f%%). По вопросам свяжитесь с поддержкой.",
+				input.PlatformCommissionPercent, oldPercent,
+			)
+		}
+		if _, err := db.Exec(`
+			INSERT INTO company_messages (company_id, title, message, sender_name)
+			VALUES ($1, $2, $3, 'Axis')
+		`, companyID, "Изменение условий контракта", msg); err != nil {
+			// Уведомление не критично — логируем и продолжаем.
+			log.Printf("⚠️ Failed to send commission-change notification to company %s: %v", companyID, err)
+		}
+
+		log.Printf("✅ Company %s (%s) platform commission %.2f%% → %.2f%%", companyID, companyName, oldPercent, input.PlatformCommissionPercent)
+		c.JSON(http.StatusOK, gin.H{
+			"message":                     "Commission updated",
+			"platform_commission_percent": input.PlatformCommissionPercent,
+		})
+	}
+}
+
 // ValidateReferralCode - проверка реферального кода
 func ValidateReferralCode(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -422,9 +543,10 @@ func ValidateReferralCode(db *sql.DB) gin.HandlerFunc {
 func GetCompaniesWithReferralInfo(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rows, err := db.Query(`
-			SELECT 
-				c.id, c.name, c.phone, c.is_enabled, c.trial_end_date, 
+			SELECT
+				c.id, c.name, c.phone, c.is_enabled, c.trial_end_date,
 				c.trial_started_at, c.referral_code, c.created_at,
+				COALESCE(c.platform_commission_percent, 3) AS platform_commission_percent,
 				ra.unique_code as agent_code, ra.name as agent_name
 			FROM companies c
 			LEFT JOIN referral_agents ra ON c.referral_agent_id = ra.id
@@ -437,18 +559,19 @@ func GetCompaniesWithReferralInfo(db *sql.DB) gin.HandlerFunc {
 		defer rows.Close()
 
 		type CompanyWithReferral struct {
-			ID              int64      `json:"id"`
-			Name            string     `json:"name"`
-			Phone           string     `json:"phone"`
-			IsEnabled       bool       `json:"isEnabled"`
-			TrialEndDate    *time.Time `json:"trialEndDate"`
-			TrialStartedAt  *time.Time `json:"trialStartedAt"`
-			ReferralCode    *string    `json:"referralCode"`
-			AgentCode       *string    `json:"agentCode"`
-			AgentName       *string    `json:"agentName"`
-			CreatedAt       time.Time  `json:"createdAt"`
-			IsTrialActive   bool       `json:"isTrialActive"`
-			DaysUntilExpiry *int       `json:"daysUntilExpiry"`
+			ID                        int64      `json:"id"`
+			Name                      string     `json:"name"`
+			Phone                     string     `json:"phone"`
+			IsEnabled                 bool       `json:"isEnabled"`
+			TrialEndDate              *time.Time `json:"trialEndDate"`
+			TrialStartedAt            *time.Time `json:"trialStartedAt"`
+			ReferralCode              *string    `json:"referralCode"`
+			PlatformCommissionPercent float64    `json:"platformCommissionPercent"`
+			AgentCode                 *string    `json:"agentCode"`
+			AgentName                 *string    `json:"agentName"`
+			CreatedAt                 time.Time  `json:"createdAt"`
+			IsTrialActive             bool       `json:"isTrialActive"`
+			DaysUntilExpiry           *int       `json:"daysUntilExpiry"`
 		}
 
 		var companies []CompanyWithReferral
@@ -457,7 +580,8 @@ func GetCompaniesWithReferralInfo(db *sql.DB) gin.HandlerFunc {
 			err := rows.Scan(
 				&comp.ID, &comp.Name, &comp.Phone, &comp.IsEnabled,
 				&comp.TrialEndDate, &comp.TrialStartedAt, &comp.ReferralCode,
-				&comp.CreatedAt, &comp.AgentCode, &comp.AgentName,
+				&comp.CreatedAt, &comp.PlatformCommissionPercent,
+				&comp.AgentCode, &comp.AgentName,
 			)
 			if err != nil {
 				log.Printf("⚠️ Error scanning company: %v", err)
@@ -491,24 +615,35 @@ func GetAgentFinancialAnalytics(db *sql.DB) gin.HandlerFunc {
 		}
 
 		type CompanyFinancials struct {
-			CompanyID        int64   `json:"company_id"`
-			CompanyName      string  `json:"company_name"`
-			CompanyPhone     string  `json:"company_phone"`
-			TotalSales       float64 `json:"total_sales"`        // Общая сумма продаж
-			PlatformFee      float64 `json:"platform_fee"`       // 10% комиссии платформы
-			AgentCommission  float64 `json:"agent_commission"`   // 10% от комиссии платформы (1% от продаж)
-			IsEnabled        bool    `json:"is_enabled"`
-			IsTrialActive    bool    `json:"is_trial_active"`
+			CompanyID         int64   `json:"company_id"`
+			CompanyName       string  `json:"company_name"`
+			CompanyPhone      string  `json:"company_phone"`
+			TotalSales        float64 `json:"total_sales"`         // Общая выручка компании
+			PlatformPercent   float64 `json:"platform_percent"`    // % платформы от выручки этой компании
+			PlatformFee       float64 `json:"platform_fee"`        // Комиссия платформы (выручка × %)
+			AgentCommission   float64 `json:"agent_commission"`    // Доход агента (комиссия платформы × % агента)
+			IsEnabled         bool    `json:"is_enabled"`
+			IsTrialActive     bool    `json:"is_trial_active"`
 		}
 
-		// Получаем все компании агента с их продажами
+		// Процент агента (общий для всех его компаний)
+		var agentPercent float64
+		if err := db.QueryRow(
+			`SELECT COALESCE(commission_percent, 10) FROM referral_agents WHERE id = $1`, agentID,
+		).Scan(&agentPercent); err != nil {
+			log.Printf("⚠️ Error reading agent commission percent: %v", err)
+			agentPercent = 10
+		}
+
+		// Получаем все компании агента с их выручкой и индивидуальным % платформы
 		rows, err := db.Query(`
-			SELECT 
+			SELECT
 				c.id,
 				c.name,
 				c.phone,
 				c.is_enabled,
 				COALESCE(c.trial_end_date > CURRENT_TIMESTAMP, false) AS is_trial_active,
+				COALESCE(c.platform_commission_percent, 3) AS platform_percent,
 				COALESCE(
 					(SELECT SUM(total_amount) FROM sales WHERE company_id = c.id),
 					0
@@ -541,6 +676,7 @@ func GetAgentFinancialAnalytics(db *sql.DB) gin.HandlerFunc {
 				&comp.CompanyPhone,
 				&comp.IsEnabled,
 				&comp.IsTrialActive,
+				&comp.PlatformPercent,
 				&comp.TotalSales,
 			)
 			if err != nil {
@@ -548,9 +684,10 @@ func GetAgentFinancialAnalytics(db *sql.DB) gin.HandlerFunc {
 				continue
 			}
 
-			// Рассчитываем комиссии
-			comp.PlatformFee = comp.TotalSales * 0.10            // 10% платформе
-			comp.AgentCommission = comp.PlatformFee * 0.10       // 10% от комиссии платформы = 1% от продаж
+			// Комиссия платформы = выручка × % платформы для этой компании.
+			// Доход агента = комиссия платформы × % агента.
+			comp.PlatformFee = comp.TotalSales * comp.PlatformPercent / 100
+			comp.AgentCommission = comp.PlatformFee * agentPercent / 100
 
 			totalCompanySales += comp.TotalSales
 			totalPlatformFees += comp.PlatformFee
@@ -565,6 +702,7 @@ func GetAgentFinancialAnalytics(db *sql.DB) gin.HandlerFunc {
 			"total_company_sales":  totalCompanySales,
 			"total_platform_fees":  totalPlatformFees,
 			"total_agent_earnings": totalAgentEarnings,
+			"agent_percent":        agentPercent,
 		}
 
 		log.Printf("✅ Agent %d financial analytics: Companies=%d, Total Sales=%.2f, Agent Earnings=%.2f", 

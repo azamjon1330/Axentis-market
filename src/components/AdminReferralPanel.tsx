@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Phone, Lock, User, Ticket, TrendingUp, Building2, Eye, EyeOff, Check, X, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, Phone, Lock, User, Ticket, TrendingUp, Building2, Eye, EyeOff, Check, X, RefreshCw, Percent, Edit2 } from 'lucide-react';
 import api from '../utils/api';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 
@@ -8,6 +8,8 @@ interface ReferralAgent {
   phone: string;
   password?: string; // Пароль в открытом виде
   name: string;
+  surname?: string;
+  commission_percent?: number; // % агента от комиссии платформы
   unique_code: string; // snake_case как в backend
   is_active: boolean; // snake_case как в backend
   created_at: string; // snake_case как в backend
@@ -28,7 +30,9 @@ export default function AdminReferralPanel() {
   const [newAgent, setNewAgent] = useState({
     phone: '',
     password: '',
-    name: ''
+    name: '',
+    surname: '',
+    commission_percent: '10'
   });
 
   useEffect(() => {
@@ -74,17 +78,25 @@ export default function AdminReferralPanel() {
       return;
     }
 
+    const commission = parseFloat(newAgent.commission_percent);
+    if (isNaN(commission) || commission < 0 || commission > 100) {
+      alert('Процент агента должен быть числом от 0 до 100');
+      return;
+    }
+
     try {
       const result = await api.referrals.createAgent({
         phone,
         password: newAgent.password,
-        name: newAgent.name.trim()
+        name: newAgent.name.trim(),
+        surname: newAgent.surname.trim(),
+        commission_percent: commission
       });
 
-      alert(`✅ Агент "${newAgent.name}" создан!\n\n🎫 Уникальный код: ${result.unique_code}\n\n📱 Телефон: +998 ${phone}`);
+      alert(`✅ Агент "${newAgent.name} ${newAgent.surname}" создан!\n\n🎫 Уникальный код: ${result.unique_code}\n\n💰 Процент: ${commission}%\n\n📱 Телефон: +998 ${phone}`);
 
       // Очистка формы
-      setNewAgent({ phone: '', password: '', name: '' });
+      setNewAgent({ phone: '', password: '', name: '', surname: '', commission_percent: '10' });
       setShowAddForm(false);
       setShowPassword(false);
 
@@ -99,6 +111,27 @@ export default function AdminReferralPanel() {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     alert(`✅ ${label} скопирован: ${text}`);
+  };
+
+  const handleEditCommission = async (agent: ReferralAgent) => {
+    const current = agent.commission_percent ?? 10;
+    const input = window.prompt(
+      `Процент агента "${agent.name}" от комиссии платформы (0–100):`,
+      String(current)
+    );
+    if (input === null) return;
+    const value = parseFloat(input.replace(',', '.'));
+    if (isNaN(value) || value < 0 || value > 100) {
+      alert('Введите число от 0 до 100');
+      return;
+    }
+    try {
+      await api.referrals.updateAgentCommission(agent.id, value);
+      alert(`✅ Процент агента "${agent.name}" обновлён: ${value}%`);
+      loadAgents();
+    } catch (error: any) {
+      alert('Ошибка обновления процента: ' + (error.message || 'Неизвестная ошибка'));
+    }
   };
 
   const handleDeleteAgent = async (agentId: number, agentName: string) => {
@@ -184,10 +217,51 @@ export default function AdminReferralPanel() {
                   value={newAgent.name}
                   onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
                   className="w-full pl-11 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Иван Иванов"
+                  placeholder="Иван"
                   required
                 />
               </div>
+            </div>
+
+            {/* Фамилия агента */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Фамилия
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={newAgent.surname}
+                  onChange={(e) => setNewAgent({ ...newAgent, surname: e.target.value })}
+                  className="w-full pl-11 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Иванов"
+                />
+              </div>
+            </div>
+
+            {/* Процент агента */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Процент агента (% от комиссии платформы) {t.required}
+              </label>
+              <div className="relative">
+                <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={newAgent.commission_percent}
+                  onChange={(e) => setNewAgent({ ...newAgent, commission_percent: e.target.value })}
+                  className="w-full pl-11 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="10"
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Агент получает этот процент от комиссии платформы по своим компаниям.
+              </p>
             </div>
 
             {/* Номер телефона */}
@@ -261,7 +335,7 @@ export default function AdminReferralPanel() {
                 type="button"
                 onClick={() => {
                   setShowAddForm(false);
-                  setNewAgent({ phone: '', password: '', name: '' });
+                  setNewAgent({ phone: '', password: '', name: '', surname: '', commission_percent: '10' });
                   setShowPassword(false);
                 }}
                 className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -304,7 +378,9 @@ export default function AdminReferralPanel() {
                       <User className={`w-6 h-6 ${agent.is_active ? 'text-green-600' : 'text-gray-400'}`} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800">{agent.name}</h3>
+                      <h3 className="text-lg font-bold text-gray-800">
+                        {agent.name}{agent.surname ? ` ${agent.surname}` : ''}
+                      </h3>
                       <p className="text-sm text-gray-500">+998 {agent.phone}</p>
                     </div>
                     <span
@@ -316,6 +392,16 @@ export default function AdminReferralPanel() {
                     >
                       {agent.is_active ? `✓ ${t.active}` : `✗ ${t.inactive}`}
                     </span>
+                    {/* Процент агента + быстрое редактирование */}
+                    <button
+                      onClick={() => handleEditCommission(agent)}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors text-sm font-medium"
+                      title="Изменить процент агента"
+                    >
+                      <Percent className="w-4 h-4" />
+                      {agent.commission_percent ?? 10}%
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   {/* Уникальный код */}

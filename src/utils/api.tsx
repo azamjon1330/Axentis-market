@@ -1442,15 +1442,60 @@ export const aggressiveDiscounts = {
 };
 
 // ============================================================================
+// CATEGORIES API - Глобальные категории (управляются админом)
+// ============================================================================
+
+export const categories = {
+  // Список категорий (публично)
+  list: async (activeOnly = false) =>
+    apiCall(`/categories${activeOnly ? '?activeOnly=true' : ''}`, { requiresAuth: false }),
+
+  // Создать категорию (админ) — требует токен
+  create: async (data: { name: string; icon: string; description?: string; sortOrder?: number }) =>
+    apiCall('/categories', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Обновить категорию (админ)
+  update: async (id: number | string, data: Partial<{ name: string; icon: string; description: string; isActive: boolean; sortOrder: number }>) =>
+    apiCall(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  // Удалить категорию (админ)
+  delete: async (id: number | string) =>
+    apiCall(`/categories/${id}`, { method: 'DELETE' }),
+
+  // Загрузить картинку-иконку (PNG/SVG), возвращает { url }
+  uploadIcon: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiCall('/categories/upload-icon', { method: 'POST', body: formData });
+  },
+};
+
+// ============================================================================
 // REFERRALS API - Реферальная система
 // ============================================================================
 
 export const referrals = {
   // Создать реферального агента (админ)
-  createAgent: async (data: { phone: string; password: string; name?: string }) => {
+  createAgent: async (data: { phone: string; password: string; name?: string; surname?: string; commission_percent?: number }) => {
     return apiCall('/referrals/agents', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  },
+
+  // Изменить процент агента (админ)
+  updateAgentCommission: async (agentId: number | string, commissionPercent: number) => {
+    return apiCall(`/referrals/agents/${agentId}/commission`, {
+      method: 'PUT',
+      body: JSON.stringify({ commission_percent: commissionPercent }),
+    });
+  },
+
+  // Изменить процент платформы для компании (админ) + уведомление компании
+  updateCompanyCommission: async (companyId: number | string, platformCommissionPercent: number, message?: string) => {
+    return apiCall(`/referrals/companies/${companyId}/commission`, {
+      method: 'PUT',
+      body: JSON.stringify({ platform_commission_percent: platformCommissionPercent, message }),
     });
   },
 
@@ -1607,6 +1652,7 @@ export default {
   analytics,
   reviews,
   discounts,
+  categories, // 🗂️ Глобальные категории
   referrals, // 👥 Реферальная система
   promoCodes, // 🎟️ Промокоды
   returns, // ↩️ Возвраты
