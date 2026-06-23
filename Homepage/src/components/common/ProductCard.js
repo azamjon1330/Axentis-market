@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { getImageUrl } from '../../utils/imageUrl';
+import { Radius } from '../../constants/theme';
 
 export default function ProductCard({ product, onPress, onFavorite, isFavorite }) {
   const { colors, isDark } = useTheme();
@@ -75,7 +76,8 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
         style={[
           styles.card,
           {
-            backgroundColor: isDark ? '#1C1C26' : '#FFFFFF',
+            backgroundColor: colors.card,
+            borderColor: colors.border,
             shadowColor: isDark ? '#000' : '#9BA1B0',
           },
         ]}
@@ -84,7 +86,7 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
         <View
           style={[
             styles.imageBox,
-            { backgroundColor: isDark ? '#2A2A3A' : '#F4F4F6' },
+            { backgroundColor: colors.cardAlt },
           ]}
         >
           {imageUri && !imgError ? (
@@ -98,7 +100,7 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
             <Ionicons
               name="image-outline"
               size={40}
-              color={isDark ? '#3A3A4A' : '#CCCCCC'}
+              color={colors.textMuted}
             />
           )}
 
@@ -139,30 +141,30 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
         <View style={styles.info}>
           {companyName ? (
             <Text
-              style={[styles.company, { color: colors.primary }]}
+              style={[styles.company, { color: colors.textSecondary }]}
               numberOfLines={1}
             >
               {companyName}
             </Text>
           ) : null}
           <Text
-            style={[styles.name, { color: isDark ? '#D8D8EC' : '#1A1A2E' }]}
+            style={[styles.name, { color: colors.text }]}
             numberOfLines={2}
           >
             {product.name}
           </Text>
           <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: isDark ? '#FFFFFF' : '#0F0F1E' }]}>
+            <Text style={[styles.price, { color: colors.text }]}>
               {priceLabel}
             </Text>
             {soldCount > 0 && (
-              <Text style={[styles.sold, { color: isDark ? '#55556A' : '#AAAABC' }]}>
+              <Text style={[styles.sold, { color: colors.textMuted }]}>
                 {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} продано
               </Text>
             )}
           </View>
           {originalPrice ? (
-            <Text style={[styles.oldPrice, { color: isDark ? '#555566' : '#BBBBCC' }]}>
+            <Text style={[styles.oldPrice, { color: colors.textMuted }]}>
               {formatPrice(originalPrice)}
             </Text>
           ) : null}
@@ -174,13 +176,14 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: Radius.card,
     overflow: 'hidden',
     marginBottom: 10,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    elevation: 3,
   },
   imageBox: {
     width: '100%',
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#EF4444',
     borderRadius: 8,
     paddingHorizontal: 7,
     paddingVertical: 3,
