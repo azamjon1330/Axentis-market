@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getImageUrl } from '../../utils/imageUrl';
+import { Radius } from '../../constants/theme';
 
 export default function CartScreen() {
   const { colors, isDark } = useTheme();
@@ -232,10 +233,20 @@ export default function CartScreen() {
           />
 
           <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.totalRow}>
-              <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>
-                {t('total')} · {count} шт.
+            {/* Stripe-style order review */}
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+                Товары · {count} шт.
               </Text>
+              <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(total)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Доставка</Text>
+              <Text style={[styles.summaryValue, { color: colors.textMuted }]}>при оформлении</Text>
+            </View>
+            <View style={[styles.summaryDivider, { backgroundColor: colors.divider }]} />
+            <View style={styles.totalRow}>
+              <Text style={[styles.bottomTotalLabel, { color: colors.text }]}>{t('total')}</Text>
               <Text style={[styles.bottomTotal, { color: colors.text }]}>{formatPrice(total)}</Text>
             </View>
             <TouchableOpacity
@@ -244,6 +255,7 @@ export default function CartScreen() {
               activeOpacity={0.85}
             >
               <Text style={styles.checkoutBtnText}>{t('checkout')}</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFF" />
             </TouchableOpacity>
           </View>
         </>
@@ -263,7 +275,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  headerTitle: { fontSize: 28, fontWeight: '800' },
+  headerTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
   trashHeader: {
     width: 38,
     height: 38,
@@ -273,9 +285,9 @@ const styles = StyleSheet.create({
   },
   emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
   emptyIconBg: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
+    width: 110,
+    height: 110,
+    borderRadius: Radius.sheet,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -288,7 +300,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 28,
     paddingVertical: 14,
-    borderRadius: 16,
+    borderRadius: Radius.button,
   },
   shopBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
   list: { padding: 16, paddingBottom: 0 },
@@ -343,12 +355,18 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingBottom: 28,
   },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  bottomTotalLabel: { fontSize: 14 },
-  bottomTotal: { fontSize: 20, fontWeight: '800' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  summaryLabel: { fontSize: 14 },
+  summaryValue: { fontSize: 14, fontWeight: '600' },
+  summaryDivider: { height: 1, marginVertical: 6 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  bottomTotalLabel: { fontSize: 16, fontWeight: '600' },
+  bottomTotal: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   checkoutBtn: {
     height: 54,
-    borderRadius: 16,
+    borderRadius: Radius.button,
+    flexDirection: 'row',
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -12,6 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { API_BASE_URL } from '../../config';
 import { getImageUrl } from '../../utils/imageUrl';
+import { Radius, Spacing } from '../../constants/theme';
 
 export default function ProfileScreen() {
   const { colors, isDark, toggleTheme } = useTheme();
@@ -264,9 +265,9 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 28, fontWeight: '800' },
+  headerTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.6 },
   scroll: { padding: 16, gap: 12 },
-  userCard: { borderRadius: 20, borderWidth: 1, padding: 16, gap: 12 },
+  userCard: { borderRadius: Radius.card, borderWidth: 1, padding: Spacing.lg, gap: 12 },
   avatarRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatarWrap: { position: 'relative' },
   avatar: { width: 64, height: 64, borderRadius: 32 },
@@ -286,9 +287,9 @@ const styles = StyleSheet.create({
   },
   userName: { fontSize: 18, fontWeight: '700' },
   userPhone: { fontSize: 14, marginTop: 2 },
-  menuCard: { borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  menuCard: { borderRadius: Radius.card, borderWidth: 1, overflow: 'hidden' },
   menuItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  menuIconBg: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  menuIconBg: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   menuLabel: { fontSize: 15, fontWeight: '500' },
   menuSublabel: { fontSize: 12, marginTop: 2 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
@@ -299,14 +300,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 16,
+    borderRadius: Radius.button,
     borderWidth: 1,
     padding: 15,
   },
   logoutText: { fontSize: 15, fontWeight: '600' },
   version: { textAlign: 'center', fontSize: 12, marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingTop: 12, gap: 10 },
+  modalSheet: { borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet, padding: 20, paddingTop: 12, gap: 10 },
   modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   langOption: {
