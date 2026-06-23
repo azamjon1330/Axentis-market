@@ -123,8 +123,18 @@ if ! command -v certbot &>/dev/null; then
     apt-get install -y -qq certbot >/dev/null
 fi
 
-# Останавливаем контейнеры, чтобы certbot занял порт 80 (на чистом сервере — no-op)
+# Освобождаем порт 80, чтобы certbot (standalone) смог его занять.
+# Останавливаем системные веб-серверы и любые docker-контейнеры на этом порту.
+echo "    Освобождаем порт 80..."
+systemctl stop nginx apache2 2>/dev/null || true
 $DC down 2>/dev/null || true
+# Останавливаем любые посторонние контейнеры, публикующие порт 80
+OLD_80="$(docker ps -q --filter "publish=80" 2>/dev/null || true)"
+[ -n "$OLD_80" ] && docker stop $OLD_80 2>/dev/null || true
+# Последний рубеж: снимаем процесс, всё ещё держащий порт 80
+if command -v fuser &>/dev/null; then
+    fuser -k 80/tcp 2>/dev/null || true
+fi
 
 if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
     certbot certonly --standalone --non-interactive --agree-tos \
