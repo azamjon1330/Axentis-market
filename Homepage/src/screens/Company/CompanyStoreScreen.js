@@ -13,6 +13,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { getCompanyDetail, getProducts, getCompanyStats, subscribeToCompany, unsubscribeFromCompany } from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
+import { Radius, Spacing } from '../../constants/theme';
 
 const SUBS_KEY = 'subscribedCompanies';
 
@@ -122,40 +123,56 @@ export default function CompanyStoreScreen() {
               <View style={{ width: 40 }} />
             </View>
 
+            {/* Store cover + overlapping avatar (Amazon storefront style) */}
+            <View style={[styles.cover, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
+            </View>
+
             <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.companyTop}>
+              <View style={styles.avatarFloat}>
                 {logoUri ? (
-                  <Image source={{ uri: logoUri }} style={styles.logo} />
+                  <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.surface }]} />
                 ) : (
-                  <View style={[styles.logoFallback, { backgroundColor: colors.primary + '20' }]}>
-                    <Text style={[styles.logoInitial, { color: colors.primary }]}>
+                  <View style={[styles.logoFallback, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
+                    <Text style={styles.logoInitial}>
                       {company?.name?.charAt(0).toUpperCase() || '?'}
                     </Text>
                   </View>
                 )}
-                <View style={styles.companyMeta}>
-                  <Text style={[styles.companyName, { color: colors.text }]}>{company?.name}</Text>
-                  {company?.address ? (
-                    <View style={styles.addressRow}>
-                      <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-                      <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>
-                        {company.address}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.statsRow}>
-                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                      {companyStats?.total_products ?? products.length} товаров
-                    </Text>
-                    <Text style={[styles.statSep, { color: colors.textMuted }]}>·</Text>
-                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                      {companyStats?.subscribers ?? 0} подписчиков
-                    </Text>
-                    <Text style={[styles.statSep, { color: colors.textMuted }]}>·</Text>
-                    <Text style={[styles.statItem, { color: colors.textSecondary }]}>
-                      {companyStats?.total_sales ?? 0} заказов
+              </View>
+
+              <Text style={[styles.companyName, { color: colors.text }]}>{company?.name}</Text>
+              {company?.address ? (
+                <View style={styles.addressRow}>
+                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                  <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>
+                    {company.address}
+                  </Text>
+                </View>
+              ) : null}
+
+              {/* Stat tiles */}
+              <View style={styles.statTiles}>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {companyStats?.total_products ?? products.length}
+                  </Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Товары</Text>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <Text style={[styles.statValue, { color: colors.text }]}>
+                    {companyStats?.subscribers ?? 0}
+                  </Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Подписчики</Text>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <View style={styles.ratingValue}>
+                    <Ionicons name="star" size={14} color={colors.star} />
+                    <Text style={[styles.statValue, { color: colors.text }]}>
+                      {Number(company?.rating ?? companyStats?.rating ?? 5).toFixed(1)}
                     </Text>
                   </View>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Рейтинг</Text>
                 </View>
               </View>
 
@@ -223,24 +240,41 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
-  companyCard: { marginHorizontal: 16, borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 16, gap: 12 },
-  companyTop: { flexDirection: 'row', gap: 14 },
-  logo: { width: 64, height: 64, borderRadius: 16 },
-  logoFallback: { width: 64, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  logoInitial: { fontSize: 26, fontWeight: '800' },
-  companyMeta: { flex: 1, justifyContent: 'center', gap: 4 },
-  companyName: { fontSize: 18, fontWeight: '700' },
+  cover: {
+    marginHorizontal: 16,
+    height: 96,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  coverAccent: { flex: 1 },
+  companyCard: {
+    marginHorizontal: 16,
+    marginTop: -40,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: Spacing.lg,
+    marginBottom: 16,
+    gap: 12,
+  },
+  avatarFloat: { marginTop: -52 },
+  logo: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3 },
+  logoFallback: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  logoInitial: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
+  companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addressText: { fontSize: 12, flex: 1 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 2 },
-  statItem: { fontSize: 12 },
-  statSep: { fontSize: 12 },
+  addressText: { fontSize: 13, flex: 1 },
+  statTiles: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, alignItems: 'center', gap: 2 },
+  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  statTileLabel: { fontSize: 11, fontWeight: '600' },
   companyDesc: { fontSize: 14, lineHeight: 20 },
-  subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 14 },
+  subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: Radius.button },
   subscribeBtnText: { fontSize: 15, fontWeight: '600' },
-  productsLabel: { fontSize: 18, fontWeight: '700', paddingHorizontal: 16, marginBottom: 12 },
+  productsLabel: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 12 },
   listContent: { paddingBottom: 24 },
   row: { paddingHorizontal: 16, gap: 12 },
   cardWrap: { flex: 1 },
