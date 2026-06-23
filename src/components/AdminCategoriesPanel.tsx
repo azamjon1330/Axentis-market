@@ -1,18 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, Save, X, Package, Check, Upload, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import api, { getImageUrl } from '../utils/api';
-
-// Иконка категории может быть emoji или путём к загруженной картинке (/uploads/...).
-const isImageIcon = (icon: string) => !!icon && (icon.startsWith('/') || icon.startsWith('http'));
-
-// Рендер иконки категории: картинка или emoji.
-function CategoryIcon({ icon, className = '' }: { icon: string; className?: string }) {
-  if (isImageIcon(icon)) {
-    return <img src={getImageUrl(icon) || ''} alt="" className={`object-contain ${className}`} />;
-  }
-  return <span className={className}>{icon}</span>;
-}
+import api from '../utils/api';
+import CategoryIcon, { CATEGORY_ICON_OPTIONS, DEFAULT_CATEGORY_ICON } from './CategoryIcon';
 
 interface Category {
   id: number;
@@ -36,12 +26,10 @@ export default function AdminCategoriesPanel() {
   // Form state
   const [formData, setFormData] = useState({
     name: '',
-    icon: '📦',
+    icon: DEFAULT_CATEGORY_ICON,
     description: '',
     sortOrder: 0
   });
-
-  const icons = ['📦', '📱', '💻', '👕', '👟', '🎮', '🎧', '📚', '🏠', '🚗', '🍔', '💄', '⌚', '🎁', '🔧', '💊'];
 
   useEffect(() => {
     loadCategories();
@@ -135,7 +123,7 @@ export default function AdminCategoriesPanel() {
   const resetForm = () => {
     setEditingId(null);
     setIsAdding(false);
-    setFormData({ name: '', icon: '📦', description: '', sortOrder: 0 });
+    setFormData({ name: '', icon: DEFAULT_CATEGORY_ICON, description: '', sortOrder: 0 });
   };
 
   if (loading) {
@@ -182,12 +170,12 @@ export default function AdminCategoriesPanel() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Иконка (загрузите PNG / SVG)
+                Иконка категории
               </label>
               <div className="flex items-center gap-3 mb-3">
                 {/* Превью текущей иконки */}
-                <div className="w-14 h-14 rounded-lg border-2 border-gray-200 flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
-                  <CategoryIcon icon={formData.icon} className="w-10 h-10 text-3xl" />
+                <div className="w-14 h-14 rounded-lg border-2 border-blue-200 flex items-center justify-center bg-blue-50 text-blue-600 overflow-hidden shrink-0">
+                  <CategoryIcon icon={formData.icon} className="w-8 h-8" />
                 </div>
                 <input
                   ref={fileInputRef}
@@ -207,24 +195,25 @@ export default function AdminCategoriesPanel() {
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {uploading ? 'Загрузка...' : 'Загрузить картинку'}
+                  {uploading ? 'Загрузка...' : 'Загрузить свою (PNG/SVG)'}
                 </button>
               </div>
-              {/* Быстрый выбор emoji (запасной вариант) */}
-              <p className="text-xs text-gray-500 mb-1">или выберите emoji:</p>
+              {/* Профессиональные векторные иконки */}
+              <p className="text-xs text-gray-500 mb-1">или выберите профессиональную иконку:</p>
               <div className="flex flex-wrap gap-2">
-                {icons.map((icon) => (
+                {CATEGORY_ICON_OPTIONS.map(({ key, Icon, label }) => (
                   <button
-                    key={icon}
+                    key={key}
                     type="button"
-                    onClick={() => setFormData({ ...formData, icon })}
-                    className={`w-10 h-10 text-xl rounded-lg border-2 transition ${
-                      formData.icon === icon
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                    title={label}
+                    onClick={() => setFormData({ ...formData, icon: key })}
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border-2 transition ${
+                      formData.icon === key
+                        ? 'border-blue-500 bg-blue-50 text-blue-600'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
                     }`}
                   >
-                    {icon}
+                    <Icon className="w-5 h-5" />
                   </button>
                 ))}
               </div>
@@ -308,7 +297,9 @@ export default function AdminCategoriesPanel() {
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  <CategoryIcon icon={category.icon} className="w-10 h-10 text-3xl" />
+                  <span className="w-11 h-11 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                    <CategoryIcon icon={category.icon} className="w-7 h-7" />
+                  </span>
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-gray-900">{category.name}</h4>

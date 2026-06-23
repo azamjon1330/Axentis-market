@@ -1577,7 +1577,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                       >
                         <option value="">{language === 'uz' ? 'Kategoriyani tanlang' : 'Выберите категорию'}</option>
                         {globalCategories.map(cat => (
-                          <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                          <option key={cat.id} value={cat.name}>{cat.name}</option>
                         ))}
                       </select>
                     </div>
@@ -1962,7 +1962,7 @@ export const DigitalWarehouse: React.FC<DigitalWarehouseProps> = ({ companyId })
                             style={{ width: '100%', padding: '7px 10px', background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 8, color: editForm.category ? '#FFFFFF' : '#5A5A78', fontSize: 13, outline: 'none', boxSizing: 'border-box' as any, cursor: 'pointer' }}>
                             <option value="">— {language === 'uz' ? 'Kategoriya' : 'Категория'} —</option>
                             {globalCategories.map(cat => (
-                              <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                              <option key={cat.id} value={cat.name}>{cat.name}</option>
                             ))}
                           </select>
                         </div>
