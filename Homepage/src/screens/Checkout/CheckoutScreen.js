@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, fontSize: 17, fontWeight: '700', textAlign: 'center' },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center' },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -732,7 +732,7 @@ const styles = StyleSheet.create({
   stepLine: { flex: 1, height: 2, marginHorizontal: 6, marginBottom: 18 },
   scroll: { paddingHorizontal: 16 },
   section: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 16,
     marginBottom: 12,
@@ -831,7 +831,7 @@ const styles = StyleSheet.create({
   confirmRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   confirmText: { fontSize: 14, lineHeight: 20 },
   summaryCard: {
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 16,
     gap: 10,
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   nextBtn: {
     flex: 2,
     height: 54,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
