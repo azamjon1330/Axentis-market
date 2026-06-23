@@ -31,7 +31,13 @@ export default function CompanyManagement() {
   const [editingPassword, setEditingPassword] = useState('');
   const [editingAccessKey, setEditingAccessKey] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  
+
+  // Редактирование комиссии
+  const [commissionEditCompany, setCommissionEditCompany] = useState<Company | null>(null);
+  const [commissionValue, setCommissionValue] = useState('');
+  const [commissionMessage, setCommissionMessage] = useState('');
+  const [savingCommission, setSavingCommission] = useState(false);
+
   // Форма для новой компании
   const [newCompany, setNewCompany] = useState({
     name: '',
@@ -223,30 +229,31 @@ export default function CompanyManagement() {
     }
   };
 
-  // 💰 Изменение процента комиссии платформы для компании (+ уведомление компании)
-  const handleEditCommission = async (company: Company) => {
-    const current = company.platformCommissionPercent ?? 3;
-    const input = window.prompt(
-      `Процент комиссии платформы для "${company.name}" (% от общей выручки, 0–100):`,
-      String(current)
-    );
-    if (input === null) return;
-    const value = parseFloat(input.replace(',', '.'));
+  // 💰 Открыть форму редактирования комиссии
+  const handleEditCommission = (company: Company) => {
+    setCommissionEditCompany(company);
+    setCommissionValue(String(company.platformCommissionPercent ?? 3));
+    setCommissionMessage('');
+  };
+
+  // 💰 Сохранить комиссию после явного нажатия кнопки
+  const handleSaveCommission = async () => {
+    if (!commissionEditCompany) return;
+    const value = parseFloat(commissionValue.replace(',', '.'));
     if (isNaN(value) || value < 0 || value > 100) {
       alert('Введите число от 0 до 100');
       return;
     }
-    const customMessage = window.prompt(
-      'Текст уведомления компании (оставьте пустым для стандартного текста о контракте):',
-      ''
-    );
+    setSavingCommission(true);
     try {
-      await api.referrals.updateCompanyCommission(company.id, value, customMessage || undefined);
-      alert(`✅ Комиссия платформы для "${company.name}" обновлена: ${value}%\n\nКомпании отправлено уведомление.`);
+      await api.referrals.updateCompanyCommission(commissionEditCompany.id, value, commissionMessage || undefined);
+      setCommissionEditCompany(null);
       loadCompanies();
     } catch (error: any) {
       console.error('Error updating commission:', error);
       alert('Ошибка обновления процента: ' + (error.message || 'Неизвестная ошибка'));
+    } finally {
+      setSavingCommission(false);
     }
   };
 
@@ -408,6 +415,68 @@ export default function CompanyManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Модальное окно редактирования комиссии */}
+      {commissionEditCompany && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Percent className="w-5 h-5 text-purple-600" />
+                Комиссия: {commissionEditCompany.name}
+              </h3>
+              <button onClick={() => setCommissionEditCompany(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Процент комиссии платформы (0–100%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={commissionValue}
+                  onChange={e => setCommissionValue(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-lg font-bold"
+                  placeholder="Например: 3"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Текст уведомления (оставьте пустым для стандартного)
+                </label>
+                <textarea
+                  value={commissionMessage}
+                  onChange={e => setCommissionMessage(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                  placeholder="Необязательно — стандартный текст о контракте"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setCommissionEditCompany(null)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleSaveCommission}
+                disabled={savingCommission}
+                className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {savingCommission ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white">
         <div className="flex items-center justify-between">

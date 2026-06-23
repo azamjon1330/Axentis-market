@@ -199,7 +199,7 @@ export default function CheckoutScreen() {
 
       const order = await createOrder({
         companyId: firstCompanyId || undefined,
-        customerName: recipientName || user.name,
+        customerName: recipientName || user?.name || user?.phone || '',
         customerPhone: user.phone,
         items: companyItems.map(i => ({
           productId: i.productId,

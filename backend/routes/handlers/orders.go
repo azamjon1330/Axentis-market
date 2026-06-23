@@ -16,18 +16,22 @@ import (
 
 // --- Типы для списка заказов ---
 
-// OrderListItem — минимальный набор полей для списка.
-// Поле items намеренно исключено: загружается через GET /orders/:id.
+// OrderListItem — набор полей для списка заказов.
 type OrderListItem struct {
-	ID            int64   `json:"id"`
-	OrderCode     string  `json:"order_code"`
-	Status        string  `json:"status"`
-	TotalAmount   float64 `json:"total_amount"`
-	DeliveryCost  float64 `json:"delivery_cost"`
-	DeliveryType  string  `json:"delivery_type"`
-	CustomerName  string  `json:"customer_name"`
-	CustomerPhone string  `json:"customer_phone"`
-	CreatedAt     string  `json:"created_at"`
+	ID                  int64           `json:"id"`
+	OrderCode           string          `json:"order_code"`
+	Status              string          `json:"status"`
+	TotalAmount         float64         `json:"total_amount"`
+	DeliveryCost        float64         `json:"delivery_cost"`
+	DeliveryType        string          `json:"delivery_type"`
+	CustomerName        string          `json:"customer_name"`
+	CustomerPhone       string          `json:"customer_phone"`
+	RecipientName       string          `json:"recipient_name"`
+	DeliveryAddress     string          `json:"delivery_address"`
+	DeliveryCoordinates string          `json:"delivery_coordinates"`
+	MarkupProfit        float64         `json:"markup_profit"`
+	Items               json.RawMessage `json:"items"`
+	CreatedAt           string          `json:"created_at"`
 }
 
 // OrdersPage — ответ пагинации.
@@ -165,13 +169,18 @@ func getOrdersCursor(ctx context.Context, c *gin.Context, db *sql.DB, customerPh
 
 	const selectCols = `
 		SELECT id,
-		       COALESCE(order_code, '')           AS order_code,
+		       COALESCE(order_code, '')                AS order_code,
 		       status,
 		       total_amount,
 		       delivery_cost,
-		       COALESCE(delivery_type, 'pickup')  AS delivery_type,
-		       customer_name,
-		       customer_phone,
+		       COALESCE(delivery_type, 'pickup')       AS delivery_type,
+		       COALESCE(customer_name, '')             AS customer_name,
+		       COALESCE(customer_phone, '')            AS customer_phone,
+		       COALESCE(recipient_name, '')            AS recipient_name,
+		       COALESCE(delivery_address, '')          AS delivery_address,
+		       COALESCE(delivery_coordinates, '')      AS delivery_coordinates,
+		       COALESCE(markup_profit, 0)              AS markup_profit,
+		       COALESCE(items, '[]'::jsonb)            AS items,
 		       created_at
 		FROM orders`
 
@@ -224,7 +233,9 @@ func getOrdersCursor(ctx context.Context, c *gin.Context, db *sql.DB, customerPh
 		if err := rows.Scan(
 			&o.ID, &o.OrderCode, &o.Status,
 			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType,
-			&o.CustomerName, &o.CustomerPhone, &o.CreatedAt,
+			&o.CustomerName, &o.CustomerPhone,
+			&o.RecipientName, &o.DeliveryAddress, &o.DeliveryCoordinates,
+			&o.MarkupProfit, &o.Items, &o.CreatedAt,
 		); err != nil {
 			log.Printf("⚠️ getOrdersCursor scan: %v", err)
 			continue
@@ -266,13 +277,18 @@ func getOrdersOffset(ctx context.Context, c *gin.Context, db *sql.DB, customerPh
 
 	const selectCols = `
 		SELECT id,
-		       COALESCE(order_code, '')          AS order_code,
+		       COALESCE(order_code, '')                AS order_code,
 		       status,
 		       total_amount,
 		       delivery_cost,
-		       COALESCE(delivery_type, 'pickup') AS delivery_type,
-		       customer_name,
-		       customer_phone,
+		       COALESCE(delivery_type, 'pickup')       AS delivery_type,
+		       COALESCE(customer_name, '')             AS customer_name,
+		       COALESCE(customer_phone, '')            AS customer_phone,
+		       COALESCE(recipient_name, '')            AS recipient_name,
+		       COALESCE(delivery_address, '')          AS delivery_address,
+		       COALESCE(delivery_coordinates, '')      AS delivery_coordinates,
+		       COALESCE(markup_profit, 0)              AS markup_profit,
+		       COALESCE(items, '[]'::jsonb)            AS items,
 		       created_at
 		FROM orders`
 
@@ -320,7 +336,9 @@ func getOrdersOffset(ctx context.Context, c *gin.Context, db *sql.DB, customerPh
 		if err := rows.Scan(
 			&o.ID, &o.OrderCode, &o.Status,
 			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType,
-			&o.CustomerName, &o.CustomerPhone, &o.CreatedAt,
+			&o.CustomerName, &o.CustomerPhone,
+			&o.RecipientName, &o.DeliveryAddress, &o.DeliveryCoordinates,
+			&o.MarkupProfit, &o.Items, &o.CreatedAt,
 		); err != nil {
 			log.Printf("⚠️ getOrdersOffset scan: %v", err)
 			continue

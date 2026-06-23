@@ -100,9 +100,10 @@ const mapCartItem = (item) => {
     id: productId,
     companyId: item.companyId ?? item.company_id ?? 0,
     name: item.product_name ?? item.productName ?? '',
-    price: item.product_price ?? item.productPrice ?? 0,
-    sellingPrice: item.product_price ?? item.sellingPrice ?? item.product_price ?? 0,
-    markupPercent: 0,
+    // product_base_price = себестоимость (закупочная), product_price = продажная (с наценкой)
+    price: item.product_base_price ?? item.productBasePrice ?? item.product_price ?? item.productPrice ?? 0,
+    sellingPrice: item.product_price ?? item.sellingPrice ?? 0,
+    markupPercent: item.markup_percent ?? item.markupPercent ?? 0,
     markupAmount: 0,
     quantity: 0,
     hasColorOptions: false,

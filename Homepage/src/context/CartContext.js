@@ -77,6 +77,7 @@ export const CartProvider = ({ children }) => {
 
   const count = items.length;
   const total = items.reduce((sum, item) => {
+    // sellingPrice = цена продажи с наценкой; fallback на price (себестоимость)
     const price = item.product?.discountedPrice || item.product?.sellingPrice || item.product?.price || 0;
     return sum + price * item.quantity;
   }, 0);

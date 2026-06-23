@@ -554,9 +554,9 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                   <div className="flex-1">
                     <div className={`flex items-center ${responsive.gap} font-medium`} style={{ color: 'var(--ax-text)' }}>
                       <User className={responsive.iconSmall} />
-                      {order.user_name || t.guest}
+                      {order.user_name || order.user_phone || t.guest}
                     </div>
-                    {order.user_phone && (
+                    {order.user_phone && order.user_phone !== order.user_name && (
                       <div className={`flex items-center ${responsive.gap} ${responsive.small} mt-1`} style={{ color: 'var(--ax-text-2)' }}>
                         <Phone className={responsive.iconSmall} />
                         {order.user_phone}
