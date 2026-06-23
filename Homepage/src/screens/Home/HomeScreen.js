@@ -25,6 +25,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { getProducts, getCategories, getApprovedAds } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
+import { SectionHeader, Chip } from '../../components/ui';
+import { Spacing, Radius, Typography } from '../../constants/theme';
 
 const LIMIT = 20;
 const DEBOUNCE_MS = 300;
@@ -180,10 +182,18 @@ export default function HomeScreen() {
   // Ad banner carousel — shown at the top of the feed (hidden while searching or
   // filtering by category, and when there are no approved ads).
   const ListHeader = useMemo(() => {
-    if (debouncedSearch.trim() || activeCategory || ads.length === 0) return null;
+    const showBanner = !debouncedSearch.trim() && !activeCategory && ads.length > 0;
+    let sectionTitle = 'Популярные товары';
+    if (debouncedSearch.trim()) sectionTitle = 'Результаты поиска';
+    else if (activeCategory) sectionTitle = activeCategory;
     return (
-      <View style={styles.bannerWrap}>
-        <BannerCarousel ads={ads} />
+      <View>
+        {showBanner && (
+          <View style={styles.bannerWrap}>
+            <BannerCarousel ads={ads} />
+          </View>
+        )}
+        <SectionHeader title={sectionTitle} style={{ marginTop: showBanner ? Spacing.sm : Spacing.xs }} />
       </View>
     );
   }, [ads, debouncedSearch, activeCategory]);
@@ -202,37 +212,50 @@ export default function HomeScreen() {
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       {/* ── Top bar ── */}
-      <View
-        style={[
-          styles.topBar,
-          { backgroundColor: colors.background, paddingTop: insets.top + 10 },
-        ]}
-      >
-        {/* Hamburger */}
-        <TouchableOpacity
-          style={[styles.iconBtn, { backgroundColor: colors.surface }]}
-          onPress={openDrawer}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="menu-outline" size={22} color={colors.text} />
-        </TouchableOpacity>
+      <View style={[styles.topBarWrap, { backgroundColor: colors.background, paddingTop: insets.top + 12 }]}>
+        {/* Greeting + actions */}
+        <View style={styles.greetingRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greetingHello, { color: colors.textMuted }]}>Добро пожаловать</Text>
+            <Text style={[styles.greetingName, { color: colors.text }]} numberOfLines={1}>
+              {user?.name ? user.name : 'Axentis Market'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          </TouchableOpacity>
+        </View>
 
-        {/* Search */}
-        <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
-          <Ionicons name="search-outline" size={17} color={colors.textMuted} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Поиск товаров..."
-            placeholderTextColor={colors.textMuted}
-            value={search}
-            onChangeText={setSearch}
-            returnKeyType="search"
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
+        {/* Search row */}
+        <View style={styles.searchRow}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+            onPress={openDrawer}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="menu-outline" size={22} color={colors.text} />
+          </TouchableOpacity>
+
+          <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="search-outline" size={18} color={colors.textMuted} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="Поиск товаров..."
+              placeholderTextColor={colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={17} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -242,49 +265,17 @@ export default function HomeScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipsRow}
-          style={[styles.chipsScroll, { borderBottomColor: colors.border }]}
+          style={styles.chipsScroll}
         >
-          <TouchableOpacity
-            onPress={() => setActiveCategory(null)}
-            style={[
-              styles.chip,
-              activeCategory === null
-                ? { backgroundColor: colors.primary }
-                : { backgroundColor: colors.surface },
-            ]}
-            activeOpacity={0.75}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                { color: activeCategory === null ? '#FFFFFF' : colors.textSecondary },
-              ]}
-            >
-              Все
-            </Text>
-          </TouchableOpacity>
+          <Chip label="Все" active={activeCategory === null} onPress={() => setActiveCategory(null)} icon="apps-outline" />
           {categories.map(cat => (
-            <TouchableOpacity
+            <Chip
               key={cat.id}
+              label={cat.name}
+              active={activeCategory === cat.name}
               onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
-              style={[
-                styles.chip,
-                activeCategory === cat.name
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: colors.surface },
-              ]}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: activeCategory === cat.name ? '#FFFFFF' : colors.textSecondary },
-                ]}
-                numberOfLines={1}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
+              icon={getIcon(cat.name)}
+            />
           ))}
         </ScrollView>
       )}
@@ -408,17 +399,34 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
 
-  topBar: {
+  topBarWrap: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  greetingHello: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  greetingName: {
+    ...Typography.h2,
+  },
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
   },
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: Radius.input,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -427,34 +435,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
-    height: 44,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 46,
+    borderRadius: Radius.input,
+    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 15,
     paddingVertical: 0,
   },
   chipsScroll: {
     flexGrow: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   chipsRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   bannerWrap: {
     paddingTop: 4,

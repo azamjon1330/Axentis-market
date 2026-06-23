@@ -295,14 +295,14 @@ export default function ProductDetailScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <View style={[styles.topBar, { backgroundColor: colors.background }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.topBtn, { backgroundColor: colors.surface }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.topBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.topActions}>
-          <TouchableOpacity onPress={handleShare} style={[styles.topBtn, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity onPress={handleShare} style={[styles.topBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
             <Ionicons name="share-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleFavorite} style={[styles.topBtn, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity onPress={handleFavorite} style={[styles.topBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}>
             <Ionicons
               name={ctxIsFavorite(productId) ? 'heart' : 'heart-outline'}
               size={20}
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
   variantPillPrice: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   variantPillOos: { fontSize: 10, fontWeight: '500' },
   body: { padding: 16 },
-  prodName: { fontSize: 20, fontWeight: '700', marginBottom: 10, lineHeight: 28 },
+  prodName: { fontSize: 24, fontWeight: '700', letterSpacing: -0.4, marginBottom: 10, lineHeight: 30 },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 12 },
   ratingNum: { fontSize: 13, fontWeight: '600', marginLeft: 4 },
   ratingCount: { fontSize: 12 },
