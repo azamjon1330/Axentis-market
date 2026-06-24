@@ -134,8 +134,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         return {
           ...order,
           order_code: order.orderCode || order.order_code || '',
-          user_name: order.customerName || order.user_name || '',
-          user_phone: order.customerPhone || order.user_phone || '',
+          user_name: order.customerName || order.customer_name || order.user_name || '',
+          user_phone: order.customerPhone || order.customer_phone || order.user_phone || '',
           order_date: order.createdAt || order.created_at || order.order_date,
           total_amount: order.totalAmount || order.total_amount || 0,
           markup_profit: order.markupProfit || order.markup_profit || 0,
