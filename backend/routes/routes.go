@@ -87,7 +87,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			products.GET("/:id", handlers.GetProductByID(db))
 			products.GET("/:id/reviews", handlers.GetProductReviews(db))
 			products.GET("/:id/review-stats", handlers.GetReviewStats(db))
-			products.GET("/:id/similar", handlers.GetSimilarProducts(db)) // 🔍 Похожие товары
+			products.GET("/:id/similar", handlers.GetSimilarProducts(db))
+			products.GET("/:id/frequently-bought-with", handlers.GetFrequentlyBoughtWith(db))
+			products.GET("/:id/flash-sale", handlers.GetProductFlashSale(db))
+			products.POST("/:id/view", handlers.TrackProductView(db))
+			products.GET("/personalized", handlers.GetPersonalizedFeed(db))
 			// Variant routes — SKU management per product
 			products.GET("/:id/variants", handlers.GetProductVariants(db))
 			products.POST("/:id/variants", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.CreateProductVariant(db))
@@ -120,6 +124,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.DELETE("/:id", middleware.RequireAdminOrOwnCompany(), handlers.DeleteCompany(db))
 			companies.POST("/:id/view", handlers.TrackCompanyView(db))
 			companies.GET("/:id/stats", handlers.GetCompanyStats(db))
+			companies.GET("/:id/rating", handlers.GetCompanyRating(db))
 			companies.POST("/:id/subscribe", handlers.SubscribeToCompany(db))
 			companies.POST("/:id/unsubscribe", handlers.UnsubscribeFromCompany(db))
 			companies.PUT("/:id/expenses", middleware.RequireCompany(cfg), handlers.UpdateCompanyExpenses(db))
@@ -392,6 +397,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			loyalty.GET("/:phone", handlers.GetLoyaltyAccount(db)) // Баланс + история
 			loyalty.POST("/earn", handlers.EarnLoyaltyPoints(db))  // Начислить баллы
 			loyalty.POST("/redeem", handlers.RedeemLoyaltyPoints(db)) // Списать баллы
+		}
+
+		// Internal maintenance endpoints (не публичные)
+		internal := api.Group("/internal")
+		{
+			internal.POST("/sla-cancel", handlers.SLACancelStaleOrders(db))
 		}
 	}
 }

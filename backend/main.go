@@ -34,6 +34,12 @@ func main() {
 		log.Fatal("Failed to run migrations:", err)
 	}
 
+	// Migrate algorithm tables (score, product_views, etc.)
+	handlers.MigrateAlgorithmTables(db)
+
+	// Start SLA worker: auto-cancel orders pending > 45 min
+	handlers.RunSLAWorker(db, 45)
+
 	// Provide config to user auth handlers so they can issue JWT tokens.
 	handlers.InitUserConfig(cfg)
 

@@ -570,7 +570,14 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 
 		customerName := fmt.Sprintf("%v", req["customerName"])
 		customerPhone := fmt.Sprintf("%v", req["customerPhone"])
-		
+
+		// Anti-fraud: block suspicious users before creating order
+		if blocked, reason := CheckAntiFraud(db, customerPhone); blocked {
+			log.Printf("🚫 AntifraudBlock: phone=%s reason=%s", customerPhone, reason)
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": reason})
+			return
+		}
+
 		// Parse items - frontend sends JSON string already
 		var itemsArray []map[string]interface{}
 		if req["items"] != nil {

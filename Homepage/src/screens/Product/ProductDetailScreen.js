@@ -13,7 +13,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import {
   getProductDetail, getProductReviews, getProductReviewStats,
   getSimilarProducts, submitReview, voteReview, getProductVariants,
-  getProductQuestions, askProductQuestion,
+  getProductQuestions, askProductQuestion, getFrequentlyBoughtWith,
 } from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
@@ -33,6 +33,7 @@ export default function ProductDetailScreen() {
   const [reviews, setReviews] = useState([]);
   const [stats, setStats] = useState(null);
   const [similar, setSimilar] = useState([]);
+  const [frequentlyBought, setFrequentlyBought] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [variants, setVariants] = useState([]);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -62,13 +63,14 @@ export default function ProductDetailScreen() {
   const loadAll = async () => {
     setIsLoading(true);
     try {
-      const [prodData, revData, statsData, simData, varData, qData] = await Promise.allSettled([
+      const [prodData, revData, statsData, simData, varData, qData, freqData] = await Promise.allSettled([
         getProductDetail(productId),
         getProductReviews(productId, user?.phone),
         getProductReviewStats(productId),
         getSimilarProducts(productId),
         getProductVariants(productId),
         getProductQuestions(productId),
+        getFrequentlyBoughtWith(productId),
       ]);
       if (qData.status === 'fulfilled') setQuestions(qData.value);
       if (prodData.status === 'fulfilled') setProduct(prodData.value);
@@ -83,6 +85,7 @@ export default function ProductDetailScreen() {
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (simData.status === 'fulfilled') setSimilar(simData.value.slice(0, 6));
       if (varData.status === 'fulfilled') setVariants(varData.value);
+      if (freqData.status === 'fulfilled') setFrequentlyBought(freqData.value.slice(0, 6));
     } catch {
       // ignore
     } finally {
@@ -730,6 +733,38 @@ export default function ProductDetailScreen() {
               ))
             )}
           </View>
+
+          {frequentlyBought.length > 0 && (
+            <View style={styles.similarSection}>
+              <Text style={[styles.sectionLabel, { color: colors.text }]}>С этим товаром покупают</Text>
+              <FlatList
+                data={frequentlyBought}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => 'freq-' + String(item.id)}
+                contentContainerStyle={{ gap: 10 }}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.similarCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
+                    activeOpacity={0.8}
+                  >
+                    {item.images ? (
+                      <Image source={{ uri: getImageUrl(Array.isArray(item.images) ? item.images[0] : item.images) || '' }} style={styles.similarImg} resizeMode="contain" />
+                    ) : (
+                      <View style={[styles.similarImg, { alignItems: 'center', justifyContent: 'center' }]}>
+                        <Ionicons name="bag-outline" size={30} color={colors.textMuted} />
+                      </View>
+                    )}
+                    <Text style={[styles.similarName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
+                    <Text style={[styles.similarPrice, { color: '#E8472A' }]}>
+                      {(item.price || 0).toLocaleString('ru-RU')} сум
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          )}
 
           {similar.length > 0 && (
             <View style={styles.similarSection}>

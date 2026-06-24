@@ -32,6 +32,17 @@ export const getProducts = async (params = {}) => {
   return Array.isArray(res.data) ? res.data : (res.data?.products || []);
 };
 
+export const searchProducts = async (q, limit = 40) => {
+  if (!q?.trim()) return [];
+  const res = await api.get(ENDPOINTS.productSearch, { params: { q: q.trim(), limit } });
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const getFrequentlyBoughtWith = async (productId) => {
+  const res = await api.get(ENDPOINTS.productFrequentlyBought(productId));
+  return Array.isArray(res.data) ? res.data : [];
+};
+
 export const getProductDetail = async (id) => {
   const res = await api.get(ENDPOINTS.productDetail(id));
   return res.data;

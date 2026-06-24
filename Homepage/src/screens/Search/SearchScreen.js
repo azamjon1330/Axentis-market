@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
-import { getProducts } from '../../api';
+import { searchProducts } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 
 const POPULAR_SEARCHES = ['AirPods', 'Samsung', 'iPhone', 'Nike', 'Adidas', 'PlayStation'];
@@ -31,8 +31,8 @@ export default function SearchScreen() {
     setIsLoading(true);
     setHasSearched(true);
     try {
-      const res = await getProducts({ search: q, limit: 30, availableOnly: true });
-      setResults(Array.isArray(res) ? res : (res?.products || []));
+      const res = await searchProducts(q, 40);
+      setResults(res);
     } catch {
       setResults([]);
     } finally {

@@ -11,7 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { getImageUrl } from '../../utils/imageUrl';
-import { Radius } from '../../constants/theme';
 
 export default function ProductCard({ product, onPress, onFavorite, isFavorite }) {
   const { colors, isDark } = useTheme();
@@ -34,59 +33,30 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
   const handleFavorite = () => {
     if (!onFavorite) return;
     Animated.sequence([
-      Animated.spring(heartScale, {
-        toValue: 1.4,
-        useNativeDriver: true,
-        speed: 80,
-        bounciness: 18,
-      }),
-      Animated.spring(heartScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 30,
-      }),
+      Animated.spring(heartScale, { toValue: 1.4, useNativeDriver: true, speed: 80, bounciness: 18 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, speed: 30 }),
     ]).start();
     onFavorite();
   };
 
-  const onPressIn = () => {
-    Animated.spring(cardScale, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-  };
+  const onPressIn = () =>
+    Animated.spring(cardScale, { toValue: 0.97, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
 
-  const onPressOut = () => {
-    Animated.spring(cardScale, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 60,
-      bounciness: 0,
-    }).start();
-  };
+  const onPressOut = () =>
+    Animated.spring(cardScale, { toValue: 1, useNativeDriver: true, speed: 60, bounciness: 0 }).start();
 
   return (
-    <Animated.View style={[{ transform: [{ scale: cardScale }] }]}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            shadowColor: isDark ? '#000' : '#9BA1B0',
-          },
-        ]}
-      >
-        {/* ── Image area ── */}
+    <Animated.View style={{ transform: [{ scale: cardScale }], marginBottom: 14 }}>
+      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+
+        {/* ── Image block — only this is the "card" ── */}
         <View
           style={[
-            styles.imageBox,
-            { backgroundColor: colors.cardAlt },
+            styles.imageCard,
+            {
+              backgroundColor: isDark ? '#1E2130' : '#F5F5F5',
+              shadowColor: isDark ? '#000' : '#9BA1B0',
+            },
           ]}
         >
           {imageUri && !imgError ? (
@@ -97,19 +67,10 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
               onError={() => setImgError(true)}
             />
           ) : (
-            <Ionicons
-              name="image-outline"
-              size={40}
-              color={colors.textMuted}
-            />
+            <Ionicons name="image-outline" size={44} color={colors.textMuted} />
           )}
 
-          {/* Bottom gradient overlay */}
-          {imageUri && !imgError && (
-            <View style={styles.imageGradient} pointerEvents="none" />
-          )}
-
-          {/* Discount badge */}
+          {/* Discount badge — top left */}
           {hasDiscount && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>-{product.discountPercent}%</Text>
@@ -122,7 +83,7 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
               onPress={handleFavorite}
               style={[
                 styles.heartBtn,
-                { backgroundColor: isDark ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.92)' },
+                { backgroundColor: isDark ? 'rgba(0,0,0,0.50)' : 'rgba(255,255,255,0.90)' },
               ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -137,73 +98,57 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
           )}
         </View>
 
-        {/* ── Product info ── */}
+        {/* ── Text info — OUTSIDE the card block ── */}
         <View style={styles.info}>
           {companyName ? (
-            <Text
-              style={[styles.company, { color: colors.textSecondary }]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.company, { color: colors.textSecondary }]} numberOfLines={1}>
               {companyName}
             </Text>
           ) : null}
-          <Text
-            style={[styles.name, { color: colors.text }]}
-            numberOfLines={2}
-          >
+
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
             {product.name}
           </Text>
+
           <View style={styles.priceRow}>
-            <Text style={[styles.price, { color: colors.text }]}>
-              {priceLabel}
-            </Text>
+            <Text style={styles.price}>{priceLabel}</Text>
             {soldCount > 0 && (
               <Text style={[styles.sold, { color: colors.textMuted }]}>
                 {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} продано
               </Text>
             )}
           </View>
+
           {originalPrice ? (
             <Text style={[styles.oldPrice, { color: colors.textMuted }]}>
               {formatPrice(originalPrice)}
             </Text>
           ) : null}
         </View>
+
       </Pressable>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: Radius.card,
-    overflow: 'hidden',
-    marginBottom: 10,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 3,
-  },
-  imageBox: {
+  imageCard: {
     width: '100%',
     aspectRatio: 3 / 4,
+    borderRadius: 14,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
   },
   image: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
     width: '100%',
     height: '100%',
-  },
-  imageGradient: {
-    position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    height: 48,
-    // React Native doesn't support CSS gradients directly — use a semi-transparent overlay
-    backgroundColor: 'rgba(0,0,0,0.12)',
   },
   discountBadge: {
     position: 'absolute',
@@ -226,33 +171,35 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 6,
   },
+  // Text info outside the card — no background, clean
   info: {
-    paddingHorizontal: 10,
-    paddingTop: 9,
-    paddingBottom: 11,
-    gap: 3,
+    paddingHorizontal: 2,
+    paddingTop: 8,
+    gap: 2,
   },
   company: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
+    marginBottom: 1,
   },
   name: {
     fontSize: 13,
     fontWeight: '500',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 6,
-    marginTop: 2,
+    marginTop: 3,
   },
   price: {
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.4,
+    color: '#E8472A',
   },
   sold: {
     fontSize: 10,
@@ -261,5 +208,6 @@ const styles = StyleSheet.create({
   oldPrice: {
     fontSize: 11,
     textDecorationLine: 'line-through',
+    marginTop: 1,
   },
 });
