@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,10 +15,21 @@ import { getImageUrl } from '../../utils/imageUrl';
 export default function ProductCard({ product, onPress, onFavorite, isFavorite }) {
   const { colors, isDark } = useTheme();
   const [imgError, setImgError] = useState(false);
+  const [imgIdx, setImgIdx] = useState(0);
   const heartScale = useRef(new Animated.Value(1)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
 
-  const imageUri = getImageUrl(product.images?.[0]);
+  const imageList = Array.isArray(product.images) ? product.images : [];
+  // Автосмена фото в карточке каждые 6 сек, если фото несколько
+  useEffect(() => {
+    if (imageList.length <= 1) return;
+    const t = setInterval(() => {
+      setImgIdx(prev => (prev + 1) % imageList.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [imageList.length]);
+
+  const imageUri = getImageUrl(imageList[imgIdx] || imageList[0]);
 
   const displayPrice = product.discountedPrice || product.sellingPrice || product.price;
   const originalPrice = product.discountedPrice ? (product.sellingPrice || product.price) : null;

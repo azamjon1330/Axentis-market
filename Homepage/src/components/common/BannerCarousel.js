@@ -3,12 +3,13 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Image, Dimensions, Linking, Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { getImageUrl } from '../../utils/imageUrl';
 
 const { width: SW } = Dimensions.get('window');
 const W = SW - 32;
 const H = 164;
-const INTERVAL = 5000;
+const INTERVAL = 10000;
 
 const PLACEHOLDERS = [
   { id: 'a', title: 'Скидки до 50%', sub: 'На электронику и гаджеты', bg: '#1F6FEB' },
@@ -17,6 +18,7 @@ const PLACEHOLDERS = [
 ];
 
 export default function BannerCarousel({ ads }) {
+  const navigation = useNavigation();
   const ref = useRef(null);
   const [idx, setIdx] = useState(0);
   const idxRef = useRef(0);
@@ -53,8 +55,15 @@ export default function BannerCarousel({ ads }) {
       >
         {slides
           ? slides.map((ad) => {
-              const uri = getImageUrl(ad.imageUrl);
+              const uri = getImageUrl(ad.imageUrl || ad.productImage);
+              // Реклама товара → переход на карточку товара; иначе → внешняя ссылка.
+              const isProductAd = ad.adType === 'product' && ad.productId;
+              const tappable = isProductAd || !!ad.linkUrl;
               const handlePress = async () => {
+                if (isProductAd) {
+                  navigation.navigate('ProductDetail', { productId: ad.productId });
+                  return;
+                }
                 if (!ad.linkUrl) return;
                 try {
                   const canOpen = await Linking.canOpenURL(ad.linkUrl);
@@ -70,8 +79,8 @@ export default function BannerCarousel({ ads }) {
               return (
                 <TouchableOpacity
                   key={String(ad.id)}
-                  activeOpacity={ad.linkUrl ? 0.85 : 1}
-                  onPress={ad.linkUrl ? handlePress : undefined}
+                  activeOpacity={tappable ? 0.85 : 1}
+                  onPress={tappable ? handlePress : undefined}
                   style={[styles.slide, { backgroundColor: '#1F6FEB' }]}
                 >
                   {uri ? <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}

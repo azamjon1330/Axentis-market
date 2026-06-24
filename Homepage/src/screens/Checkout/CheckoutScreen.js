@@ -120,9 +120,11 @@ export default function CheckoutScreen() {
   const deliveryCost = useMemo(() => {
     if (!deliveryCoords || !companyInfo?.latitude || !companyInfo?.longitude) return 0;
     const dist = haversineKm(companyInfo.latitude, companyInfo.longitude, deliveryCoords.lat, deliveryCoords.lng);
-    const radius = companyInfo.deliveryRadius ?? DEFAULT_FREE_RADIUS_KM;
+    // Бесплатный радиус и цена за км задаются самой компанией
+    const radius = companyInfo.deliveryRadiusKm ?? companyInfo.deliveryRadius ?? DEFAULT_FREE_RADIUS_KM;
+    const perKm = companyInfo.deliveryCostPerKm ?? DELIVERY_COST_PER_KM;
     if (dist <= radius) return 0;
-    return Math.ceil(dist - radius) * DELIVERY_COST_PER_KM;
+    return Math.ceil(dist - radius) * perKm;
   }, [deliveryCoords, companyInfo]);
 
   const formatPrice = (p) => `${p.toLocaleString('ru-RU')} сум`;

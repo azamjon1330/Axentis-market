@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { getOrderDetail, createReturn } from '../../api';
+import { getOrderDetail, createReturn, getCompanyDetail } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
 
 const STATUS_CONFIG = {
@@ -28,6 +28,7 @@ export default function OrderDetailScreen() {
   const { orderId } = route.params;
 
   const [order, setOrder] = useState(null);
+  const [company, setCompany] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // ↩️ Возврат: форма причины + статус отправки
@@ -63,7 +64,12 @@ export default function OrderDetailScreen() {
 
   useEffect(() => {
     getOrderDetail(orderId)
-      .then(setOrder)
+      .then((o) => {
+        setOrder(o);
+        if (o?.companyId) {
+          getCompanyDetail(o.companyId).then(setCompany).catch(() => {});
+        }
+      })
       .catch(() => setOrder(null))
       .finally(() => setIsLoading(false));
   }, [orderId]);
@@ -87,6 +93,17 @@ export default function OrderDetailScreen() {
   const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
   const orderItems = Array.isArray(order.items) ? order.items : [];
   const PROGRESS_STEPS = ['Оформлен', 'Подтверждён', 'В пути', 'Доставлен'];
+
+  // Возврат разрешён политикой компании: включён + статус доставлен/выполнен + не истёк срок
+  const returnEnabled = company ? company.returnEnabled !== false : true;
+  const returnWindowHours = company?.returnWindowHours ?? 24;
+  const isDeliveredOrDone = order.status === 'delivered' || order.status === 'completed';
+  const hoursSinceOrder = order.createdAt
+    ? (Date.now() - new Date(order.createdAt).getTime()) / 3_600_000
+    : 0;
+  const withinWindow = returnWindowHours <= 0 || hoursSinceOrder <= returnWindowHours;
+  const canReturn = returnEnabled && isDeliveredOrDone && withinWindow;
+  const returnWindowExpired = returnEnabled && isDeliveredOrDone && !withinWindow;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -213,11 +230,14 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
-        {/* ↩️ Возврат — доступен после доставки заказа */}
-        {order.status === 'delivered' && !returnRequested && (
+        {/* ↩️ Возврат — по политике компании (включён + в течение N часов) */}
+        {canReturn && !returnRequested && (
           showReturnForm ? (
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Оформить возврат</Text>
+              <Text style={[styles.infoText, { color: colors.textMuted }]}>
+                Возврат возможен в течение {returnWindowHours} ч после заказа
+              </Text>
               <TextInput
                 value={returnReason}
                 onChangeText={setReturnReason}
@@ -260,6 +280,22 @@ export default function OrderDetailScreen() {
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <Ionicons name="checkmark-circle-outline" size={22} color="#4CAF50" />
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>Заявка на возврат отправлена продавцу</Text>
+          </View>
+        )}
+
+        {returnWindowExpired && !returnRequested && (
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <Ionicons name="time-outline" size={20} color={colors.textMuted} />
+            <Text style={[styles.infoText, { color: colors.textMuted }]}>
+              Срок возврата истёк ({returnWindowHours} ч после заказа)
+            </Text>
+          </View>
+        )}
+
+        {isDeliveredOrDone && !returnEnabled && (
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
+            <Text style={[styles.infoText, { color: colors.textMuted }]}>Эта компания не принимает возвраты</Text>
           </View>
         )}
 

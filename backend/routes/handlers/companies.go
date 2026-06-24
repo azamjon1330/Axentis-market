@@ -188,15 +188,20 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			DeliveryRadiusKm    sql.NullFloat64
 			DeliveryRadiusLat   sql.NullFloat64
 			DeliveryRadiusLng   sql.NullFloat64
+			DeliveryCostPerKm   sql.NullFloat64
+			ReturnEnabled       sql.NullBool
+			ReturnWindowHours   sql.NullInt64
 		}
 
 		err := db.QueryRow(`
 			SELECT id, name, phone, mode, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled,
-			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng
+			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng,
+			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24)
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
 			&company.LogoURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
-			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng)
+			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng,
+			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
@@ -237,6 +242,9 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 		if company.DeliveryRadiusLng.Valid {
 			result["deliveryRadiusLng"] = company.DeliveryRadiusLng.Float64
 		}
+		result["deliveryCostPerKm"] = company.DeliveryCostPerKm.Float64
+		result["returnEnabled"] = company.ReturnEnabled.Bool
+		result["returnWindowHours"] = company.ReturnWindowHours.Int64
 
 		// Получаем средний рейтинг компании
 		var avgRating float64
@@ -306,6 +314,9 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 			DeliveryRadiusKm    *float64 `json:"deliveryRadiusKm"`
 			DeliveryRadiusLat   *float64 `json:"deliveryRadiusLat"`
 			DeliveryRadiusLng   *float64 `json:"deliveryRadiusLng"`
+			DeliveryCostPerKm   *float64 `json:"deliveryCostPerKm"`
+			ReturnEnabled       *bool    `json:"returnEnabled"`
+			ReturnWindowHours   *int     `json:"returnWindowHours"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -386,6 +397,21 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 		if req.DeliveryRadiusLng != nil {
 			query += fmt.Sprintf(", delivery_radius_lng = $%d", argCount)
 			args = append(args, *req.DeliveryRadiusLng)
+			argCount++
+		}
+		if req.DeliveryCostPerKm != nil {
+			query += fmt.Sprintf(", delivery_cost_per_km = $%d", argCount)
+			args = append(args, *req.DeliveryCostPerKm)
+			argCount++
+		}
+		if req.ReturnEnabled != nil {
+			query += fmt.Sprintf(", return_enabled = $%d", argCount)
+			args = append(args, *req.ReturnEnabled)
+			argCount++
+		}
+		if req.ReturnWindowHours != nil {
+			query += fmt.Sprintf(", return_window_hours = $%d", argCount)
+			args = append(args, *req.ReturnWindowHours)
 			argCount++
 		}
 

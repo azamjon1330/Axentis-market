@@ -253,9 +253,31 @@ export const savePushToken = async (phone, token) => {
 };
 
 // ─── Ads ──────────────────────────────────────────────────────────────────────
+// Бэкенд отдаёт snake_case — приводим к единому camelCase, иначе картинки/ссылки
+// и переход на товар в баннере не работают.
+const mapAd = (a) => ({
+  id: a.id,
+  title: a.title,
+  content: a.content ?? a.caption ?? '',
+  imageUrl: a.image_url ?? a.imageUrl ?? null,
+  linkUrl: a.link_url ?? a.linkUrl ?? null,
+  adType: a.ad_type ?? a.adType ?? 'company',
+  companyId: a.company_id ?? a.companyId ?? null,
+  productId: a.product_id ?? a.productId ?? null,
+  productImage: a.product_image ?? a.productImage ?? null,
+});
+
 export const getAds = async () => {
   const res = await api.get(ENDPOINTS.ads);
-  return Array.isArray(res.data) ? res.data : (res.data?.ads || []);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.ads || []);
+  return raw.map(mapAd);
+};
+
+// Одобренные рекламные баннеры для главного экрана.
+export const getApprovedAds = async () => {
+  const res = await api.get(ENDPOINTS.ads);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.ads || []);
+  return raw.map(mapAd);
 };
 
 // ─── Discounts ────────────────────────────────────────────────────────────────

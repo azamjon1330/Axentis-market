@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -35,6 +36,39 @@ func CreateReturn(db *sql.DB) gin.HandlerFunc {
 			var cid int64
 			if err := db.QueryRow(`SELECT company_id FROM orders WHERE id = $1`, *req.OrderID).Scan(&cid); err == nil {
 				req.CompanyID = &cid
+			}
+		}
+
+		// Enforce the company's own return policy (enabled + time window).
+		if req.OrderID != nil && req.CompanyID != nil {
+			var (
+				retEnabled   bool
+				windowHours  int
+				orderCreated time.Time
+			)
+			policyErr := db.QueryRow(`
+				SELECT COALESCE(return_enabled, true), COALESCE(return_window_hours, 24)
+				FROM companies WHERE id = $1`, *req.CompanyID).Scan(&retEnabled, &windowHours)
+			if policyErr == nil {
+				if !retEnabled {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Эта компания не принимает возвраты"})
+					return
+				}
+				if err := db.QueryRow(`SELECT created_at FROM orders WHERE id = $1`, *req.OrderID).Scan(&orderCreated); err == nil {
+					if windowHours > 0 && time.Since(orderCreated) > time.Duration(windowHours)*time.Hour {
+						c.JSON(http.StatusForbidden, gin.H{
+							"error": fmt.Sprintf("Срок возврата истёк (возврат возможен в течение %d ч после заказа)", windowHours),
+						})
+						return
+					}
+				}
+				// Prevent duplicate open requests for the same order.
+				var existing int
+				_ = db.QueryRow(`SELECT COUNT(*) FROM order_returns WHERE order_id = $1 AND status IN ('requested','approved')`, *req.OrderID).Scan(&existing)
+				if existing > 0 {
+					c.JSON(http.StatusConflict, gin.H{"error": "Заявка на возврат по этому заказу уже существует"})
+					return
+				}
 			}
 		}
 

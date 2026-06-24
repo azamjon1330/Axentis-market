@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView, Image,
-  FlatList, Dimensions, ActivityIndicator, Alert, Share, TextInput,
+  FlatList, Dimensions, ActivityIndicator, Alert, Share, TextInput, Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,13 +52,28 @@ export default function ProductDetailScreen() {
   const [newQuestion, setNewQuestion] = useState('');
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [imgErrors, setImgErrors] = useState({});
+  const [zoomVisible, setZoomVisible] = useState(false);
   const imgRef = useRef(null);
+  const imgIndexRef = useRef(0);
 
   const inCart = items.some(i => i.productId === productId);
 
   useEffect(() => {
     loadAll();
   }, [productId]);
+
+  // Автопрокрутка фото товара каждые 6 сек, если фото больше одного
+  useEffect(() => {
+    const count = product?.images?.length || 0;
+    if (count <= 1 || zoomVisible) return;
+    const t = setInterval(() => {
+      const next = (imgIndexRef.current + 1) % count;
+      imgIndexRef.current = next;
+      setImgIndex(next);
+      imgRef.current?.scrollTo({ x: next * width, animated: true });
+    }, 6000);
+    return () => clearInterval(t);
+  }, [product?.images?.length, zoomVisible]);
 
   const loadAll = async () => {
     setIsLoading(true);
@@ -325,22 +340,25 @@ export default function ProductDetailScreen() {
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 onMomentumScrollEnd={(e) => {
-                  setImgIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+                  const i = Math.round(e.nativeEvent.contentOffset.x / width);
+                  imgIndexRef.current = i;
+                  setImgIndex(i);
                 }}
               >
                 {images.map((img, i) => (
                   imgErrors[i] ? (
-                    <View key={i} style={[styles.noImg, { width }]}>
+                    <View key={i} style={[styles.noImg, { width, height: width }]}>
                       <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
                     </View>
                   ) : (
-                    <Image
-                      key={i}
-                      source={{ uri: getImageUrl(img) || '' }}
-                      style={[styles.mainImg, { width }]}
-                      resizeMode="contain"
-                      onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
-                    />
+                    <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setZoomVisible(true)}>
+                      <Image
+                        source={{ uri: getImageUrl(img) || '' }}
+                        style={[styles.mainImg, { width, height: width }]}
+                        resizeMode="cover"
+                        onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
+                      />
+                    </TouchableOpacity>
                   )
                 ))}
               </ScrollView>
@@ -360,7 +378,7 @@ export default function ProductDetailScreen() {
               )}
             </>
           ) : (
-            <View style={[styles.noImg, { width }]}>
+            <View style={[styles.noImg, { width, height: width }]}>
               <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
             </View>
           )}
@@ -849,6 +867,39 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Полноэкранный просмотр фото товара с увеличением */}
+      <Modal visible={zoomVisible} transparent animationType="fade" onRequestClose={() => setZoomVisible(false)}>
+        <View style={styles.zoomBackdrop}>
+          <TouchableOpacity style={styles.zoomClose} onPress={() => setZoomVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="close" size={28} color="#FFF" />
+          </TouchableOpacity>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            contentOffset={{ x: imgIndex * width, y: 0 }}
+          >
+            {(product?.images || []).map((img, i) => (
+              <ScrollView
+                key={i}
+                style={{ width, height: '100%' }}
+                contentContainerStyle={styles.zoomPage}
+                maximumZoomScale={3}
+                minimumZoomScale={1}
+                showsVerticalScrollIndicator={false}
+                centerContent
+              >
+                <Image
+                  source={{ uri: getImageUrl(img) || '' }}
+                  style={{ width, height: width }}
+                  resizeMode="contain"
+                />
+              </ScrollView>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -864,8 +915,16 @@ const styles = StyleSheet.create({
   topBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   topActions: { flexDirection: 'row', gap: 8 },
   imgGallery: { paddingTop: 100 },
-  mainImg: { height: 300 },
-  noImg: { height: 300, alignItems: 'center', justifyContent: 'center' },
+  mainImg: { height: width },
+  noImg: { height: width, alignItems: 'center', justifyContent: 'center' },
+  zoomBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center' },
+  zoomClose: {
+    position: 'absolute', top: 50, right: 20, zIndex: 10,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  zoomPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
   imgDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 12 },
   imgDot: { width: 6, height: 6, borderRadius: 3 },
   badges: { position: 'absolute', top: 110, left: 16, flexDirection: 'row', gap: 6 },
