@@ -49,6 +49,7 @@ export const ENDPOINTS = {
   companySubscribe: (id) => `/companies/${id}/subscribe`,
   companyUnsubscribe: (id) => `/companies/${id}/unsubscribe`,
   companyStats: (id) => `/companies/${id}/stats`,
+  userFrequentLocations: (phone) => `/users/${phone}/frequent-locations`,
   userAddresses: (phone) => `/users/${phone}/addresses`,
   userAddressDetail: (phone, id) => `/users/${phone}/addresses/${id}`,
   userAddressDefault: (phone, id) => `/users/${phone}/addresses/${id}/default`,

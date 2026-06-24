@@ -190,6 +190,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.POST("/:phone/increment-views", handlers.IncrementProfileViews(db))
 			users.GET("/:phone/default-delivery-address", handlers.GetUserDefaultDeliveryAddress(db)) // 📍 Адрес доставки по умолчанию
 			// Delivery addresses (multiple saved locations)
+			users.GET("/:phone/frequent-locations", handlers.GetFrequentLocations(db)) // 📍 Частые места доставки (топ-3)
 			users.GET("/:phone/addresses", handlers.GetUserAddresses(db))
 			users.POST("/:phone/addresses", handlers.AddUserAddress(db))
 			users.PUT("/:phone/addresses/:id", handlers.UpdateUserAddress(db))

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -162,6 +163,73 @@ func DeleteUserAddress(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
+	}
+}
+
+// FrequentLocation is a delivery destination the customer uses often.
+type frequentLocation struct {
+	Address     string   `json:"address"`
+	Coordinates string   `json:"coordinates"`
+	Latitude    *float64 `json:"latitude"`
+	Longitude   *float64 `json:"longitude"`
+	Count       int      `json:"count"`
+}
+
+// GetFrequentLocations GET /api/users/:phone/frequent-locations
+// Returns up to 3 most frequently used delivery destinations for the customer,
+// derived from their order history. Lets the app suggest "frequent markers".
+func GetFrequentLocations(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		phone := c.Param("phone")
+
+		// Group delivery orders by address, prefer the most common coordinates
+		// for that address, and rank by how often the customer ordered there.
+		rows, err := db.Query(`
+			SELECT addr,
+			       (ARRAY_AGG(coords ORDER BY coords_rank DESC))[1] AS coords,
+			       SUM(cnt)::INT AS total
+			FROM (
+				SELECT TRIM(delivery_address)        AS addr,
+				       COALESCE(delivery_coordinates, '') AS coords,
+				       COUNT(*)                        AS cnt,
+				       COUNT(*)                        AS coords_rank
+				FROM orders
+				WHERE customer_phone = $1
+				  AND delivery_type = 'delivery'
+				  AND delivery_address IS NOT NULL
+				  AND TRIM(delivery_address) <> ''
+				GROUP BY TRIM(delivery_address), COALESCE(delivery_coordinates, '')
+			) t
+			GROUP BY addr
+			ORDER BY total DESC, addr ASC
+			LIMIT 3`, phone)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer rows.Close()
+
+		list := []frequentLocation{}
+		for rows.Next() {
+			var loc frequentLocation
+			if err := rows.Scan(&loc.Address, &loc.Coordinates, &loc.Count); err != nil {
+				continue
+			}
+			// Parse "lat,lng" into numeric fields for convenience on the client.
+			if loc.Coordinates != "" {
+				parts := strings.SplitN(loc.Coordinates, ",", 2)
+				if len(parts) == 2 {
+					if lat, e1 := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64); e1 == nil {
+						if lng, e2 := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64); e2 == nil {
+							loc.Latitude = &lat
+							loc.Longitude = &lng
+						}
+					}
+				}
+			}
+			list = append(list, loc)
+		}
+		c.JSON(http.StatusOK, list)
 	}
 }
 

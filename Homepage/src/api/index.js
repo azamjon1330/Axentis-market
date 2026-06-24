@@ -343,6 +343,12 @@ export const setDefaultAddress = async (phone, id) => {
   return res.data;
 };
 
+// 📍 Частые места доставки (топ-3 из истории заказов)
+export const getFrequentLocations = async (phone) => {
+  const res = await api.get(ENDPOINTS.userFrequentLocations(phone));
+  return Array.isArray(res.data) ? res.data : [];
+};
+
 // ─── ❓ Вопросы к товару ────────────────────────────────────────────────────────
 export const getProductQuestions = async (productId) => {
   const res = await api.get(ENDPOINTS.productQuestions(productId));

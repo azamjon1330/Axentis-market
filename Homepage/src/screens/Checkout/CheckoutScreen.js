@@ -9,7 +9,15 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
-import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail } from '../../api';
+import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail, getUserAddresses, getFrequentLocations } from '../../api';
+
+// Парсит строку координат "lat,lng" в объект { lat, lng }
+function parseCoords(str) {
+  if (!str || typeof str !== 'string') return null;
+  const [lat, lng] = str.split(',').map(s => parseFloat(s.trim()));
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+  return null;
+}
 
 const STEPS = ['Доставка', 'Оплата', 'Подтверждение'];
 const DELIVERY_COST_PER_KM = 1500;
@@ -47,8 +55,11 @@ export default function CheckoutScreen() {
   const [paymentMethod, setPaymentMethod] = useState('card');
   const [isPlacing, setIsPlacing] = useState(false);
 
-  const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const [deliveryCoords, setDeliveryCoords] = useState(() => parseCoords(user?.defaultDeliveryCoordinates));
   const [companyInfo, setCompanyInfo] = useState(null);
+
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [frequentLocations, setFrequentLocations] = useState([]);
 
   const [savedCards, setSavedCards] = useState([]);
   const [selectedCard, setSelectedCard] = useState(null);
@@ -77,6 +88,21 @@ export default function CheckoutScreen() {
       getCompanyDetail(companyId).then(setCompanyInfo).catch(() => {});
     }
   }, [items]);
+
+  // Загружаем сохранённые адреса и частые места доставки для быстрого выбора
+  useEffect(() => {
+    if (!user?.phone) return;
+    getUserAddresses(user.phone).then(setSavedAddresses).catch(() => {});
+    getFrequentLocations(user.phone).then(setFrequentLocations).catch(() => {});
+  }, [user?.phone]);
+
+  // Если у пользователя сохранён адрес по умолчанию с координатами — подставляем сразу
+  useEffect(() => {
+    if (!deliveryCoords && user?.defaultDeliveryCoordinates) {
+      const c = parseCoords(user.defaultDeliveryCoordinates);
+      if (c) setDeliveryCoords(c);
+    }
+  }, [user?.defaultDeliveryCoordinates]);
 
   useEffect(() => {
     if (!user) return;
@@ -118,6 +144,49 @@ export default function CheckoutScreen() {
       initialCoords: deliveryCoords ?? undefined,
     });
   };
+
+  // Быстрый выбор адреса из сохранённых / частых мест
+  const selectLocation = (addr, lat, lng) => {
+    setAddress(addr || '');
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      setDeliveryCoords({ lat, lng });
+    } else {
+      setDeliveryCoords(null);
+    }
+  };
+
+  // Объединяем сохранённые адреса и частые места без дублей (по тексту адреса)
+  const locationSuggestions = useMemo(() => {
+    const seen = new Set();
+    const out = [];
+    for (const a of savedAddresses) {
+      const key = (a.address || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        id: `saved-${a.id}`,
+        title: a.title || (a.isDefault ? 'По умолчанию' : 'Сохранённый адрес'),
+        address: a.address,
+        lat: a.latitude,
+        lng: a.longitude,
+        icon: a.isDefault ? 'star' : 'bookmark',
+      });
+    }
+    for (const f of frequentLocations) {
+      const key = (f.address || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        id: `freq-${key}`,
+        title: `Частое место${f.count ? ` · ${f.count} зак.` : ''}`,
+        address: f.address,
+        lat: f.latitude,
+        lng: f.longitude,
+        icon: 'time',
+      });
+    }
+    return out.slice(0, 6);
+  }, [savedAddresses, frequentLocations]);
 
   const openInMaps = () => {
     if (deliveryCoords) {
@@ -291,6 +360,40 @@ export default function CheckoutScreen() {
                 </Text>
               </View>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
+
+              {locationSuggestions.length > 0 && (
+                <View style={styles.suggestList}>
+                  {locationSuggestions.map(s => {
+                    const active = address.trim() === (s.address || '').trim();
+                    return (
+                      <TouchableOpacity
+                        key={s.id}
+                        style={[
+                          styles.suggestRow,
+                          {
+                            borderColor: active ? colors.primary : colors.border,
+                            backgroundColor: active ? colors.primary + '10' : colors.inputBg,
+                          },
+                        ]}
+                        onPress={() => selectLocation(s.address, s.lat, s.lng)}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name={s.icon} size={16} color={active ? colors.primary : colors.textSecondary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.suggestTitle, { color: active ? colors.primary : colors.textSecondary }]}>
+                            {s.title}
+                          </Text>
+                          <Text style={[styles.suggestAddr, { color: colors.text }]} numberOfLines={1}>
+                            {s.address}
+                          </Text>
+                        </View>
+                        {active && <Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
               <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <Ionicons name="location-outline" size={18} color={colors.textSecondary} />
                 <TextInput
@@ -301,13 +404,27 @@ export default function CheckoutScreen() {
                   placeholderTextColor={colors.textMuted}
                   multiline
                 />
-                <TouchableOpacity
-                  onPress={handlePickLocation}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="map-outline" size={22} color={colors.primary} />
-                </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={[styles.mapPickBtn, { borderColor: colors.primary + '60', backgroundColor: colors.primary + '08' }]}
+                onPress={handlePickLocation}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="map" size={18} color={colors.primary} />
+                <Text style={[styles.mapPickText, { color: colors.primary }]}>
+                  {deliveryCoords ? 'Изменить место на карте' : 'Выбрать место на карте'}
+                </Text>
+              </TouchableOpacity>
+
+              {deliveryCoords && (
+                <View style={styles.coordsConfirmRow}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.success || '#4CAF50'} />
+                  <Text style={[styles.coordsConfirmText, { color: colors.textSecondary }]}>
+                    Точка на карте выбрана ({deliveryCoords.lat.toFixed(4)}, {deliveryCoords.lng.toFixed(4)})
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -759,6 +876,31 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   input: { flex: 1, fontSize: 15 },
+  suggestList: { gap: 8 },
+  suggestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  suggestTitle: { fontSize: 11, fontWeight: '600' },
+  suggestAddr: { fontSize: 14, marginTop: 1 },
+  mapPickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    paddingVertical: 12,
+  },
+  mapPickText: { fontSize: 14, fontWeight: '600' },
+  coordsConfirmRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  coordsConfirmText: { fontSize: 12, flex: 1 },
   optionRow: {
     flexDirection: 'row',
     alignItems: 'center',
