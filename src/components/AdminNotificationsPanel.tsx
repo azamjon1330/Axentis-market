@@ -1,7 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Users, User, Search, X, CheckCircle, AlertCircle, Bell } from 'lucide-react';
+import { getAuthToken } from '../utils/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+// Заголовки с токеном администратора — эндпоинт /notifications/send защищён RequireAdmin,
+// без Authorization сервер отвечал 401 и уведомления не отправлялись.
+const authHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
 interface UserItem {
   phone: string;
@@ -79,7 +89,7 @@ export default function AdminNotificationsPanel() {
     try {
       const response = await fetch(`${API_URL}/notifications/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify({
           title: title.trim(),
           message: message.trim(),

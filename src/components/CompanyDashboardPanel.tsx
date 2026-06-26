@@ -113,7 +113,7 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     sum: isUz ? 'soʻm' : 'сум',
     salesChart: isUz ? 'Sotuv dinamikasi' : 'Динамика продаж',
     allOrders: isUz ? 'Barchasi' : 'Все заказы',
-    statusDist: isUz ? 'Statuses' : 'Статусы заказов',
+    statusDist: isUz ? 'Buyurtma holatlari' : 'Статусы заказов',
   };
 
   const statusLabel: Record<string, string> = isUz ? {

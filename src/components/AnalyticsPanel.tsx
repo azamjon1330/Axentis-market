@@ -861,14 +861,61 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           {/* ========== ЗАГОЛОВОК + СЕЛЕКТОР ПЕРИОДА ========== */}
           <div className="flex flex-wrap items-center justify-between gap-3 max-w-7xl mx-auto mb-4">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-gray-500" />
-              <h4 className="text-base font-semibold text-gray-800">{t.periodAnalysis}</h4>
+              <Calendar className="w-5 h-5" style={{ color: '#8B8BAA' }} />
+              <h4 className="text-base font-semibold" style={{ color: '#FFFFFF' }}>{t.periodAnalysis}</h4>
             </div>
             <CompactPeriodSelector
               value={financialTimePeriod}
               onChange={setFinancialTimePeriod}
             />
           </div>
+
+          {/* 🎯 Выбор произвольного периода (от одного дня до нескольких лет) */}
+          {financialTimePeriod === 'custom' && (
+            <div className="max-w-7xl mx-auto mb-4" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: 16 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 12, color: '#8B8BAA', fontWeight: 600 }}>
+                    {language === 'uz' ? 'Boshlanish sanasi' : 'Дата начала'}
+                  </label>
+                  <input
+                    type="date"
+                    value={financialStartDate ? financialStartDate.toISOString().slice(0, 10) : ''}
+                    max={financialEndDate ? financialEndDate.toISOString().slice(0, 10) : undefined}
+                    onChange={(e) => setFinancialStartDate(e.target.value ? new Date(e.target.value) : null)}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 10px', color: '#FFFFFF', fontSize: 14, colorScheme: 'dark' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <label style={{ fontSize: 12, color: '#8B8BAA', fontWeight: 600 }}>
+                    {language === 'uz' ? 'Tugash sanasi' : 'Дата конца'}
+                  </label>
+                  <input
+                    type="date"
+                    value={financialEndDate ? financialEndDate.toISOString().slice(0, 10) : ''}
+                    min={financialStartDate ? financialStartDate.toISOString().slice(0, 10) : undefined}
+                    onChange={(e) => setFinancialEndDate(e.target.value ? new Date(e.target.value) : null)}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 10px', color: '#FFFFFF', fontSize: 14, colorScheme: 'dark' }}
+                  />
+                </div>
+                {(financialStartDate || financialEndDate) && (
+                  <button
+                    onClick={() => { setFinancialStartDate(null); setFinancialEndDate(null); }}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 14px', color: '#8B8BAA', fontSize: 13, cursor: 'pointer' }}
+                  >
+                    {language === 'uz' ? 'Tozalash' : 'Сбросить'}
+                  </button>
+                )}
+              </div>
+              {!(financialStartDate && financialEndDate) && (
+                <p style={{ fontSize: 12, color: '#8B8BAA', marginTop: 10 }}>
+                  {language === 'uz'
+                    ? 'Bir kundan bir necha yilgacha — boshlanish va tugash sanasini tanlang.'
+                    : 'Выберите дату начала и конца — можно один день или несколько лет.'}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ═══════════════════════════════════════════════════════
                3 ПАНЕЛИ: ПРИБЫЛЬ / ЗАТРАТЫ / ИТОГОВЫЙ БАЛАНС
@@ -960,61 +1007,23 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
               border: '1px solid rgba(255,255,255,0.07)',
               boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
             }}>
-              {/* Header + legend + info tooltip */}
+              {/* Header + legend — только сумма (заработано), текущий и предыдущий период */}
               <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                 <div>
                   <h3 style={{ color: '#FFFFFF', fontSize: '20px', fontWeight: 700, margin: '0 0 12px 0' }}>
-                    {language === 'uz' ? 'Buyurtmalar & Daromad' : 'Заказы & Выручка'}
+                    {language === 'uz' ? 'Daromad' : 'Выручка'}
                   </h3>
                   <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8B8BAA', fontSize: '13px' }}>
                       <span style={{ width: 24, height: 3, background: '#7C5CF0', display: 'inline-block', borderRadius: 2 }} />
-                      {language === 'uz' ? 'Buyurtmalar — joriy davr' : 'Заказы — текущий период'}
+                      {language === 'uz' ? 'Joriy davr' : 'Текущий период'}
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8B8BAA', fontSize: '13px' }}>
-                      <span style={{ width: 24, height: 3, background: '#5B3DD4', display: 'inline-block', borderRadius: 2, borderTop: '2px dashed #5B3DD4', marginTop: 0 }} />
-                      {language === 'uz' ? 'Buyurtmalar — oldingi davr' : 'Заказы — пред. период'}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8B8BAA', fontSize: '13px' }}>
-                      <span style={{ width: 24, height: 3, background: '#7C5CF0', display: 'inline-block', borderRadius: 2 }} />
-                      {language === 'uz' ? "Daromad — joriy davr" : 'Выручка — текущий период'}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8B8BAA', fontSize: '13px' }}>
-                      <span style={{ width: 24, height: 3, background: '#5B3DD4', display: 'inline-block', borderRadius: 2 }} />
-                      {language === 'uz' ? "Daromad — oldingi davr" : 'Выручка — пред. период'}
-                    </span>
-                  </div>
-                </div>
-                {/* ℹ️ Hover tooltip */}
-                <div style={{ position: 'relative', display: 'inline-block' }} className="group">
-                  <div style={{
-                    width: 28, height: 28, borderRadius: '50%',
-                    background: 'rgba(124,92,240,0.2)', border: '1.5px solid rgba(124,92,240,0.5)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', color: '#7C5CF0', fontSize: 14, fontWeight: 700, userSelect: 'none',
-                  }}>?</div>
-                  <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                    style={{
-                      position: 'absolute', right: 0, top: 36, width: 320, zIndex: 50,
-                      background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 12,
-                      padding: '14px 16px', color: '#FFFFFF', fontSize: 12, lineHeight: '1.6',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                    }}>
-                    <div style={{ fontWeight: 700, marginBottom: 8, color: '#7C5CF0' }}>
-                      {language === 'uz' ? 'Diagramma haqida' : 'О диаграмме'}
-                    </div>
-                    <div style={{ marginBottom: 6 }}>
-                      <span style={{ color: '#7C5CF0' }}>━━</span> {language === 'uz' ? 'Joriy davrdagi buyurtmalar soni (chap shkala)' : 'Количество заказов в текущем периоде (левая шкала)'}
-                    </div>
-                    <div style={{ marginBottom: 6 }}>
-                      <span style={{ color: '#5B3DD4' }}>╌╌</span> {language === 'uz' ? 'Oldingi davr buyurtmalari (taqqoslash uchun)' : 'Заказы предыдущего периода (для сравнения)'}
-                    </div>
-                    <div style={{ marginBottom: 6 }}>
-                      <span style={{ color: '#7C5CF0' }}>━━</span> {language === 'uz' ? 'Joriy davr daromadi (o\'ng shkala)' : 'Выручка текущего периода (правая шкала)'}
-                    </div>
-                    <div>
-                      <span style={{ color: '#5B3DD4' }}>╌╌</span> {language === 'uz' ? 'Oldingi davr daromadi (taqqoslash)' : 'Выручка предыдущего периода (сравнение)'}
-                    </div>
+                    {financialTimePeriod !== 'all' && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#8B8BAA', fontSize: '13px' }}>
+                        <span style={{ width: 24, height: 3, background: '#5B3DD4', display: 'inline-block', borderRadius: 2, borderTop: '2px dashed #5B3DD4' }} />
+                        {language === 'uz' ? 'Oldingi davr' : 'Предыдущий период'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1041,29 +1050,15 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="period" tick={{ fill: '#5A5A78', fontSize: 10 }} axisLine={{ stroke: '#5A5A78' }} tickLine={false} interval="preserveStartEnd" />
-                  {/* Left Y-axis: orders */}
-                  <YAxis yAxisId="ord" orientation="left" tick={{ fill: '#5A5A78', fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
-                  {/* Right Y-axis: revenue */}
-                  <YAxis yAxisId="rev" orientation="right" tick={{ fill: '#5A5A78', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={58} />
+                  {/* Единственная шкала — заработанная сумма */}
+                  <YAxis yAxisId="rev" orientation="left" tick={{ fill: '#5A5A78', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={58} />
                   <Tooltip
                     contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: '12px', color: '#FFFFFF', fontSize: '13px' }}
                     labelStyle={{ color: '#8B8BAA', marginBottom: '6px' }}
                     formatter={(value: number, name: string) => {
-                      if (name === 'ordCurrent' || name === 'ordPrevious')
-                        return [`${value} ${language === 'uz' ? 'ta' : 'шт'}`, name === 'ordCurrent' ? (language === 'uz' ? 'Buyurtmalar' : 'Заказы') : (language === 'uz' ? 'Oldingi davr' : 'Пред. период')];
-                      return [formatPrice(value), name === 'revCurrent' ? (language === 'uz' ? 'Daromad' : 'Выручка') : (language === 'uz' ? 'Oldingi davr' : 'Пред. период')];
+                      return [formatPrice(value), name === 'revCurrent' ? (language === 'uz' ? 'Joriy davr' : 'Текущий период') : (language === 'uz' ? 'Oldingi davr' : 'Предыдущий период')];
                     }}
                   />
-                  <Area yAxisId="ord" type="monotone" dataKey="ordCurrent" stroke="#7C5CF0" strokeWidth={2.5} fill="url(#ordCurGrad)"
-                    dot={false} activeDot={{ r: 5, fill: '#7C5CF0', stroke: '#FFFFFF', strokeWidth: 2 }}
-                    animationDuration={1100} animationEasing="ease-out" legendType="none"
-                  />
-                  {financialTimePeriod !== 'all' && (
-                    <Area yAxisId="ord" type="monotone" dataKey="ordPrevious" stroke="#5B3DD4" strokeWidth={1.5} strokeDasharray="5 4" fill="url(#ordPrevGrad)"
-                      dot={false} activeDot={{ r: 3, fill: '#5B3DD4' }}
-                      animationDuration={1300} animationEasing="ease-out" legendType="none"
-                    />
-                  )}
                   <Area yAxisId="rev" type="monotone" dataKey="revCurrent" stroke="#7C5CF0" strokeWidth={2.5} fill="rgba(124,92,240,0.2)"
                     dot={false} activeDot={{ r: 5, fill: '#7C5CF0', stroke: '#FFFFFF', strokeWidth: 2 }}
                     animationDuration={1100} animationEasing="ease-out" legendType="none"
@@ -1079,38 +1074,8 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             </div>
           </div>
 
-          {/* BarChart + Financial Pie row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, marginBottom: 24 }}>
-            {/* Bar Chart: Top Products by Revenue */}
-            <div style={{ background: 'var(--ax-card)', borderRadius: 16, padding: '24px', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <h3 style={{ color: '#FFFFFF', fontSize: 18, fontWeight: 700, marginBottom: 20 }}>
-                {language === 'uz' ? "Eng ko'p sotilgan mahsulotlar" : 'Топ продаваемых товаров'}
-              </h3>
-              {getTopProductsData().length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={getTopProductsData()} margin={{ top: 0, right: 8, left: 0, bottom: 44 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fill: '#5A5A78', fontSize: 10 }} axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
-                    <YAxis tick={{ fill: '#5A5A78', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => formatShortPrice(v)} width={54} />
-                    <Tooltip
-                      contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 12, color: '#FFFFFF', fontSize: 13 }}
-                      formatter={(value: number) => [formatPrice(value), language === 'uz' ? 'Daromad' : 'Выручка']}
-                    />
-                    <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
-                      {getTopProductsData().map((_, index) => (
-                        <Cell key={index} fill={index === 0 ? '#7C5CF0' : index === 1 ? '#5B3DD4' : `rgba(124,92,240,${0.65 - index * 0.08})`} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div style={{ height: 220, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#5A5A78' }}>
-                  <TrendingUp style={{ width: 36, height: 36, opacity: 0.3 }} />
-                  <span style={{ fontSize: 13 }}>{language === 'uz' ? "Maʼlumot yoʼq" : 'Нет данных о продажах'}</span>
-                </div>
-              )}
-            </div>
-
+          {/* Financial Pie row (диаграмма «Топ продаваемых товаров» убрана по запросу) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20, marginBottom: 24 }}>
             {/* Financial Breakdown Pie */}
             {(() => {
               const totalExpenses = inventoryCost + customExpenses;

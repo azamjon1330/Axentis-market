@@ -232,7 +232,7 @@ export default function ProfileScreen() {
           activeOpacity={1}
           onPress={() => setShowLangModal(false)}
         >
-          <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+          <TouchableOpacity activeOpacity={1} style={[styles.modalSheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
             <Text style={[styles.modalTitle, { color: colors.text }]}>{t('language')}</Text>
             {langOptions.map((opt) => {
@@ -255,7 +255,7 @@ export default function ProfileScreen() {
               );
             })}
             <View style={{ height: 20 }} />
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -306,8 +306,15 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 15, fontWeight: '600' },
   version: { textAlign: 'center', fontSize: 12, marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalSheet: { borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet, padding: 20, paddingTop: 12, gap: 10 },
+  // Прозрачный backdrop — не затемняем весь экран чёрным прямоугольником,
+  // лист просто всплывает снизу до конца своего контента.
+  modalOverlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'flex-end' },
+  modalSheet: {
+    borderTopLeftRadius: Radius.sheet, borderTopRightRadius: Radius.sheet,
+    padding: 20, paddingTop: 12, gap: 10,
+    borderWidth: 1, borderBottomWidth: 0,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: -6 }, elevation: 24,
+  },
   modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   langOption: {
