@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, RotateCcw, LayoutDashboard, MessageCircleQuestion, Truck } from 'lucide-react';
+import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, RotateCcw, LayoutDashboard, MessageCircleQuestion, Truck, Settings } from 'lucide-react';
 import CompanyDashboardPanel from './CompanyDashboardPanel';
 import CompanyQuestionsPanel from './CompanyQuestionsPanel';
 import { DigitalWarehouse } from './DigitalWarehouse';
@@ -12,6 +12,7 @@ import CompanyDiscountsManager from './CompanyDiscountsManager';
 import CompanyReturnsPanel from './CompanyReturnsPanel';
 import CompanyInboxPanel from './CompanyInboxPanel';
 import CouriersManagementPanel from './CouriersManagementPanel';
+import CompanySettingsPanel from './CompanySettingsPanel';
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { useTheme } from '../utils/ThemeContext';
@@ -31,7 +32,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions' | 'couriers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions' | 'couriers' | 'settings'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -92,7 +93,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions', 'couriers'];
+    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions', 'couriers', 'settings'];
     const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'dashboard';
 
     const currentState = window.history.state || {};
@@ -136,6 +137,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'returns' as const,    icon: RotateCcw,    label: language === 'uz' ? 'Qaytarishlar' : 'Возвраты' },
     { key: 'questions' as const,  icon: MessageCircleQuestion, label: language === 'uz' ? 'Savollar' : 'Вопросы' },
     { key: 'couriers' as const,   icon: Truck,                label: language === 'uz' ? 'Kuryerlar' : 'Курьеры' },
+    { key: 'settings' as const,   icon: Settings,             label: language === 'uz' ? 'Sozlamalar' : 'Настройки' },
   ];
 
   return (
@@ -381,6 +383,8 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'dashboard' && (language === 'uz' ? 'Boshqaruv' : 'Дашборд')}
                 {activeTab === 'returns' && (language === 'uz' ? 'Qaytarishlar' : 'Возвраты')}
                 {activeTab === 'questions' && (language === 'uz' ? 'Savollar' : 'Вопросы')}
+                {activeTab === 'couriers' && (language === 'uz' ? 'Kuryerlar' : 'Курьеры')}
+                {activeTab === 'settings' && (language === 'uz' ? 'Sozlamalar' : 'Настройки')}
               </h1>
             </div>
 
@@ -429,6 +433,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'returns' && <CompanyReturnsPanel companyId={companyId} />}
           {activeTab === 'questions' && <CompanyQuestionsPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'couriers' && <CouriersManagementPanel companyId={companyId} />}
+          {activeTab === 'settings' && <CompanySettingsPanel companyId={companyId} companyName={companyName} />}
         </div>
       </main>
 

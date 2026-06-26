@@ -274,10 +274,16 @@ export const getAds = async () => {
 };
 
 // Одобренные рекламные баннеры для главного экрана.
+// ВАЖНО: запрашиваем только status=approved, иначе бэкенд (без фильтра) отдаёт
+// вообще все объявления, включая удалённые (status='deleted') и ожидающие —
+// из-за чего удалённая в админ-панели реклама не исчезала в приложении.
 export const getApprovedAds = async () => {
-  const res = await api.get(ENDPOINTS.ads);
+  const res = await api.get(ENDPOINTS.ads, { params: { status: 'approved' } });
   const raw = Array.isArray(res.data) ? res.data : (res.data?.ads || []);
-  return raw.map(mapAd);
+  // Доп. защита на стороне клиента — отбрасываем всё, что не одобрено.
+  return raw
+    .filter((a) => (a.status ?? 'approved') === 'approved')
+    .map(mapAd);
 };
 
 // ─── Discounts ────────────────────────────────────────────────────────────────

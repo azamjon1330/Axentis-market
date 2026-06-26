@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -105,8 +106,10 @@ func GetUserCart(db *sql.DB) gin.HandlerFunc {
 			if err != nil {
 				continue
 			}
-			// Парсим JSON массив изображений (упрощенно)
-			item.ProductImages = []string{}
+			// Парсим JSON массив изображений товара.
+			// В БД images хранятся либо как массив строк ["/uploads/.."],
+			// либо как массив объектов [{"url":"/uploads/.."}]. Поддерживаем оба.
+			item.ProductImages = parseProductImages(imagesJSON)
 			items = append(items, item)
 		}
 
@@ -446,4 +449,35 @@ func GetCartCount(db *sql.DB) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{"count": count})
 	}
+}
+
+// parseProductImages разбирает JSON-поле images товара в массив URL строк.
+// Поддерживает два формата хранения: ["url", ...] и [{"url": "..."}, ...].
+func parseProductImages(imagesJSON string) []string {
+	result := []string{}
+	if imagesJSON == "" || imagesJSON == "[]" || imagesJSON == "null" {
+		return result
+	}
+	// 1) Пробуем как массив строк
+	var asStrings []string
+	if err := json.Unmarshal([]byte(imagesJSON), &asStrings); err == nil {
+		for _, s := range asStrings {
+			if s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+	// 2) Пробуем как массив объектов { url }
+	var asObjects []struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal([]byte(imagesJSON), &asObjects); err == nil {
+		for _, o := range asObjects {
+			if o.URL != "" {
+				result = append(result, o.URL)
+			}
+		}
+	}
+	return result
 }

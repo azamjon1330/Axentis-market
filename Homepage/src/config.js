@@ -4,6 +4,12 @@ export const API_BASE_URL = `${API_HOST}/api`;
 export const UPLOADS_BASE_URL = `${API_HOST}/uploads`;
 export const SOCKET_URL = API_HOST;
 
+// 🗺️ Карта выбора адреса использует тайлы Google Maps через Leaflet.
+// Для тайлов ключ не нужен. Если указать ключ Google Geocoding API ниже —
+// поиск адреса будет работать через Google (точнее, чем OpenStreetMap).
+// Без ключа поиск использует OpenStreetMap/Nominatim с привязкой к Узбекистану.
+export const GOOGLE_MAPS_API_KEY = '';
+
 export const APP_CONFIG = {
   name: 'Axentis Market',
   version: '1.0.0',

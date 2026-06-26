@@ -25,6 +25,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { getProducts, getCategories, getApprovedAds } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
+import CategoryIcon from '../../components/common/CategoryIcon';
 import { SectionHeader, Chip } from '../../components/ui';
 import { Spacing, Radius, Typography } from '../../constants/theme';
 
@@ -165,20 +166,6 @@ export default function HomeScreen() {
   const HORIZONTAL_PADDING = 12;
   const cardWidth = (width - HORIZONTAL_PADDING * 2 - CARD_GAP) / 2;
 
-  const CATEGORY_ICONS = {
-    'Электроника': 'phone-portrait-outline',
-    'Бытовая техника': 'tv-outline',
-    'Телефоны и гаджеты': 'phone-portrait-outline',
-    'Компьютеры и ноутбуки': 'laptop-outline',
-    'Для дома': 'home-outline',
-    'Одежда и обувь': 'shirt-outline',
-    'Красота и здоровье': 'heart-outline',
-    'Детские товары': 'happy-outline',
-    'Спорт и отдых': 'fitness-outline',
-    'Автотовары': 'car-outline',
-  };
-  const getIcon = name => CATEGORY_ICONS[name] || 'grid-outline';
-
   // Ad banner carousel — shown at the top of the feed (hidden while searching or
   // filtering by category, and when there are no approved ads).
   const ListHeader = useMemo(() => {
@@ -274,7 +261,7 @@ export default function HomeScreen() {
               label={cat.name}
               active={activeCategory === cat.name}
               onPress={() => setActiveCategory(activeCategory === cat.name ? null : cat.name)}
-              icon={getIcon(cat.name)}
+              category={cat}
             />
           ))}
         </ScrollView>
@@ -383,7 +370,7 @@ export default function HomeScreen() {
               activeOpacity={0.7}
             >
               <View style={[styles.drawerIconBox, { backgroundColor: colors.primary + '15' }]}>
-                <Ionicons name={getIcon(item.name)} size={20} color={colors.primary} />
+                <CategoryIcon category={item} size={20} color={colors.primary} />
               </View>
               <Text style={[styles.drawerRowText, { color: colors.text }]}>{item.name}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

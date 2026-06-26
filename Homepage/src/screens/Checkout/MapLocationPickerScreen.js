@@ -11,11 +11,12 @@ import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { addUserAddress } from '../../api';
+import { GOOGLE_MAPS_API_KEY } from '../../config';
 
 // Ташкент по умолчанию
 const DEFAULT_CENTER = { lat: 41.311081, lng: 69.240562 };
 
-// HTML с интерактивной картой Leaflet (OpenStreetMap).
+// HTML с интерактивной картой Leaflet, использующей тайлы Google Maps.
 // Пользователь может двигать карту, тапать по карте или перетаскивать маркер —
 // выбранная точка отправляется обратно в React Native через postMessage.
 function buildMapHtml(center) {
@@ -46,9 +47,11 @@ function buildMapHtml(center) {
 
     var map = L.map('map', { zoomControl: true, attributionControl: true }).setView([startLat, startLng], 16);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
+    // Тайлы Google Maps (дорожная схема, на русском). Ключ для тайлов не требуется.
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&hl=ru&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['0', '1', '2', '3'],
+      attribution: '© Google'
     }).addTo(map);
 
     var marker = L.marker([startLat, startLng], { draggable: true }).addTo(map);
@@ -138,18 +141,45 @@ export default function MapLocationPickerScreen() {
     }
   };
 
+  // Поиск адреса. При наличии ключа — через Google Geocoding (точнее),
+  // иначе через OpenStreetMap/Nominatim с привязкой к Узбекистану.
+  const searchViaGoogle = async (q) => {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}`
+      + `&language=ru&region=uz&components=country:UZ&key=${GOOGLE_MAPS_API_KEY}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json.status === 'OK' && json.results?.length > 0) {
+      const loc = json.results[0].geometry.location;
+      return { lat: loc.lat, lng: loc.lng };
+    }
+    return null;
+  };
+
+  const searchViaNominatim = async (q) => {
+    // viewbox + bounded + countrycodes=uz сильно повышают релевантность по Узбекистану
+    const viewbox = '55.9,45.6,73.2,37.1'; // примерные границы Узбекистана (left,top,right,bottom)
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1`
+      + `&countrycodes=uz&viewbox=${viewbox}&bounded=1&q=${encodeURIComponent(q)}`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'ru' } });
+    const json = await res.json();
+    if (Array.isArray(json) && json.length > 0) {
+      return { lat: parseFloat(json[0].lat), lng: parseFloat(json[0].lon) };
+    }
+    return null;
+  };
+
   const handleSearch = async () => {
     const q = search.trim();
     if (!q) return;
     setSearching(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
-        { headers: { 'Accept-Language': 'ru' } },
-      );
-      const json = await res.json();
-      if (Array.isArray(json) && json.length > 0) {
-        centerMapTo(parseFloat(json[0].lat), parseFloat(json[0].lon), 16);
+      let found = null;
+      if (GOOGLE_MAPS_API_KEY) {
+        try { found = await searchViaGoogle(q); } catch { /* fallback ниже */ }
+      }
+      if (!found) found = await searchViaNominatim(q);
+      if (found) {
+        centerMapTo(found.lat, found.lng, 16);
       } else {
         Alert.alert('Не найдено', 'По вашему запросу ничего не найдено.');
       }
