@@ -693,6 +693,17 @@ export const companies = {
     });
   },
 
+  // Upload cover (фоновое фото магазина)
+  uploadCover: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return apiCall(`/companies/${id}/upload-cover`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   // Approve company (admin only)
   approve: async (id: string, approved: boolean) => {
     return apiCall(`/companies/${id}/approve`, {
