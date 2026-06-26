@@ -1055,6 +1055,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   <Tooltip
                     contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: '12px', color: '#FFFFFF', fontSize: '13px' }}
                     labelStyle={{ color: '#8B8BAA', marginBottom: '6px' }}
+                    itemStyle={{ color: '#FFFFFF' }}
                     formatter={(value: number, name: string) => {
                       return [formatPrice(value), name === 'revCurrent' ? (language === 'uz' ? 'Joriy davr' : 'Текущий период') : (language === 'uz' ? 'Oldingi davr' : 'Предыдущий период')];
                     }}
@@ -1102,6 +1103,8 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                           </Pie>
                           <Tooltip
                             contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 10, color: '#FFFFFF', fontSize: 12 }}
+                            itemStyle={{ color: '#FFFFFF' }}
+                            labelStyle={{ color: '#FFFFFF' }}
                             formatter={(value: number, name: string) => [formatPrice(value), name]}
                           />
                         </PieChart>

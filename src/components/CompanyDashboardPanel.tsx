@@ -268,7 +268,7 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
                           <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number) => [`${v} шт`, '']} contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 8, color: '#fff' }} />
+                      <Tooltip formatter={(v: number) => [`${v} ${isUz ? 'ta' : 'шт'}`, '']} contentStyle={{ background: '#13132A', border: '1px solid rgba(124,92,240,0.4)', borderRadius: 8, color: '#fff' }} itemStyle={{ color: '#fff' }} labelStyle={{ color: '#fff' }} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', padding: '0 16px' }}>
