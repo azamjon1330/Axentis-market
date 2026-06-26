@@ -8,7 +8,7 @@ export const SOCKET_URL = API_HOST;
 // Для тайлов ключ не нужен. Если указать ключ Google Geocoding API ниже —
 // поиск адреса будет работать через Google (точнее, чем OpenStreetMap).
 // Без ключа поиск использует OpenStreetMap/Nominatim с привязкой к Узбекистану.
-export const GOOGLE_MAPS_API_KEY = '';
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyCKxDzmnrnLTr21SY4BTKAQqegjvNzRbiU';
 
 export const APP_CONFIG = {
   name: 'Axentis Market',
