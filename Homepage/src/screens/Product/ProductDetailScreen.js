@@ -21,33 +21,6 @@ import ProductCard from '../../components/common/ProductCard';
 
 const { width } = Dimensions.get('window');
 
-// Сопоставление названия цвета (ru/uz/en) с HEX для кружка-образца в выборе цвета.
-const COLOR_HEX = {
-  black: '#111111', чёрный: '#111111', черный: '#111111', qora: '#111111',
-  white: '#F5F5F5', белый: '#F5F5F5', oq: '#F5F5F5',
-  grey: '#9AA0A6', gray: '#9AA0A6', серый: '#9AA0A6', kulrang: '#9AA0A6',
-  silver: '#C8CDD2', серебристый: '#C8CDD2',
-  gold: '#E6C36B', золотой: '#E6C36B', oltin: '#E6C36B',
-  blue: '#2F6BFF', синий: '#2F6BFF', голубой: '#4DA3FF', koʻk: '#2F6BFF', kok: '#2F6BFF',
-  red: '#E8472A', красный: '#E8472A', qizil: '#E8472A',
-  green: '#22C55E', зелёный: '#22C55E', зеленый: '#22C55E', yashil: '#22C55E',
-  purple: '#7C5CF0', фиолетовый: '#7C5CF0', siyohrang: '#7C5CF0',
-  pink: '#FF6FA5', розовый: '#FF6FA5', pushti: '#FF6FA5',
-  yellow: '#F5C518', жёлтый: '#F5C518', желтый: '#F5C518', sariq: '#F5C518',
-  orange: '#FF8A33', оранжевый: '#FF8A33',
-  titanium: '#8E8E93', титан: '#8E8E93', графит: '#3A3A3C', graphite: '#3A3A3C',
-};
-const colorToHex = (name) => {
-  if (!name) return null;
-  const key = String(name).trim().toLowerCase();
-  if (COLOR_HEX[key]) return COLOR_HEX[key];
-  // частичное совпадение (например "тёмно-синий", "natural titanium")
-  for (const k of Object.keys(COLOR_HEX)) {
-    if (key.includes(k)) return COLOR_HEX[k];
-  }
-  return null;
-};
-
 export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
@@ -493,7 +466,6 @@ export default function ProductDetailScreen() {
                   <View style={styles.chipRow}>
                     {uniqueColors.map((c) => {
                       const isSel = selectedColor === c;
-                      const hex = colorToHex(c);
                       return (
                         <TouchableOpacity
                           key={c}
@@ -508,7 +480,6 @@ export default function ProductDetailScreen() {
                           ]}
                           activeOpacity={0.75}
                         >
-                          <View style={[styles.colorSwatch, { backgroundColor: hex || colors.border, borderColor: colors.border }]} />
                           <Text style={[styles.colorChipText, { color: colors.text }]} numberOfLines={1}>{c}</Text>
                         </TouchableOpacity>
                       );
@@ -1028,10 +999,9 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
   chipText: { fontSize: 14, fontWeight: '600' },
   chipSub: { fontSize: 10, marginTop: 1 },
-  // Цвет: пилюля с кружком-образцом
-  colorChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14 },
-  colorSwatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
-  colorChipText: { fontSize: 14, fontWeight: '600' },
+  // Цвет: текстовая пилюля (без образца цвета — только текст)
+  colorChip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 11, borderRadius: 14 },
+  colorChipText: { fontSize: 15, fontWeight: '600' },
   // Память/размер: пилюля с ценой снизу
   sizeChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, alignItems: 'flex-start', minWidth: 96 },
   sizeChipText: { fontSize: 15, fontWeight: '700' },

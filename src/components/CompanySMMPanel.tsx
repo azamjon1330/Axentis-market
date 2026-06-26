@@ -344,57 +344,54 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         <div className={responsive.spacing}>
           {/* Профиль компании с логотипом */}
           <div className={`${responsive.card} overflow-hidden`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
-            {/* Фоновое (обложка) фото магазина */}
+            {/* Фоновое (обложка) фото магазина — весь блок кликабелен для загрузки */}
             <div className="mb-6">
-              <div
-                className="relative w-full rounded-2xl overflow-hidden border"
+              <label
+                className="relative block w-full rounded-2xl overflow-hidden border cursor-pointer group"
                 style={{ aspectRatio: '3 / 1', background: 'linear-gradient(135deg, #1b2440, #0f1730)', borderColor: 'rgba(255,255,255,0.07)' }}
               >
                 {coverImage ? (
                   <img src={coverImage} alt="Обложка магазина" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-1" style={{ color: '#8B8BAA' }}>
-                    <Upload className="w-6 h-6" />
-                    <span className="text-sm">{language === 'uz' ? 'Fon rasmi yoʻq' : 'Фоновое фото не загружено'}</span>
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ color: '#8B8BAA' }}>
+                    <Upload className="w-7 h-7" />
+                    <span className="text-sm font-medium">{language === 'uz' ? 'Fon rasmini yuklash uchun bosing' : 'Нажмите, чтобы загрузить фоновое фото'}</span>
                   </div>
                 )}
-                {/* Загрузка фона доступна всегда (без режима редактирования) */}
-                {(
-                  <label
-                    className="absolute bottom-3 right-3 flex items-center gap-2 bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg cursor-pointer hover:bg-black/75 transition-colors text-sm font-medium"
-                  >
-                    {uploadingCover ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    {language === 'uz' ? 'Fon rasmni yuklash' : 'Загрузить фон'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      disabled={uploadingCover}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (file.size > 5 * 1024 * 1024) {
-                          toast.error(language === 'uz' ? 'Rasm 5 MB dan oshmasligi kerak' : 'Файл должен быть не больше 5 МБ');
-                          return;
-                        }
-                        try {
-                          setUploadingCover(true);
-                          toast.loading(language === 'uz' ? 'Yuklanmoqda…' : 'Загрузка…', { id: 'upload-cover' });
-                          const res = await api.companies.uploadCover(companyId.toString(), file);
-                          toast.success(language === 'uz' ? 'Fon rasmi yuklandi' : 'Фоновое фото загружено', { id: 'upload-cover' });
-                          setCoverImage(getImageUrl(res?.cover_url || '') || '');
-                          await loadCompanyProfile();
-                        } catch (error) {
-                          console.error('❌ Ошибка загрузки обложки:', error);
-                          toast.error(language === 'uz' ? 'Yuklashda xatolik' : 'Ошибка загрузки фона', { id: 'upload-cover' });
-                        } finally {
-                          setUploadingCover(false);
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
+                <span className="absolute bottom-3 right-3 flex items-center gap-2 bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium pointer-events-none">
+                  {uploadingCover ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {coverImage
+                    ? (language === 'uz' ? 'Almashtirish' : 'Заменить фон')
+                    : (language === 'uz' ? 'Fon rasmni yuklash' : 'Загрузить фон')}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  disabled={uploadingCover}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error(language === 'uz' ? 'Rasm 5 MB dan oshmasligi kerak' : 'Файл должен быть не больше 5 МБ');
+                      return;
+                    }
+                    try {
+                      setUploadingCover(true);
+                      toast.loading(language === 'uz' ? 'Yuklanmoqda…' : 'Загрузка…', { id: 'upload-cover' });
+                      const res = await api.companies.uploadCover(companyId.toString(), file);
+                      toast.success(language === 'uz' ? 'Fon rasmi yuklandi' : 'Фоновое фото загружено', { id: 'upload-cover' });
+                      setCoverImage(getImageUrl(res?.cover_url || '') || '');
+                      await loadCompanyProfile();
+                    } catch (error) {
+                      console.error('❌ Ошибка загрузки обложки:', error);
+                      toast.error(language === 'uz' ? 'Yuklashda xatolik' : 'Ошибка загрузки фона', { id: 'upload-cover' });
+                    } finally {
+                      setUploadingCover(false);
+                    }
+                  }}
+                />
+              </label>
               <p className="mt-2 text-xs" style={{ color: '#8B8BAA' }}>
                 {language === 'uz'
                   ? 'Tavsiya etiladi: 1200×400 px (3:1), JPG yoki PNG, 5 MB gacha. Bu rasm magazin sahifasida logotip orqasida koʻrinadi.'
