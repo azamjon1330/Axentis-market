@@ -60,7 +60,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
-					       c.name as company_name
+					       c.name as company_name,
+					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -80,7 +81,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       ) as selling_price,
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
-					       c.name as company_name
+					       c.name as company_name,
+					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -144,6 +146,7 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				CreatedAt             string
 				UpdatedAt             string
 				CompanyName           sql.NullString
+				CompanyRating         sql.NullFloat64
 				InventoryCost         sql.NullFloat64
 			}
 
@@ -154,7 +157,7 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 					&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 					&p.HasColorOptions, &p.AvailableForCustomers,
-					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName)
+					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName, &p.CompanyRating)
 			} else {
 				// Без company_name, но с inventory_cost
 				err = rows.Scan(&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
@@ -179,6 +182,9 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 
 			if p.CompanyName.Valid {
 				product["companyName"] = p.CompanyName.String
+			}
+			if p.CompanyRating.Valid {
+				product["companyRating"] = p.CompanyRating.Float64
 			}
 			if p.MarkupPercent.Valid {
 				product["markupPercent"] = p.MarkupPercent.Float64

@@ -505,7 +505,6 @@ export default function ProductDetailScreen() {
             <View style={styles.variantSection}>
               {uniqueColors.length > 0 && (
                 <View style={{ marginBottom: 12 }}>
-                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Цвет:</Text>
                   <View style={styles.chipRow}>
                     {uniqueColors.map((c) => (
                       <TouchableOpacity
@@ -529,7 +528,6 @@ export default function ProductDetailScreen() {
 
               {sizesForColor(selectedColor).length > 0 && (
                 <View>
-                  <Text style={[styles.variantLabel, { color: colors.textSecondary }]}>Размер:</Text>
                   <View style={styles.chipRow}>
                     {sizesForColor(selectedColor).map((s) => {
                       const v = variants.find(vv => vv.color === selectedColor && vv.size === s)
@@ -634,7 +632,9 @@ export default function ProductDetailScreen() {
                     <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>
                       {company?.name || product.companyName || `Магазин #${product.companyId}`}
                     </Text>
-                    <Ionicons name="checkmark-circle" size={16} color="#3B82F6" />
+                    {Number(company?.averageRating || 0) >= 4.5 && (
+                      <Ionicons name="checkmark-circle" size={16} color="#3B82F6" />
+                    )}
                   </View>
                   {company?.ratingCount > 0 ? (
                     <View style={styles.companyMetaRow}>
@@ -661,7 +661,7 @@ export default function ProductDetailScreen() {
           ) : null}
 
           {user && reviews.filter(r => r.userPhone === user.phone).length < 2 ? (
-            <View style={[styles.writeReviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.writeReviewCard}>
               <Text style={[styles.writeReviewTitle, { color: colors.text }]}>Оставить отзыв</Text>
               <Text style={[styles.writeReviewSub, { color: colors.textMuted }]}>
                 Ваш отзыв поможет другим покупателям сделать правильный выбор
@@ -1046,7 +1046,7 @@ const styles = StyleSheet.create({
   companyMetaText: { fontSize: 12, marginTop: 2 },
   companyAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   companyAllBtnText: { fontSize: 13, fontWeight: '700' },
-  writeReviewCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+  writeReviewCard: { paddingVertical: 8, marginBottom: 16 },
   writeReviewTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
   writeReviewSub: { fontSize: 12.5, lineHeight: 18, marginBottom: 14 },
   ratingBlock: { marginBottom: 14 },

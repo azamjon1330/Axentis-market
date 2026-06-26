@@ -40,6 +40,8 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
   const hasVariants = product.hasColorOptions;
   const soldCount = product.sold_count ?? product.soldCount ?? 0;
   const companyName = product.company_name || product.companyName;
+  const companyRating = Number(product.companyRating ?? product.company_rating ?? 0);
+  const companyVerified = companyRating >= 4.5;
 
   const formatPrice = p => `${(p || 0).toLocaleString('ru-RU')} сум`;
   const priceLabel = hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
@@ -116,9 +118,14 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
         <View style={styles.info}>
           {/* В компактном режиме (похожие товары) компанию не показываем */}
           {!compact && companyName ? (
-            <Text style={[styles.company, { color: colors.textSecondary }]} numberOfLines={1}>
-              {companyName}
-            </Text>
+            <View style={styles.companyRow}>
+              <Text style={[styles.company, { color: colors.textSecondary }]} numberOfLines={1}>
+                {companyName}
+              </Text>
+              {companyVerified && (
+                <Ionicons name="checkmark-circle" size={12} color="#3B82F6" />
+              )}
+            </View>
           ) : null}
 
           <Text
@@ -196,12 +203,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     gap: 2,
   },
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 1 },
   company: {
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.3,
     textTransform: 'uppercase',
-    marginBottom: 1,
+    flexShrink: 1,
   },
   name: {
     fontSize: 13,

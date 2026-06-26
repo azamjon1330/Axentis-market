@@ -313,6 +313,29 @@ export const getCompanyStats = async (id) => {
   return res.data;
 };
 
+// Отзыв + оценка магазина
+export const rateCompany = async (companyId, { userPhone, userName, rating, comment }) => {
+  const res = await api.post(`${ENDPOINTS.companyDetail(companyId)}/rate`, {
+    user_phone: userPhone,
+    user_name: userName,
+    rating,
+    comment: comment || '',
+  });
+  return res.data;
+};
+
+export const getCompanyReviews = async (companyId) => {
+  const res = await api.get(`${ENDPOINTS.companyDetail(companyId)}/reviews`);
+  const raw = Array.isArray(res.data) ? res.data : (res.data?.reviews || []);
+  return raw.map((r) => ({
+    userName: r.user_name ?? r.userName ?? '',
+    userPhone: r.user_phone ?? r.userPhone ?? '',
+    rating: r.rating ?? 0,
+    comment: r.comment ?? '',
+    createdAt: r.created_at ?? r.createdAt ?? '',
+  }));
+};
+
 export const subscribeToCompany = async (companyId, userPhone) => {
   await api.post(ENDPOINTS.companySubscribe(companyId), { user_phone: userPhone });
 };

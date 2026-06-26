@@ -354,7 +354,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
       {/* Header & Filters */}
       <div className={`${responsive.card}`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-4">
-          <h2 className={`${responsive.subheading} font-bold text-gray-800 flex items-center ${responsive.gap}`}>
+          <h2 className={`${responsive.subheading} font-bold flex items-center ${responsive.gap}`} style={{ color: 'var(--ax-text)' }}>
             <Receipt className={responsive.icon} />
             {isMobile ? t.orders : t.customerOrders}
             <span className={`bg-blue-100 text-blue-800 ${responsive.small} py-0.5 px-2 rounded-full`}>
@@ -373,8 +373,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         {/* Period Selector */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <span className={`${responsive.small} font-medium text-gray-600`}>
+            <Calendar className="w-4 h-4" style={{ color: 'var(--ax-text-2)' }} />
+            <span className={`${responsive.small} font-medium`} style={{ color: 'var(--ax-text-2)' }}>
               {language === 'uz' ? 'Davr' : 'Период'}
             </span>
           </div>
@@ -400,7 +400,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
         {periodFilter === 'custom' && (
           <div className="flex gap-2 mb-3">
             <div className="flex-1">
-              <label className={`${responsive.small} text-gray-500 block mb-1`}>{language === 'uz' ? 'Boshidan' : 'С даты'}</label>
+              <label className={`${responsive.small} block mb-1`} style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Boshidan' : 'С даты'}</label>
               <input
                 type="date"
                 value={periodStartDate ? periodStartDate.toISOString().split('T')[0] : ''}
@@ -409,7 +409,7 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
               />
             </div>
             <div className="flex-1">
-              <label className={`${responsive.small} text-gray-500 block mb-1`}>{language === 'uz' ? 'Gacha' : 'По дату'}</label>
+              <label className={`${responsive.small} block mb-1`} style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Gacha' : 'По дату'}</label>
               <input
                 type="date"
                 value={periodEndDate ? periodEndDate.toISOString().split('T')[0] : ''}
@@ -835,10 +835,10 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
           <div className="mt-2">{mapPanel}</div>
         </>
       ) : (
-        // Desktop: side-by-side (orders left, map right)
+        // Desktop: side-by-side (orders left, map right) — карта пропорционально сжимается
         <div className="flex gap-4 items-start">
           <div className="flex-1 min-w-0">{orderListPanel}</div>
-          <div style={{ width: 520, flexShrink: 0, alignSelf: 'stretch' }}>
+          <div style={{ width: 'min(42%, 520px)', minWidth: 320, flexShrink: 0, alignSelf: 'stretch' }}>
             {mapPanel}
           </div>
         </div>

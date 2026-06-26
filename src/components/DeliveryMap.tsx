@@ -39,9 +39,12 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         attributionControl: true,
       }).setView([defaultCenter.lat, defaultCenter.lng], 13);
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
-        maxZoom: 19,
+      // Тайлы Google Maps через Leaflet (для тайлов ключ не нужен) — единый
+      // стиль с мобильным приложением и более привычный вид.
+      L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&hl=ru&x={x}&y={y}&z={z}', {
+        attribution: '© Google',
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 20,
       }).addTo(map);
 
       // Company marker (blue dot) — only when company coords are available
@@ -96,7 +99,7 @@ export default function DeliveryMap({ companyCoords, deliveryCoords, companyAddr
         try {
           const query = encodeURIComponent(deliveryAddress.trim());
           const resp = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+            `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=uz`,
             { headers: { 'Accept-Language': 'ru' } }
           );
           if (resp.ok) {

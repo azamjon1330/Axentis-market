@@ -1059,7 +1059,9 @@ func RateCompany(db *sql.DB) gin.HandlerFunc {
 
 		var req struct {
 			UserPhone string `json:"user_phone" binding:"required"`
+			UserName  string `json:"user_name"`
 			Rating    int    `json:"rating" binding:"required,min=1,max=5"`
+			Comment   string `json:"comment"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -1071,13 +1073,13 @@ func RateCompany(db *sql.DB) gin.HandlerFunc {
 		log.Printf("⭐ RateCompany called for company %s by user %s (rating: %d)",
 			companyIDStr, req.UserPhone, req.Rating)
 
-		// Вставляем или обновляем оценку
+		// Вставляем или обновляем оценку + отзыв
 		_, err := db.Exec(`
-			INSERT INTO company_ratings (company_id, user_phone, rating, updated_at) 
-			VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-			ON CONFLICT (company_id, user_phone) 
-			DO UPDATE SET rating = $3, updated_at = CURRENT_TIMESTAMP
-		`, companyIDStr, req.UserPhone, req.Rating)
+			INSERT INTO company_ratings (company_id, user_phone, user_name, rating, comment, updated_at)
+			VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+			ON CONFLICT (company_id, user_phone)
+			DO UPDATE SET rating = $4, comment = $5, user_name = $3, updated_at = CURRENT_TIMESTAMP
+		`, companyIDStr, req.UserPhone, req.UserName, req.Rating, req.Comment)
 
 		if err != nil {
 			log.Printf("❌ RateCompany: Failed to save rating: %v", err)
@@ -1106,5 +1108,49 @@ func RateCompany(db *sql.DB) gin.HandlerFunc {
 			"averageRating": avgRating,
 			"ratingCount":   ratingCount,
 		})
+	}
+}
+
+// GetCompanyReviews — список отзывов магазина (оценки с текстом).
+func GetCompanyReviews(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Param("id")
+
+		rows, err := db.Query(`
+			SELECT COALESCE(user_name, '') AS user_name,
+			       user_phone,
+			       rating,
+			       COALESCE(comment, '') AS comment,
+			       COALESCE(updated_at, created_at) AS created_at
+			FROM company_ratings
+			WHERE company_id = $1 AND COALESCE(comment, '') <> ''
+			ORDER BY COALESCE(updated_at, created_at) DESC
+			LIMIT 100
+		`, companyID)
+		if err != nil {
+			log.Printf("❌ GetCompanyReviews: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load reviews"})
+			return
+		}
+		defer rows.Close()
+
+		reviews := make([]gin.H, 0)
+		for rows.Next() {
+			var userName, userPhone, comment string
+			var rating int
+			var createdAt time.Time
+			if err := rows.Scan(&userName, &userPhone, &rating, &comment, &createdAt); err != nil {
+				continue
+			}
+			reviews = append(reviews, gin.H{
+				"user_name":  userName,
+				"user_phone": userPhone,
+				"rating":     rating,
+				"comment":    comment,
+				"created_at": createdAt,
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{"reviews": reviews})
 	}
 }

@@ -133,6 +133,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.PUT("/:id/delivery", middleware.RequireCompany(cfg), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
+			companies.GET("/:id/reviews", handlers.GetCompanyReviews(db)) // 💬 Отзывы магазина
 		}
 
 		// Sales routes
