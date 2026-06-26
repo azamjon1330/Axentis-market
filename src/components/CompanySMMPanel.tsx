@@ -358,7 +358,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                     <span className="text-sm">{language === 'uz' ? 'Fon rasmi yoʻq' : 'Фоновое фото не загружено'}</span>
                   </div>
                 )}
-                {editMode && (
+                {/* Загрузка фона доступна всегда (без режима редактирования) */}
+                {(
                   <label
                     className="absolute bottom-3 right-3 flex items-center gap-2 bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg cursor-pointer hover:bg-black/75 transition-colors text-sm font-medium"
                   >
@@ -617,7 +618,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
             </p>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex-1">
-                <label className="block text-xs mb-1" style={{ color: '#8B8BAA' }}>Радиус доставки (км)</label>
+                <label className="block text-xs mb-1" style={{ color: '#8B8BAA' }}>{language === 'uz' ? 'Yetkazib berish radiusi (km)' : 'Радиус доставки (км)'}</label>
                 <input
                   type="number"
                   min={0}
@@ -627,13 +628,13 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                   onChange={e => setDeliveryRadius(prev => ({ ...prev, km: parseFloat(e.target.value) || 0 }))}
                   className="w-full px-3 py-2 text-sm outline-none"
                   style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, color: 'var(--ax-text)' }}
-                  placeholder="например: 10"
+                  placeholder={language === 'uz' ? 'masalan: 10' : 'например: 10'}
                 />
               </div>
               <div className="flex-1 text-center pt-5">
                 {deliveryRadius.km > 0
-                  ? <span className="text-sm font-medium" style={{ color: '#7C5CF0' }}>Доставка до {deliveryRadius.km} км</span>
-                  : <span className="text-sm" style={{ color: '#5A5A78' }}>Не ограничено</span>
+                  ? <span className="text-sm font-medium" style={{ color: '#7C5CF0' }}>{language === 'uz' ? `${deliveryRadius.km} km gacha` : `Доставка до ${deliveryRadius.km} км`}</span>
+                  : <span className="text-sm" style={{ color: '#5A5A78' }}>{language === 'uz' ? 'Cheklanmagan' : 'Не ограничено'}</span>
                 }
               </div>
             </div>
@@ -668,7 +669,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                 <div className="text-sm space-y-2" style={{ color: '#8B8BAA' }}>
                   <p><strong style={{ color: '#FFFFFF' }}>{t.recommendedSizes}</strong></p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>{t.aspectRatio} <strong style={{ color: '#FFFFFF' }}>16:9</strong> или <strong style={{ color: '#FFFFFF' }}>21:9</strong> (как на фото в примере)</li>
+                    <li>{t.aspectRatio} <strong style={{ color: '#FFFFFF' }}>16:9</strong> {language === 'uz' ? 'yoki' : 'или'} <strong style={{ color: '#FFFFFF' }}>21:9</strong> {language === 'uz' ? '(namunadagi rasm kabi)' : '(как на фото в примере)'}</li>
                     <li>{t.minWidth} <strong style={{ color: '#FFFFFF' }}>1200 пикселей</strong></li>
                     <li>{t.maxFileSize} <strong style={{ color: '#FFFFFF' }}>5 МБ</strong></li>
                     <li>{t.formats} <strong style={{ color: '#FFFFFF' }}>JPG, PNG, WebP</strong></li>
@@ -832,7 +833,7 @@ function MediaCard({ item, companyId: _companyId, companyName: _companyName, onR
             <svg className="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <p className="text-xs">Нет изображения</p>
+            <p className="text-xs">{language === 'uz' ? 'Rasm yoʻq' : 'Нет изображения'}</p>
           </div>
         )}
         {item.type === 'video' && (
@@ -864,7 +865,7 @@ function MediaCard({ item, companyId: _companyId, companyName: _companyName, onR
               onClick={handleDelete}
               className="transition-colors p-2 rounded-lg"
               style={{ color: '#F87171' }}
-              title="Удалить рекламу"
+              title={language === 'uz' ? 'Reklamani oʻchirish' : 'Удалить рекламу'}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1080,7 +1081,7 @@ function UploadModal({
 
           <div>
             <label className="block text-sm mb-1" style={{ color: '#8B8BAA' }}>🔗 URL-ссылка (необязательно)</label>
-            <p className="text-xs mb-2" style={{ color: '#5A5A78' }}>При нажатии на рекламу откроется этот адрес (YouTube, Telegram, Uzum и т.д.)</p>
+            <p className="text-xs mb-2" style={{ color: '#5A5A78' }}>{language === 'uz' ? 'Reklama bosilganda shu manzil ochiladi (YouTube, Telegram, Uzum va h.k.)' : 'При нажатии на рекламу откроется этот адрес (YouTube, Telegram, Uzum и т.д.)'}</p>
             <input
               type="url"
               value={linkUrl}
