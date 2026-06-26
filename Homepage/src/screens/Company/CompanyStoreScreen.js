@@ -10,10 +10,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useFavorites } from '../../context/FavoritesContext';
-import { getCompanyDetail, getProducts, getCompanyStats, subscribeToCompany, unsubscribeFromCompany } from '../../api';
+import {
+  getCompanyDetail, getProducts, getCompanyStats, subscribeToCompany, unsubscribeFromCompany,
+  rateCompany, getCompanyReviews,
+} from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
 import { Radius, Spacing } from '../../constants/theme';
+import { TextInput } from 'react-native';
 
 const SUBS_KEY = 'subscribedCompanies';
 
@@ -42,6 +46,14 @@ export default function CompanyStoreScreen() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [companyStats, setCompanyStats] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [newRating, setNewRating] = useState(5);
+  const [newComment, setNewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const loadReviews = useCallback(async () => {
+    try { setReviews(await getCompanyReviews(companyId)); } catch { /* ignore */ }
+  }, [companyId]);
 
   const load = useCallback(async () => {
     try {
@@ -53,13 +65,38 @@ export default function CompanyStoreScreen() {
       if (compRes.status === 'fulfilled') setCompany(compRes.value);
       if (prodRes.status === 'fulfilled') setProducts(prodRes.value);
       if (statsRes.status === 'fulfilled') setCompanyStats(statsRes.value);
+      loadReviews();
 
       const subs = await getLocalSubs();
       setIsSubscribed(subs.includes(companyId));
     } finally {
       setIsLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, loadReviews]);
+
+  const handleSubmitReview = async () => {
+    if (!user) {
+      Alert.alert('Требуется авторизация', 'Войдите в аккаунт, чтобы оставить отзыв');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await rateCompany(companyId, {
+        userPhone: user.phone,
+        userName: user.name,
+        rating: newRating,
+        comment: newComment.trim(),
+      });
+      setNewComment('');
+      setNewRating(5);
+      await Promise.all([loadReviews(), getCompanyDetail(companyId).then(setCompany).catch(() => {})]);
+      Alert.alert('Спасибо!', 'Ваш отзыв о магазине сохранён');
+    } catch (err) {
+      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить отзыв');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -88,6 +125,7 @@ export default function CompanyStoreScreen() {
   };
 
   const logoUri = getImageUrl(company?.logoUrl);
+  const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
 
   if (isLoading) {
     return (
@@ -141,7 +179,18 @@ export default function CompanyStoreScreen() {
                 )}
               </View>
 
-              <Text style={[styles.companyName, { color: colors.text }]}>{company?.name}</Text>
+              <View style={styles.nameRow}>
+                <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
+                {companyRating >= 4.5 && (
+                  <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
+                )}
+              </View>
+              {companyRating >= 4.5 && (
+                <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
+                  <Ionicons name="shield-checkmark" size={12} color="#3B82F6" />
+                  <Text style={styles.verifiedText}>Магазин подтверждён</Text>
+                </View>
+              )}
               {company?.address ? (
                 <View style={styles.addressRow}>
                   <Ionicons name="location-outline" size={13} color={colors.textMuted} />
@@ -221,6 +270,84 @@ export default function CompanyStoreScreen() {
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>Нет товаров</Text>
           </View>
         }
+        ListFooterComponent={
+          <View style={styles.reviewsWrap}>
+            <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 4 }]}>
+              Отзывы о магазине {reviews.length > 0 ? `(${reviews.length})` : ''}
+            </Text>
+
+            {/* Оцените магазин */}
+            <View style={styles.rateCard}>
+              <Text style={[styles.rateTitle, { color: colors.text }]}>Оцените магазин</Text>
+              <Text style={[styles.rateSub, { color: colors.textMuted }]}>
+                Ваш отзыв поможет другим покупателям сделать правильный выбор
+              </Text>
+              <View style={styles.starRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <TouchableOpacity key={s} onPress={() => setNewRating(s)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                    <Ionicons name={s <= newRating ? 'star' : 'star-outline'} size={30} color={colors.star} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={[styles.reviewInputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.reviewInput, { color: colors.text }]}
+                  placeholder="Поделитесь своими впечатлениями о магазине…"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  maxLength={500}
+                  value={newComment}
+                  onChangeText={setNewComment}
+                />
+                <Text style={[styles.charCounter, { color: colors.textMuted }]}>{newComment.length}/500</Text>
+              </View>
+              <View style={styles.tipsRow}>
+                {['Качество товара', 'Скорость доставки', 'Обслуживание', 'Цены'].map((tip) => (
+                  <View key={tip} style={[styles.tipChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                    <Text style={[styles.tipChipText, { color: colors.textSecondary }]}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.primary, opacity: submittingReview ? 0.6 : 1 }]}
+                onPress={handleSubmitReview}
+                disabled={submittingReview}
+                activeOpacity={0.85}
+              >
+                {submittingReview
+                  ? <ActivityIndicator color="#FFF" />
+                  : <Text style={styles.submitBtnText}>Отправить отзыв</Text>}
+              </TouchableOpacity>
+            </View>
+
+            {/* Список отзывов */}
+            {reviews.map((r, i) => (
+              <View key={i} style={[styles.reviewItem, { borderTopColor: colors.divider, borderTopWidth: i === 0 ? 0 : 1 }]}>
+                <View style={styles.reviewHead}>
+                  <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
+                    <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
+                      {(r.userName || 'U').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.reviewName, { color: colors.text }]}>{r.userName || 'Покупатель'}</Text>
+                    <View style={styles.reviewStars}>
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Ionicons key={s} name={s <= r.rating ? 'star' : 'star-outline'} size={11} color={colors.star} />
+                      ))}
+                    </View>
+                  </View>
+                  {r.createdAt ? (
+                    <Text style={[styles.reviewDate, { color: colors.textMuted }]}>
+                      {new Date(r.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                    </Text>
+                  ) : null}
+                </View>
+                {r.comment ? <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{r.comment}</Text> : null}
+              </View>
+            ))}
+          </View>
+        }
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
             <ProductCard
@@ -263,7 +390,10 @@ const styles = StyleSheet.create({
   logo: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3 },
   logoFallback: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   logoInitial: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
-  companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  verifiedText: { color: '#3B82F6', fontSize: 11, fontWeight: '700' },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addressText: { fontSize: 13, flex: 1 },
   statTiles: { flexDirection: 'row', gap: 8, marginTop: 4 },
@@ -280,4 +410,25 @@ const styles = StyleSheet.create({
   cardWrap: { flex: 1 },
   empty: { alignItems: 'center', paddingVertical: 48, gap: 12 },
   emptyText: { fontSize: 15 },
+  reviewsWrap: { paddingHorizontal: 16, paddingTop: 20 },
+  rateCard: { paddingVertical: 4, marginBottom: 12 },
+  rateTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  rateSub: { fontSize: 12.5, lineHeight: 18, marginBottom: 12 },
+  starRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  reviewInputWrap: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
+  reviewInput: { fontSize: 14, minHeight: 64, textAlignVertical: 'top', padding: 0 },
+  charCounter: { fontSize: 11, alignSelf: 'flex-end', marginTop: 4 },
+  tipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 14 },
+  tipChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  tipChipText: { fontSize: 11.5, fontWeight: '500' },
+  submitBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  submitBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  reviewItem: { paddingVertical: 12 },
+  reviewHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  reviewAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  reviewAvatarText: { fontSize: 16, fontWeight: '700' },
+  reviewName: { fontSize: 14, fontWeight: '600' },
+  reviewStars: { flexDirection: 'row', gap: 2, marginTop: 2 },
+  reviewDate: { fontSize: 12 },
+  reviewComment: { fontSize: 14, lineHeight: 20 },
 });
