@@ -21,6 +21,33 @@ import ProductCard from '../../components/common/ProductCard';
 
 const { width } = Dimensions.get('window');
 
+// Сопоставление названия цвета (ru/uz/en) с HEX для кружка-образца в выборе цвета.
+const COLOR_HEX = {
+  black: '#111111', чёрный: '#111111', черный: '#111111', qora: '#111111',
+  white: '#F5F5F5', белый: '#F5F5F5', oq: '#F5F5F5',
+  grey: '#9AA0A6', gray: '#9AA0A6', серый: '#9AA0A6', kulrang: '#9AA0A6',
+  silver: '#C8CDD2', серебристый: '#C8CDD2',
+  gold: '#E6C36B', золотой: '#E6C36B', oltin: '#E6C36B',
+  blue: '#2F6BFF', синий: '#2F6BFF', голубой: '#4DA3FF', koʻk: '#2F6BFF', kok: '#2F6BFF',
+  red: '#E8472A', красный: '#E8472A', qizil: '#E8472A',
+  green: '#22C55E', зелёный: '#22C55E', зеленый: '#22C55E', yashil: '#22C55E',
+  purple: '#7C5CF0', фиолетовый: '#7C5CF0', siyohrang: '#7C5CF0',
+  pink: '#FF6FA5', розовый: '#FF6FA5', pushti: '#FF6FA5',
+  yellow: '#F5C518', жёлтый: '#F5C518', желтый: '#F5C518', sariq: '#F5C518',
+  orange: '#FF8A33', оранжевый: '#FF8A33',
+  titanium: '#8E8E93', титан: '#8E8E93', графит: '#3A3A3C', graphite: '#3A3A3C',
+};
+const colorToHex = (name) => {
+  if (!name) return null;
+  const key = String(name).trim().toLowerCase();
+  if (COLOR_HEX[key]) return COLOR_HEX[key];
+  // частичное совпадение (например "тёмно-синий", "natural titanium")
+  for (const k of Object.keys(COLOR_HEX)) {
+    if (key.includes(k)) return COLOR_HEX[k];
+  }
+  return null;
+};
+
 export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
@@ -419,49 +446,6 @@ export default function ProductDetailScreen() {
           </View>
         </View>
 
-        {hasVariants && uniqueColors.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.variantStrip, { backgroundColor: colors.background }]}
-            contentContainerStyle={styles.variantStripContent}
-          >
-            {uniqueColors.map((color) => {
-              const cv = variants.filter(v => v.color === color);
-              const minPrice = Math.min(...cv.map(v => v.sellingPrice || v.price));
-              const sizes = [...new Set(cv.map(v => v.size).filter(Boolean))];
-              const inStock = cv.some(v => v.stockQuantity > 0);
-              const isSelected = selectedColor === color;
-              return (
-                <TouchableOpacity
-                  key={color}
-                  onPress={() => inStock && handleSelectColor(color)}
-                  activeOpacity={0.75}
-                  style={[
-                    styles.variantPill,
-                    {
-                      backgroundColor: isSelected ? colors.primary : colors.card,
-                      borderColor: isSelected ? colors.primary : colors.border,
-                      opacity: inStock ? 1 : 0.45,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.variantPillColor, { color: isSelected ? '#fff' : colors.text }]} numberOfLines={1}>{color}</Text>
-                  {sizes.length > 0 && (
-                    <Text style={[styles.variantPillSizes, { color: isSelected ? 'rgba(255,255,255,0.8)' : colors.textMuted }]} numberOfLines={1}>
-                      {sizes.slice(0, 4).join(' · ')}{sizes.length > 4 ? ' …' : ''}
-                    </Text>
-                  )}
-                  <Text style={[styles.variantPillPrice, { color: isSelected ? '#fff' : colors.primary }]}>
-                    {minPrice.toLocaleString('ru-RU')} сум
-                  </Text>
-                  {!inStock && <Text style={[styles.variantPillOos, { color: isSelected ? '#fff' : colors.error }]}>нет</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        )}
-
         <View style={styles.body}>
           <Text style={[styles.prodName, { color: colors.text }]}>{product.name}</Text>
 
@@ -504,50 +488,68 @@ export default function ProductDetailScreen() {
           {hasVariants && (
             <View style={styles.variantSection}>
               {uniqueColors.length > 0 && (
-                <View style={{ marginBottom: 12 }}>
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={[styles.variantLabel, { color: colors.text }]}>Цвет</Text>
                   <View style={styles.chipRow}>
-                    {uniqueColors.map((c) => (
-                      <TouchableOpacity
-                        key={c}
-                        onPress={() => handleSelectColor(c)}
-                        style={[
-                          styles.chip,
-                          {
-                            backgroundColor: selectedColor === c ? colors.primary : colors.inputBg,
-                            borderColor: selectedColor === c ? colors.primary : colors.border,
-                          },
-                        ]}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[styles.chipText, { color: selectedColor === c ? '#fff' : colors.text }]}>{c}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {uniqueColors.map((c) => {
+                      const isSel = selectedColor === c;
+                      const hex = colorToHex(c);
+                      return (
+                        <TouchableOpacity
+                          key={c}
+                          onPress={() => handleSelectColor(c)}
+                          style={[
+                            styles.colorChip,
+                            {
+                              backgroundColor: colors.inputBg,
+                              borderColor: isSel ? colors.primary : colors.border,
+                              borderWidth: isSel ? 2 : 1,
+                            },
+                          ]}
+                          activeOpacity={0.75}
+                        >
+                          <View style={[styles.colorSwatch, { backgroundColor: hex || colors.border, borderColor: colors.border }]} />
+                          <Text style={[styles.colorChipText, { color: colors.text }]} numberOfLines={1}>{c}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </View>
               )}
 
               {sizesForColor(selectedColor).length > 0 && (
                 <View>
+                  <Text style={[styles.variantLabel, { color: colors.text }]}>
+                    {sizesForColor(selectedColor).some(s => /gb|гб|tb|тб|\d\/\d/i.test(String(s))) ? 'Память' : 'Размер'}
+                  </Text>
                   <View style={styles.chipRow}>
                     {sizesForColor(selectedColor).map((s) => {
                       const v = variants.find(vv => vv.color === selectedColor && vv.size === s)
                         ?? variants.find(vv => vv.size === s);
                       const outOfStock = v ? v.stockQuantity === 0 : false;
+                      const isSel = selectedSize === s;
+                      const sizePrice = v ? (v.sellingPrice || v.price) : null;
                       return (
                         <TouchableOpacity
                           key={s}
                           onPress={() => !outOfStock && handleSelectSize(s)}
                           style={[
-                            styles.chip,
+                            styles.sizeChip,
                             {
-                              backgroundColor: selectedSize === s ? colors.primary : colors.inputBg,
-                              borderColor: selectedSize === s ? colors.primary : colors.border,
+                              backgroundColor: colors.inputBg,
+                              borderColor: isSel ? colors.primary : colors.border,
+                              borderWidth: isSel ? 2 : 1,
                               opacity: outOfStock ? 0.4 : 1,
                             },
                           ]}
                           activeOpacity={outOfStock ? 1 : 0.75}
                         >
-                          <Text style={[styles.chipText, { color: selectedSize === s ? '#fff' : colors.text }]}>{s}</Text>
+                          <Text style={[styles.sizeChipText, { color: colors.text }]}>{s}</Text>
+                          {sizePrice ? (
+                            <Text style={[styles.sizeChipPrice, { color: isSel ? colors.primary : colors.textMuted }]}>
+                              {sizePrice.toLocaleString('ru-RU')} сум
+                            </Text>
+                          ) : null}
                           {outOfStock && <Text style={[styles.chipSub, { color: colors.textMuted }]}>нет</Text>}
                         </TouchableOpacity>
                       );
@@ -1021,11 +1023,19 @@ const styles = StyleSheet.create({
   oldPrice: { fontSize: 15, textDecorationLine: 'line-through', marginBottom: 2 },
   sectionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
   variantSection: { marginBottom: 16 },
-  variantLabel: { fontSize: 13, fontWeight: '500', marginBottom: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  variantLabel: { fontSize: 14, fontWeight: '700', marginBottom: 10 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, alignItems: 'center' },
   chipText: { fontSize: 14, fontWeight: '600' },
   chipSub: { fontSize: 10, marginTop: 1 },
+  // Цвет: пилюля с кружком-образцом
+  colorChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14 },
+  colorSwatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1 },
+  colorChipText: { fontSize: 14, fontWeight: '600' },
+  // Память/размер: пилюля с ценой снизу
+  sizeChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, alignItems: 'flex-start', minWidth: 96 },
+  sizeChipText: { fontSize: 15, fontWeight: '700' },
+  sizeChipPrice: { fontSize: 11, fontWeight: '600', marginTop: 3 },
   variantInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, borderRadius: 10, borderWidth: 1 },
   variantInfoText: { fontSize: 13, flex: 1 },
   variantHint: { fontSize: 12, marginTop: 8, fontStyle: 'italic' },
