@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getUserOrders } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const TABS = [
   { key: '', label: 'Все' },
@@ -79,7 +80,7 @@ export default function OrdersScreen() {
           <View style={[styles.thumbnail, { backgroundColor: colors.cardAlt }]}>
             {firstItem?.imageUrl ? (
               <Image
-                source={{ uri: firstItem.imageUrl.startsWith('http') ? firstItem.imageUrl : `${UPLOADS_URL}/${firstItem.imageUrl}` }}
+                source={{ uri: getImageUrl(firstItem.imageUrl) || '' }}
                 style={styles.thumbnailImg}
                 resizeMode="contain"
               />

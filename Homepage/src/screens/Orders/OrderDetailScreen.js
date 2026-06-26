@@ -10,6 +10,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { getOrderDetail, createReturn, getCompanyDetail } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const STATUS_CONFIG = {
   pending: { label: 'Ожидает подтверждения', color: '#FFA726', icon: 'time-outline', step: 0 },
@@ -136,6 +137,12 @@ export default function OrderDetailScreen() {
 
         {order.status !== 'cancelled' && (
           <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {/* Линия рисуется ПЕРВОЙ и лежит ПОД точками, чтобы галочки были сверху */}
+            <View style={styles.progressLineWrap} pointerEvents="none">
+              {PROGRESS_STEPS.slice(0, -1).map((_, i) => (
+                <View key={i} style={[styles.progressLine, { backgroundColor: i < statusCfg.step ? colors.primary : colors.border }]} />
+              ))}
+            </View>
             <View style={styles.progressSteps}>
               {PROGRESS_STEPS.map((label, i) => (
                 <View key={i} style={styles.progressStep}>
@@ -154,11 +161,6 @@ export default function OrderDetailScreen() {
                     {label}
                   </Text>
                 </View>
-              ))}
-            </View>
-            <View style={styles.progressLineWrap}>
-              {PROGRESS_STEPS.slice(0, -1).map((_, i) => (
-                <View key={i} style={[styles.progressLine, { backgroundColor: i < statusCfg.step ? colors.primary : colors.border }]} />
               ))}
             </View>
           </View>
@@ -192,7 +194,7 @@ export default function OrderDetailScreen() {
             <View key={i} style={[styles.orderItem, i > 0 && { borderTopWidth: 1, borderTopColor: colors.divider }]}>
               {item.imageUrl ? (
                 <Image
-                  source={{ uri: item.imageUrl.startsWith('http') ? item.imageUrl : `${UPLOADS_URL}/${item.imageUrl}` }}
+                  source={{ uri: getImageUrl(item.imageUrl) || '' }}
                   style={[styles.itemImg, { backgroundColor: colors.cardAlt }]}
                   resizeMode="contain"
                 />
@@ -326,11 +328,11 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: 16, fontWeight: '700' },
   statusDate: { fontSize: 12, marginTop: 2 },
   progressCard: { borderRadius: 18, borderWidth: 1, padding: 16, position: 'relative' },
-  progressSteps: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressStep: { alignItems: 'center', gap: 6, flex: 1 },
-  progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  progressSteps: { flexDirection: 'row', justifyContent: 'space-between', zIndex: 1 },
+  progressStep: { alignItems: 'center', gap: 6, flex: 1, zIndex: 1 },
+  progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center', zIndex: 2, elevation: 2 },
   progressLabel: { fontSize: 10, textAlign: 'center' },
-  progressLineWrap: { position: 'absolute', top: 28, left: 40, right: 40, flexDirection: 'row' },
+  progressLineWrap: { position: 'absolute', top: 28, left: 40, right: 40, flexDirection: 'row', zIndex: 0 },
   progressLine: { flex: 1, height: 2, marginHorizontal: 4 },
   section: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 10 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },

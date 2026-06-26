@@ -57,12 +57,17 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
   }, []);
 
   // Filter state
-  type PeriodType = 'day' | 'yesterday' | 'week' | 'month' | 'year' | 'all';
+  type PeriodType = 'day' | 'yesterday' | 'week' | 'month' | 'year' | 'all' | 'custom';
   const [timePeriod, setTimePeriod] = useState<PeriodType>('month');
+  // Произвольный период (от одного дня до нескольких лет)
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
 
   useEffect(() => {
+    // Для custom грузим только когда обе даты заданы
+    if (timePeriod === 'custom' && !(customStartDate && customEndDate)) return;
     loadData();
-  }, [companyId, timePeriod]);
+  }, [companyId, timePeriod, customStartDate, customEndDate]);
 
   const loadData = async () => {
     try {
@@ -71,7 +76,16 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
       const params: any = { companyId };
 
       // Apply time period filter
-      if (timePeriod !== 'all') {
+      if (timePeriod === 'custom') {
+        if (customStartDate) {
+          const s = new Date(customStartDate); s.setHours(0, 0, 0, 0);
+          params.startDate = s.toISOString();
+        }
+        if (customEndDate) {
+          const e = new Date(customEndDate); e.setHours(23, 59, 59, 999);
+          params.endDate = e.toISOString();
+        }
+      } else if (timePeriod !== 'all') {
         const now = new Date();
         let startDate = new Date();
 
@@ -250,6 +264,43 @@ export default function PurchaseAnalytics({ companyId }: PurchaseAnalyticsProps)
           onChange={setTimePeriod}
           language={language}
         />
+
+        {/* 🎯 Произвольный период (от одного дня до нескольких лет) */}
+        {timePeriod === 'custom' && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 16, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, color: '#8B8BAA', fontWeight: 600 }}>
+                {language === 'uz' ? 'Boshlanish sanasi' : 'Дата начала'}
+              </label>
+              <input
+                type="date"
+                value={customStartDate}
+                max={customEndDate || undefined}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 10px', color: '#FFFFFF', fontSize: 14, colorScheme: 'dark' }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <label style={{ fontSize: 12, color: '#8B8BAA', fontWeight: 600 }}>
+                {language === 'uz' ? 'Tugash sanasi' : 'Дата конца'}
+              </label>
+              <input
+                type="date"
+                value={customEndDate}
+                min={customStartDate || undefined}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '8px 10px', color: '#FFFFFF', fontSize: 14, colorScheme: 'dark' }}
+              />
+            </div>
+            {!(customStartDate && customEndDate) && (
+              <p style={{ fontSize: 12, color: '#8B8BAA', margin: 0, alignSelf: 'center' }}>
+                {language === 'uz'
+                  ? 'Boshlanish va tugash sanasini tanlang.'
+                  : 'Выберите дату начала и конца.'}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Statistics Cards */}
