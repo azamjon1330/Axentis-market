@@ -47,6 +47,7 @@ export default function CompanyStoreScreen() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [companyStats, setCompanyStats] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [activeTab, setActiveTab] = useState('products'); // products | about | reviews
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -145,7 +146,7 @@ export default function CompanyStoreScreen() {
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       <FlatList
-        data={products}
+        data={activeTab === 'products' ? products : []}
         numColumns={2}
         keyExtractor={(item) => String(item.id)}
         contentContainerStyle={styles.listContent}
@@ -238,12 +239,6 @@ export default function CompanyStoreScreen() {
                 </View>
               </View>
 
-              {company?.description ? (
-                <Text style={[styles.companyDesc, { color: colors.textSecondary }]} numberOfLines={3}>
-                  {company.description}
-                </Text>
-              ) : null}
-
               <TouchableOpacity
                 style={[
                   styles.subscribeBtn,
@@ -274,16 +269,57 @@ export default function CompanyStoreScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.productsLabel, { color: colors.text }]}>Товары</Text>
+            {/* Вкладки */}
+            <View style={[styles.tabsRow, { borderBottomColor: colors.border }]}>
+              {[
+                { key: 'products', label: 'Товары' },
+                { key: 'about', label: 'О магазине' },
+                { key: 'reviews', label: `Отзывы магазина${reviews.length > 0 ? ` ${reviews.length}` : ''}` },
+              ].map((tab) => {
+                const active = activeTab === tab.key;
+                return (
+                  <TouchableOpacity key={tab.key} style={styles.tabBtn} onPress={() => setActiveTab(tab.key)} activeOpacity={0.7}>
+                    <Text style={[styles.tabText, { color: active ? colors.primary : colors.textMuted }]}>{tab.label}</Text>
+                    {active && <View style={[styles.tabUnderline, { backgroundColor: colors.primary }]} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Нет товаров</Text>
-          </View>
+          activeTab === 'products' ? (
+            <View style={styles.empty}>
+              <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Нет товаров</Text>
+            </View>
+          ) : null
         }
         ListFooterComponent={
+          activeTab === 'about' ? (
+            <View style={styles.reviewsWrap}>
+              <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 10 }]}>О магазине</Text>
+              {company?.description ? (
+                <Text style={[styles.companyDesc, { color: colors.textSecondary, marginBottom: 16 }]}>{company.description}</Text>
+              ) : (
+                <Text style={[styles.companyDesc, { color: colors.textMuted, marginBottom: 16 }]}>Описание пока не добавлено.</Text>
+              )}
+              {company?.address ? (
+                <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
+                  <Ionicons name="location-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.aboutText, { color: colors.text }]}>{company.address}</Text>
+                </View>
+              ) : null}
+              <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
+                <Ionicons name="cube-outline" size={18} color={colors.primary} />
+                <Text style={[styles.aboutText, { color: colors.text }]}>{productsCount} товаров в каталоге</Text>
+              </View>
+              <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
+                <Ionicons name="star-outline" size={18} color={colors.primary} />
+                <Text style={[styles.aboutText, { color: colors.text }]}>Рейтинг магазина: {companyRating.toFixed(1)} / 5</Text>
+              </View>
+            </View>
+          ) : activeTab !== 'reviews' ? null : (
           <View style={styles.reviewsWrap}>
             <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 4 }]}>
               Отзывы о магазине {reviews.length > 0 ? `(${reviews.length})` : ''}
@@ -360,6 +396,7 @@ export default function CompanyStoreScreen() {
               </View>
             ))}
           </View>
+          )
         }
         renderItem={({ item }) => (
           <View style={styles.cardWrap}>
@@ -422,6 +459,12 @@ const styles = StyleSheet.create({
   subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: Radius.button },
   subscribeBtnText: { fontSize: 15, fontWeight: '600' },
   productsLabel: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 12 },
+  tabsRow: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, marginBottom: 12 },
+  tabBtn: { paddingVertical: 12, marginRight: 22, alignItems: 'center' },
+  tabText: { fontSize: 14, fontWeight: '600' },
+  tabUnderline: { height: 2.5, borderRadius: 2, alignSelf: 'stretch', marginTop: 8 },
+  aboutRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderTopWidth: 1 },
+  aboutText: { fontSize: 14, flex: 1 },
   listContent: { paddingBottom: 24 },
   row: { paddingHorizontal: 16, gap: 12 },
   cardWrap: { flex: 1 },
