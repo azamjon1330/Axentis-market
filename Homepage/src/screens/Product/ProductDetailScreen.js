@@ -14,6 +14,7 @@ import {
   getProductDetail, getProductReviews, getProductReviewStats,
   getSimilarProducts, submitReview, voteReview, getProductVariants,
   getProductQuestions, askProductQuestion, getFrequentlyBoughtWith,
+  getCompanyDetail,
 } from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
@@ -52,6 +53,9 @@ export default function ProductDetailScreen() {
   const [newQuestion, setNewQuestion] = useState('');
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
   const [imgErrors, setImgErrors] = useState({});
+  const [company, setCompany] = useState(null);
+  const [companyLogoError, setCompanyLogoError] = useState(false);
+  const [reviewAvatarErrors, setReviewAvatarErrors] = useState({});
   const [zoomVisible, setZoomVisible] = useState(false);
   const imgRef = useRef(null);
   const imgIndexRef = useRef(0);
@@ -107,6 +111,18 @@ export default function ProductDetailScreen() {
       setIsLoading(false);
     }
   };
+
+  // Подгружаем данные магазина (логотип, рейтинг) для блока «Продавец».
+  useEffect(() => {
+    const cid = product?.companyId;
+    if (!cid) return;
+    let active = true;
+    setCompanyLogoError(false);
+    getCompanyDetail(cid)
+      .then((c) => { if (active) setCompany(c); })
+      .catch(() => { if (active) setCompany(null); });
+    return () => { active = false; };
+  }, [product?.companyId]);
 
   const handleFavorite = () => {
     if (!user) return;
@@ -307,6 +323,12 @@ export default function ProductDetailScreen() {
     : (hasVariants && minVariantPrice !== null ? minVariantPrice : basePrice);
   const hasReviews = (stats?.totalReviews ?? 0) > 0;
   const displayRating = hasReviews ? (stats?.averageRating ?? 5) : 5;
+
+  // Ширина карточки в блоках «Похожие» / «С этим покупают» — примерно на 30%
+  // меньше карточки на главной (там 2 в ряд), но та же раскладка ProductCard.
+  const SIM_CARD_W = Math.round((width - 32) / 2.85);
+  const normalizeImages = (imgs) =>
+    Array.isArray(imgs) ? imgs : imgs ? [imgs] : [];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -587,49 +609,116 @@ export default function ProductDetailScreen() {
           </View>
 
           {product.companyId ? (
-            <TouchableOpacity
-              style={[styles.companyRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              onPress={() => navigation.navigate('CompanyStore', { companyId: product.companyId })}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.companyIcon, { backgroundColor: colors.primary + '20' }]}>
-                <Ionicons name="storefront-outline" size={20} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.companyLabel, { color: colors.textMuted }]}>Продавец</Text>
-                <Text style={[styles.companyName, { color: colors.text }]}>
-                  {product.companyName || `Магазин #${product.companyId}`}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+            <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.companyTop}
+                onPress={() => navigation.navigate('CompanyStore', { companyId: product.companyId })}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.companyLogo, { backgroundColor: colors.primary + '18', borderColor: colors.border }]}>
+                  {company?.logoUrl && !companyLogoError ? (
+                    <Image
+                      source={{ uri: getImageUrl(company.logoUrl) || '' }}
+                      style={styles.companyLogoImg}
+                      onError={() => setCompanyLogoError(true)}
+                    />
+                  ) : (
+                    <Text style={[styles.companyLogoText, { color: colors.primary }]}>
+                      {(company?.name || product.companyName || 'M').charAt(0).toUpperCase()}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.companyLabel, { color: colors.textMuted }]}>Продавец</Text>
+                  <View style={styles.companyNameRow}>
+                    <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>
+                      {company?.name || product.companyName || `Магазин #${product.companyId}`}
+                    </Text>
+                    <Ionicons name="checkmark-circle" size={16} color="#3B82F6" />
+                  </View>
+                  {company?.ratingCount > 0 ? (
+                    <View style={styles.companyMetaRow}>
+                      <Ionicons name="star" size={12} color={colors.star} />
+                      <Text style={[styles.companyMetaText, { color: colors.textSecondary }]}>
+                        {Number(company.averageRating || 0).toFixed(1)} · {company.ratingCount} оценок
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.companyMetaText, { color: colors.textMuted }]}>Перейти в магазин</Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.companyAllBtn, { borderColor: colors.border }]}
+                onPress={() => navigation.navigate('CompanyStore', { companyId: product.companyId })}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="storefront-outline" size={16} color={colors.primary} />
+                <Text style={[styles.companyAllBtnText, { color: colors.primary }]}>Все товары продавца</Text>
+              </TouchableOpacity>
+            </View>
           ) : null}
 
           {user && reviews.filter(r => r.userPhone === user.phone).length < 2 ? (
             <View style={[styles.writeReviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionLabel, { color: colors.text }]}>Написать отзыв</Text>
-              <View style={styles.starRow}>
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <TouchableOpacity key={s} onPress={() => setNewRating(s)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
-                    <Ionicons name={s <= newRating ? 'star' : 'star-outline'} size={30} color={colors.star} />
-                  </TouchableOpacity>
+              <Text style={[styles.writeReviewTitle, { color: colors.text }]}>Оставить отзыв</Text>
+              <Text style={[styles.writeReviewSub, { color: colors.textMuted }]}>
+                Ваш отзыв поможет другим покупателям сделать правильный выбор
+              </Text>
+
+              {/* Оценка */}
+              <View style={styles.ratingBlock}>
+                <View style={styles.ratingHeader}>
+                  <Text style={[styles.ratingFieldLabel, { color: colors.textSecondary }]}>Ваша оценка</Text>
+                  <Text style={[styles.ratingValueHint, { color: colors.textMuted }]}>
+                    {['', 'Плохо', 'Так себе', 'Нормально', 'Хорошо', 'Отлично'][newRating] || 'Выберите оценку'}
+                  </Text>
+                </View>
+                <View style={styles.starRow}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <TouchableOpacity key={s} onPress={() => setNewRating(s)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+                      <Ionicons name={s <= newRating ? 'star' : 'star-outline'} size={32} color={colors.star} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Комментарий */}
+              <View style={styles.commentHeader}>
+                <Text style={[styles.ratingFieldLabel, { color: colors.textSecondary }]}>Комментарий</Text>
+                <Text style={[styles.optionalLabel, { color: colors.textMuted }]}>Необязательно</Text>
+              </View>
+              <View style={[styles.reviewInputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <TextInput
+                  style={[styles.reviewInput, { color: colors.text }]}
+                  placeholder="Поделитесь своими впечатлениями о товаре, качестве, доставке или обслуживании продавца…"
+                  placeholderTextColor={colors.textMuted}
+                  multiline
+                  numberOfLines={4}
+                  maxLength={500}
+                  value={newComment}
+                  onChangeText={setNewComment}
+                />
+                <Text style={[styles.charCounter, { color: colors.textMuted }]}>{newComment.length}/500</Text>
+              </View>
+
+              {/* Подсказки */}
+              <View style={styles.tipsRow}>
+                {[
+                  { icon: 'happy-outline', label: 'Будьте вежливы' },
+                  { icon: 'checkmark-circle-outline', label: 'Пишите по теме' },
+                  { icon: 'people-outline', label: 'Помогите другим' },
+                ].map((tip) => (
+                  <View key={tip.label} style={[styles.tipChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                    <Ionicons name={tip.icon} size={13} color={colors.textMuted} />
+                    <Text style={[styles.tipChipText, { color: colors.textSecondary }]}>{tip.label}</Text>
+                  </View>
                 ))}
               </View>
-              <TextInput
-                style={[styles.reviewInput, {
-                  backgroundColor: colors.inputBg,
-                  color: colors.text,
-                  borderColor: colors.border,
-                }]}
-                placeholder="Поделитесь впечатлениями..."
-                placeholderTextColor={colors.textMuted}
-                multiline
-                numberOfLines={3}
-                value={newComment}
-                onChangeText={setNewComment}
-              />
+
               <TouchableOpacity
-                style={[styles.submitBtn, { backgroundColor: colors.primary }]}
+                style={[styles.submitBtn, { backgroundColor: colors.primary, opacity: isSubmittingReview ? 0.6 : 1 }]}
                 onPress={handleSubmitReview}
                 disabled={isSubmittingReview}
                 activeOpacity={0.85}
@@ -654,14 +743,15 @@ export default function ProductDetailScreen() {
                 <View key={review.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.reviewHeader}>
                     <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
-                      {review.userAvatarUrl ? (
+                      {review.userAvatarUrl && !reviewAvatarErrors[review.id] ? (
                         <Image
                           source={{ uri: getImageUrl(review.userAvatarUrl) || '' }}
                           style={styles.reviewAvatarImg}
+                          onError={() => setReviewAvatarErrors(prev => ({ ...prev, [review.id]: true }))}
                         />
                       ) : (
                         <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
-                          {review.userName?.charAt(0).toUpperCase()}
+                          {review.userName?.charAt(0).toUpperCase() || 'U'}
                         </Text>
                       )}
                     </View>
@@ -760,25 +850,17 @@ export default function ProductDetailScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => 'freq-' + String(item.id)}
-                contentContainerStyle={{ gap: 10 }}
+                contentContainerStyle={{ gap: 12, paddingVertical: 2 }}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.similarCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
-                    activeOpacity={0.8}
-                  >
-                    {item.images ? (
-                      <Image source={{ uri: getImageUrl(Array.isArray(item.images) ? item.images[0] : item.images) || '' }} style={styles.similarImg} resizeMode="contain" />
-                    ) : (
-                      <View style={[styles.similarImg, { alignItems: 'center', justifyContent: 'center' }]}>
-                        <Ionicons name="bag-outline" size={30} color={colors.textMuted} />
-                      </View>
-                    )}
-                    <Text style={[styles.similarName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
-                    <Text style={[styles.similarPrice, { color: '#E8472A' }]}>
-                      {(item.price || 0).toLocaleString('ru-RU')} сум
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ width: SIM_CARD_W }}>
+                    <ProductCard
+                      product={{ ...item, images: normalizeImages(item.images) }}
+                      compact
+                      onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
+                      onFavorite={() => toggleFav(item.id, item)}
+                      isFavorite={ctxIsFavorite(item.id)}
+                    />
+                  </View>
                 )}
               />
             </View>
@@ -792,25 +874,17 @@ export default function ProductDetailScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(item) => String(item.id)}
-                contentContainerStyle={{ gap: 10 }}
+                contentContainerStyle={{ gap: 12, paddingVertical: 2 }}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.similarCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
-                    activeOpacity={0.8}
-                  >
-                    {item.images?.[0] ? (
-                      <Image source={{ uri: getImageUrl(item.images[0]) || '' }} style={styles.similarImg} resizeMode="contain" />
-                    ) : (
-                      <View style={[styles.similarImg, { alignItems: 'center', justifyContent: 'center' }]}>
-                        <Ionicons name="cube-outline" size={30} color={colors.textMuted} />
-                      </View>
-                    )}
-                    <Text style={[styles.similarName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
-                    <Text style={[styles.similarPrice, { color: colors.primary }]}>
-                      {(item.sellingPrice || item.price).toLocaleString('ru-RU')} сум
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ width: SIM_CARD_W }}>
+                    <ProductCard
+                      product={{ ...item, images: normalizeImages(item.images) }}
+                      compact
+                      onPress={() => navigation.replace('ProductDetail', { productId: item.id })}
+                      onFavorite={() => toggleFav(item.id, item)}
+                      isFavorite={ctxIsFavorite(item.id)}
+                    />
+                  </View>
                 )}
               />
             </View>
@@ -960,14 +1034,35 @@ const styles = StyleSheet.create({
   descSection: { marginBottom: 16 },
   desc: { fontSize: 14, lineHeight: 21 },
   showMore: { fontSize: 13, fontWeight: '500', marginTop: 6 },
-  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 16 },
-  companyIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  companyCard: { borderRadius: 16, borderWidth: 1, padding: 14, marginBottom: 16 },
+  companyTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  companyLogo: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1 },
+  companyLogoImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  companyLogoText: { fontSize: 20, fontWeight: '800' },
   companyLabel: { fontSize: 11, marginBottom: 2 },
-  companyName: { fontSize: 15, fontWeight: '600' },
-  writeReviewCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16, gap: 12 },
-  starRow: { flexDirection: 'row', gap: 6 },
-  reviewInput: { borderRadius: 12, borderWidth: 1, padding: 12, fontSize: 14, minHeight: 80, textAlignVertical: 'top' },
-  submitBtn: { paddingVertical: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  companyNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  companyName: { fontSize: 16, fontWeight: '700', maxWidth: '82%' },
+  companyMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  companyMetaText: { fontSize: 12, marginTop: 2 },
+  companyAllBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  companyAllBtnText: { fontSize: 13, fontWeight: '700' },
+  writeReviewCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+  writeReviewTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  writeReviewSub: { fontSize: 12.5, lineHeight: 18, marginBottom: 14 },
+  ratingBlock: { marginBottom: 14 },
+  ratingHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  ratingFieldLabel: { fontSize: 13, fontWeight: '600' },
+  ratingValueHint: { fontSize: 12 },
+  starRow: { flexDirection: 'row', gap: 8 },
+  commentHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  optionalLabel: { fontSize: 11 },
+  reviewInputWrap: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 8 },
+  reviewInput: { fontSize: 14, minHeight: 76, textAlignVertical: 'top', padding: 0 },
+  charCounter: { fontSize: 11, alignSelf: 'flex-end', marginTop: 4 },
+  tipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 14 },
+  tipChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  tipChipText: { fontSize: 11.5, fontWeight: '500' },
+  submitBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   submitBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
   reviewsSection: { marginBottom: 20 },
   noReviews: { fontSize: 14, marginTop: 4 },

@@ -12,7 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { getImageUrl } from '../../utils/imageUrl';
 
-export default function ProductCard({ product, onPress, onFavorite, isFavorite }) {
+// compact — режим для блоков «Похожие товары» / «С этим покупают»:
+// та же раскладка, что на главной, но без названия компании и счётчика продаж,
+// чуть меньше типографика. Картинка остаётся такой же широкой (aspectRatio 3/4).
+export default function ProductCard({ product, onPress, onFavorite, isFavorite, compact = false }) {
   const { colors, isDark } = useTheme();
   const [imgError, setImgError] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
@@ -111,19 +114,24 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite }
 
         {/* ── Text info — OUTSIDE the card block ── */}
         <View style={styles.info}>
-          {companyName ? (
+          {/* В компактном режиме (похожие товары) компанию не показываем */}
+          {!compact && companyName ? (
             <Text style={[styles.company, { color: colors.textSecondary }]} numberOfLines={1}>
               {companyName}
             </Text>
           ) : null}
 
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>
+          <Text
+            style={[styles.name, compact && styles.nameCompact, { color: colors.text }]}
+            numberOfLines={2}
+          >
             {product.name}
           </Text>
 
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{priceLabel}</Text>
-            {soldCount > 0 && (
+            <Text style={[styles.price, compact && styles.priceCompact]}>{priceLabel}</Text>
+            {/* В компактном режиме счётчик продаж скрыт */}
+            {!compact && soldCount > 0 && (
               <Text style={[styles.sold, { color: colors.textMuted }]}>
                 {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} продано
               </Text>
@@ -200,6 +208,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 17,
   },
+  nameCompact: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -211,6 +223,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.4,
     color: '#E8472A',
+  },
+  priceCompact: {
+    fontSize: 14,
   },
   sold: {
     fontSize: 10,

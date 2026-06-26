@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Radius, Spacing, Typography } from '../../constants/theme';
+import CategoryIcon from '../common/CategoryIcon';
 
 // ── Button ──────────────────────────────────────────────────────────────────
 // variant: 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -157,8 +158,12 @@ export function SectionHeader({ title, actionLabel, onAction, style }) {
 }
 
 // ── Chip (filter / category pill) ─────────────────────────────────────────────
-export function Chip({ label, active, onPress, icon }) {
-  const { colors } = useTheme();
+// Фон по умолчанию полностью прозрачный. В выбранном состоянии — лёгкая заливка
+// и белая рамка 2px (как просили в дизайне), без сплошного цветного блока.
+export function Chip({ label, active, onPress, icon, category }) {
+  const { colors, isDark } = useTheme();
+  const activeBorder = isDark ? '#FFFFFF' : colors.primary;
+  const contentColor = active ? colors.text : colors.textSecondary;
   return (
     <Pressable
       onPress={onPress}
@@ -167,15 +172,19 @@ export function Chip({ label, active, onPress, icon }) {
         alignItems: 'center',
         gap: 6,
         paddingHorizontal: 14,
-        height: 36,
+        height: 38,
         borderRadius: Radius.pill,
-        backgroundColor: active ? colors.primary : colors.card,
-        borderWidth: 1,
-        borderColor: active ? colors.primary : colors.border,
+        backgroundColor: active ? (isDark ? 'rgba(255,255,255,0.08)' : colors.primary + '14') : 'transparent',
+        borderWidth: active ? 2 : 1,
+        borderColor: active ? activeBorder : colors.border,
       }}
     >
-      {icon ? <Ionicons name={icon} size={15} color={active ? '#FFFFFF' : colors.textSecondary} /> : null}
-      <Text style={{ color: active ? '#FFFFFF' : colors.textSecondary, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
+      {category ? (
+        <CategoryIcon category={category} size={17} color={contentColor} />
+      ) : icon ? (
+        <Ionicons name={icon} size={15} color={contentColor} />
+      ) : null}
+      <Text style={{ color: contentColor, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>

@@ -9,20 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { getCategories } from '../../api';
 import { Spacing, Radius, Typography } from '../../constants/theme';
-
-const CATEGORY_ICONS = {
-  'Электроника': 'phone-portrait-outline',
-  'Бытовая техника': 'tv-outline',
-  'Телефоны и гаджеты': 'phone-portrait-outline',
-  'Компьютеры и ноутбуки': 'laptop-outline',
-  'Для дома': 'home-outline',
-  'Одежда и обувь': 'shirt-outline',
-  'Красота и здоровье': 'sparkles-outline',
-  'Детские товары': 'happy-outline',
-  'Спорт и отдых': 'fitness-outline',
-  'Автотовары': 'car-outline',
-};
-const getIcon = (name) => CATEGORY_ICONS[name] || 'grid-outline';
+import CategoryIcon from '../../components/common/CategoryIcon';
 
 export default function CatalogScreen() {
   const { colors, isDark } = useTheme();
@@ -61,7 +48,7 @@ export default function CatalogScreen() {
       style={[styles.tile, { width: tileWidth, backgroundColor: colors.card, borderColor: colors.border }]}
     >
       <View style={[styles.tileIcon, { backgroundColor: colors.primary + '14' }]}>
-        <Ionicons name={getIcon(item.name)} size={24} color={colors.primary} />
+        <CategoryIcon category={item} size={26} color={colors.primary} />
       </View>
       <Text style={[styles.tileName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
       {item.description ? (
