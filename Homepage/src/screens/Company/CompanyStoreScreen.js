@@ -223,19 +223,25 @@ export default function CompanyStoreScreen() {
               {/* Статистика с иконками */}
               <View style={styles.statTiles}>
                 <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <Ionicons name="cube-outline" size={16} color={colors.primary} />
+                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
+                    <Ionicons name="cube-outline" size={15} color={colors.primary} />
+                  </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{productsCount}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>товаров</Text>
                 </View>
                 <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <Ionicons name="people-outline" size={16} color={colors.primary} />
+                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
+                    <Ionicons name="people-outline" size={15} color={colors.primary} />
+                  </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{subscribersLabel}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>подписчиков</Text>
                 </View>
                 <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <Ionicons name="thumbs-up-outline" size={16} color={colors.primary} />
+                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
+                    <Ionicons name="thumbs-up-outline" size={15} color={colors.primary} />
+                  </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{positivePct != null ? `${positivePct}%` : '—'}</Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>положительных</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]} numberOfLines={2}>положительных отзывов</Text>
                 </View>
               </View>
 
@@ -352,9 +358,15 @@ export default function CompanyStoreScreen() {
               </View>
               <View style={styles.tipsRow}>
                 {['Качество товара', 'Скорость доставки', 'Обслуживание', 'Цены'].map((tip) => (
-                  <View key={tip} style={[styles.tipChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                  <TouchableOpacity
+                    key={tip}
+                    style={[styles.tipChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
+                    activeOpacity={0.7}
+                    onPress={() => setNewComment((prev) => (prev ? `${prev} ${tip}.` : `${tip}.`))}
+                  >
                     <Text style={[styles.tipChipText, { color: colors.textSecondary }]}>{tip}</Text>
-                  </View>
+                    <Ionicons name="add" size={13} color={colors.primary} />
+                  </TouchableOpacity>
                 ))}
               </View>
               <TouchableOpacity
@@ -451,7 +463,8 @@ const styles = StyleSheet.create({
   ratingBoxNum: { fontSize: 16, fontWeight: '800' },
   ratingBoxLabel: { fontSize: 9.5, fontWeight: '600', marginTop: 1, maxWidth: 70, textAlign: 'center' },
   statTiles: { flexDirection: 'row', gap: 8 },
-  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, alignItems: 'center', gap: 3 },
+  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', gap: 5 },
+  statIconBox: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   statValue: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
   ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statTileLabel: { fontSize: 10.5, fontWeight: '600' },
@@ -479,7 +492,7 @@ const styles = StyleSheet.create({
   reviewInput: { fontSize: 14, minHeight: 64, textAlignVertical: 'top', padding: 0 },
   charCounter: { fontSize: 11, alignSelf: 'flex-end', marginTop: 4 },
   tipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 14 },
-  tipChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  tipChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 12, paddingRight: 8, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   tipChipText: { fontSize: 11.5, fontWeight: '500' },
   submitBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   submitBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },

@@ -327,6 +327,7 @@ export default function ProductDetailScreen() {
   // Ширина карточки в блоках «Похожие» / «С этим покупают» — примерно на 30%
   // меньше карточки на главной (там 2 в ряд), но та же раскладка ProductCard.
   const SIM_CARD_W = Math.round((width - 32) / 2.85);
+  const IMG_W = Math.round((width - 32) * 0.46); // фото в двухколоночной шапке
   const normalizeImages = (imgs) =>
     Array.isArray(imgs) ? imgs : imgs ? [imgs] : [];
 
@@ -353,109 +354,92 @@ export default function ProductDetailScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={[styles.imgGallery, { backgroundColor: colors.cardAlt }]}>
-          {images.length > 0 ? (
-            <>
-              <ScrollView
-                ref={imgRef}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={(e) => {
-                  const i = Math.round(e.nativeEvent.contentOffset.x / width);
-                  imgIndexRef.current = i;
-                  setImgIndex(i);
-                }}
-              >
-                {images.map((img, i) => (
-                  imgErrors[i] ? (
-                    <View key={i} style={[styles.noImg, { width, height: width }]}>
-                      <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
+        <View style={styles.body}>
+          {/* ── Двухколоночная шапка: фото слева, информация справа ── */}
+          <View style={styles.topHeader}>
+            <View style={[styles.imgCol, { width: IMG_W, backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
+              {images.length > 0 ? (
+                <>
+                  <ScrollView
+                    ref={imgRef}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onMomentumScrollEnd={(e) => {
+                      const i = Math.round(e.nativeEvent.contentOffset.x / IMG_W);
+                      imgIndexRef.current = i;
+                      setImgIndex(i);
+                    }}
+                  >
+                    {images.map((img, i) => (
+                      imgErrors[i] ? (
+                        <View key={i} style={[styles.noImg, { width: IMG_W, height: IMG_W }]}>
+                          <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
+                        </View>
+                      ) : (
+                        <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setZoomVisible(true)}>
+                          <Image
+                            source={{ uri: getImageUrl(img) || '' }}
+                            style={{ width: IMG_W, height: IMG_W }}
+                            resizeMode="cover"
+                            onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
+                          />
+                        </TouchableOpacity>
+                      )
+                    ))}
+                  </ScrollView>
+                  {images.length > 1 && (
+                    <View style={styles.imgDots}>
+                      {images.map((_, i) => (
+                        <View
+                          key={i}
+                          style={[
+                            styles.imgDot,
+                            { backgroundColor: i === imgIndex ? colors.primary : colors.border },
+                            i === imgIndex && { width: 14 },
+                          ]}
+                        />
+                      ))}
                     </View>
-                  ) : (
-                    <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setZoomVisible(true)}>
-                      <Image
-                        source={{ uri: getImageUrl(img) || '' }}
-                        style={[styles.mainImg, { width, height: width }]}
-                        resizeMode="cover"
-                        onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
-                      />
-                    </TouchableOpacity>
-                  )
-                ))}
-              </ScrollView>
-              {images.length > 1 && (
-                <View style={styles.imgDots}>
-                  {images.map((_, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.imgDot,
-                        { backgroundColor: i === imgIndex ? colors.primary : colors.border },
-                        i === imgIndex && { width: 18 },
-                      ]}
-                    />
-                  ))}
+                  )}
+                </>
+              ) : (
+                <View style={[styles.noImg, { width: IMG_W, height: IMG_W }]}>
+                  <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
                 </View>
               )}
-            </>
-          ) : (
-            <View style={[styles.noImg, { width, height: width }]}>
-              <Ionicons name="cube-outline" size={80} color={colors.textMuted} />
+              {discount && discount > 0 && (
+                <View style={[styles.badge, styles.badgeAbs, { backgroundColor: colors.error }]}>
+                  <Text style={styles.badgeText}>-{discount}%</Text>
+                </View>
+              )}
             </View>
-          )}
 
-          <View style={styles.badges}>
-            {discount && discount > 0 && (
-              <View style={[styles.badge, { backgroundColor: colors.error }]}>
-                <Text style={styles.badgeText}>-{discount}%</Text>
+            <View style={styles.infoCol}>
+              <Text style={[styles.prodName, { color: colors.text }]} numberOfLines={3}>{product.name}</Text>
+              <View style={styles.ratingRow}>
+                <Ionicons name="star" size={13} color={colors.star} />
+                <Text style={[styles.ratingNum, { color: colors.textSecondary }]}>{displayRating.toFixed(1)}</Text>
+                <Text style={[styles.ratingCount, { color: colors.textMuted }]}>
+                  · {hasReviews ? `${stats.totalReviews} отзывов` : 'Нет отзывов'}
+                </Text>
               </View>
-            )}
-            {product.soldCount > 100 && (
-              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-                <Text style={styles.badgeText}>Топ</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.body}>
-          <Text style={[styles.prodName, { color: colors.text }]}>{product.name}</Text>
-
-          <View style={styles.ratingRow}>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <Ionicons key={s} name={s <= Math.round(displayRating) ? 'star' : 'star-outline'} size={14} color={colors.star} />
-            ))}
-            <Text style={[styles.ratingNum, { color: colors.textSecondary }]}>
-              {displayRating.toFixed(1)}
-            </Text>
-            <Text style={[styles.ratingCount, { color: colors.textMuted }]}>
-              · {hasReviews ? `${stats.totalReviews} отзывов` : 'Нет отзывов'}
-            </Text>
-          </View>
-
-          <View style={styles.priceRow}>
-            {selectedVariant ? (
-              <Text style={[styles.price, { color: colors.primary }]}>
-                {displayPrice.toLocaleString('ru-RU')} сум
-              </Text>
-            ) : hasVariants && minVariantPrice !== null ? (
-              <Text style={[styles.price, { color: colors.text }]}>
-                {minVariantPrice === maxVariantPrice
-                  ? `${minVariantPrice.toLocaleString('ru-RU')} сум`
-                  : `${minVariantPrice.toLocaleString('ru-RU')} – ${maxVariantPrice.toLocaleString('ru-RU')} сум`
-                }
-              </Text>
-            ) : (
-              <Text style={[styles.price, { color: colors.text }]}>
-                {displayPrice.toLocaleString('ru-RU')} сум
-              </Text>
-            )}
-            {originalPrice && !selectedVariant && (
-              <Text style={[styles.oldPrice, { color: colors.textMuted }]}>
-                {originalPrice.toLocaleString('ru-RU')} сум
-              </Text>
-            )}
+              <Text style={[styles.priceFrom, { color: colors.textMuted }]}>от</Text>
+              {selectedVariant ? (
+                <Text style={[styles.price, { color: colors.primary }]}>{displayPrice.toLocaleString('ru-RU')} сум</Text>
+              ) : hasVariants && minVariantPrice !== null && minVariantPrice !== maxVariantPrice ? (
+                <Text style={[styles.price, { color: colors.text }]}>
+                  {minVariantPrice.toLocaleString('ru-RU')} — {maxVariantPrice.toLocaleString('ru-RU')} сум
+                </Text>
+              ) : (
+                <Text style={[styles.price, { color: colors.text }]}>
+                  {(hasVariants && minVariantPrice !== null ? minVariantPrice : displayPrice).toLocaleString('ru-RU')} сум
+                </Text>
+              )}
+              {originalPrice && !selectedVariant && (
+                <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{originalPrice.toLocaleString('ru-RU')} сум</Text>
+              )}
+            </View>
           </View>
 
           {hasVariants && (
@@ -555,28 +539,48 @@ export default function ProductDetailScreen() {
           )}
 
           <View style={[styles.deliveryBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
-            <Text style={[styles.deliveryText, { color: colors.text }]}>
-              Курьером · <Text style={{ color: colors.success }}>Доставка доступна</Text>
-            </Text>
+            <Ionicons name="bicycle-outline" size={20} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.deliveryTitle, { color: colors.text }]}>Доставка доступна</Text>
+              <Text style={[styles.deliverySub, { color: colors.textMuted }]}>Курьером по вашему адресу</Text>
+            </View>
+            <Text style={[styles.deliveryFree, { color: colors.success }]}>Бесплатно</Text>
           </View>
 
-          <View style={styles.descSection}>
-            <Text style={[styles.sectionLabel, { color: colors.text }]}>О товаре</Text>
-            <Text
-              style={[styles.desc, { color: colors.textSecondary }]}
-              numberOfLines={showFullDesc ? undefined : 4}
-            >
-              {product.description
-                ? product.description
-                : `${product.name}. Категория: ${product.category || 'Общее'}. Артикул: ${product.barcode || product.id}. Доступно: ${product.quantity} шт.`
-              }
-            </Text>
-            <TouchableOpacity onPress={() => setShowFullDesc(p => !p)}>
-              <Text style={[styles.showMore, { color: colors.primary }]}>
-                {showFullDesc ? 'Свернуть' : 'Читать полностью'}
-              </Text>
-            </TouchableOpacity>
+          <View style={[styles.aboutCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionLabel, { color: colors.text, marginBottom: 12 }]}>О товаре</Text>
+            <View style={styles.aboutGrid}>
+              <View style={styles.aboutCell}>
+                <Ionicons name="pricetag-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.aboutCellLabel, { color: colors.textMuted }]}>Категория</Text>
+                <Text style={[styles.aboutCellValue, { color: colors.text }]} numberOfLines={1}>{product.category || 'Общее'}</Text>
+              </View>
+              <View style={[styles.aboutCell, { borderLeftColor: colors.border, borderLeftWidth: 1, borderRightColor: colors.border, borderRightWidth: 1 }]}>
+                <Ionicons name="barcode-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.aboutCellLabel, { color: colors.textMuted }]}>Артикул</Text>
+                <Text style={[styles.aboutCellValue, { color: colors.text }]} numberOfLines={1}>{product.barcode || product.id}</Text>
+              </View>
+              <View style={styles.aboutCell}>
+                <Ionicons name="cube-outline" size={16} color={colors.textMuted} />
+                <Text style={[styles.aboutCellLabel, { color: colors.textMuted }]}>Доступно</Text>
+                <Text style={[styles.aboutCellValue, { color: colors.text }]} numberOfLines={1}>{product.quantity} шт.</Text>
+              </View>
+            </View>
+            {product.description ? (
+              <>
+                <Text
+                  style={[styles.desc, { color: colors.textSecondary, marginTop: 12 }]}
+                  numberOfLines={showFullDesc ? undefined : 3}
+                >
+                  {product.description}
+                </Text>
+                <TouchableOpacity onPress={() => setShowFullDesc(p => !p)}>
+                  <Text style={[styles.showMore, { color: colors.primary }]}>
+                    {showFullDesc ? 'Свернуть' : 'Читать полностью'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
 
           {product.companyId ? (
@@ -972,11 +976,17 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   zoomPage: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
-  imgDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 12 },
+  imgDots: { flexDirection: 'row', justifyContent: 'center', gap: 5, paddingVertical: 8 },
   imgDot: { width: 6, height: 6, borderRadius: 3 },
   badges: { position: 'absolute', top: 110, left: 16, flexDirection: 'row', gap: 6 },
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  badgeAbs: { position: 'absolute', top: 8, left: 8 },
   badgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  // Двухколоночная шапка
+  topHeader: { flexDirection: 'row', gap: 14, marginBottom: 18 },
+  imgCol: { borderRadius: 18, borderWidth: 1, overflow: 'hidden' },
+  infoCol: { flex: 1, paddingTop: 2 },
+  priceFrom: { fontSize: 12, marginTop: 8, marginBottom: 2 },
   variantStrip: { flexShrink: 0 },
   variantStripContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   variantPill: { borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 12, paddingVertical: 8, minWidth: 90, maxWidth: 140, gap: 2 },
@@ -984,14 +994,14 @@ const styles = StyleSheet.create({
   variantPillSizes: { fontSize: 10 },
   variantPillPrice: { fontSize: 12, fontWeight: '600', marginTop: 2 },
   variantPillOos: { fontSize: 10, fontWeight: '500' },
-  body: { padding: 16 },
-  prodName: { fontSize: 24, fontWeight: '700', letterSpacing: -0.4, marginBottom: 10, lineHeight: 30 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 12 },
-  ratingNum: { fontSize: 13, fontWeight: '600', marginLeft: 4 },
+  body: { padding: 16, paddingTop: 104 },
+  prodName: { fontSize: 19, fontWeight: '700', letterSpacing: -0.3, marginBottom: 6, lineHeight: 24 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 },
+  ratingNum: { fontSize: 13, fontWeight: '600', marginLeft: 2 },
   ratingCount: { fontSize: 12 },
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginBottom: 16 },
-  price: { fontSize: 26, fontWeight: '800' },
-  oldPrice: { fontSize: 15, textDecorationLine: 'line-through', marginBottom: 2 },
+  price: { fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
+  oldPrice: { fontSize: 14, textDecorationLine: 'line-through', marginTop: 2 },
   sectionLabel: { fontSize: 16, fontWeight: '600', marginBottom: 10 },
   variantSection: { marginBottom: 16 },
   variantLabel: { fontSize: 14, fontWeight: '700', marginBottom: 10 },
@@ -1009,8 +1019,16 @@ const styles = StyleSheet.create({
   variantInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, borderRadius: 10, borderWidth: 1 },
   variantInfoText: { fontSize: 13, flex: 1 },
   variantHint: { fontSize: 12, marginTop: 8, fontStyle: 'italic' },
-  deliveryBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
+  deliveryBox: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
   deliveryText: { fontSize: 14 },
+  deliveryTitle: { fontSize: 14, fontWeight: '700' },
+  deliverySub: { fontSize: 12, marginTop: 2 },
+  deliveryFree: { fontSize: 14, fontWeight: '700' },
+  aboutCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16 },
+  aboutGrid: { flexDirection: 'row' },
+  aboutCell: { flex: 1, alignItems: 'center', gap: 4, paddingHorizontal: 6 },
+  aboutCellLabel: { fontSize: 11 },
+  aboutCellValue: { fontSize: 13, fontWeight: '700' },
   descSection: { marginBottom: 16 },
   desc: { fontSize: 14, lineHeight: 21 },
   showMore: { fontSize: 13, fontWeight: '500', marginTop: 6 },
