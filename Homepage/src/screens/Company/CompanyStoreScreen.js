@@ -127,6 +127,10 @@ export default function CompanyStoreScreen() {
   const logoUri = getImageUrl(company?.logoUrl);
   const coverUri = getImageUrl(company?.coverUrl);
   const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
+  const productsCount = companyStats?.total_products ?? products.length;
+  const subsCount = Number(companyStats?.subscribers ?? 0);
+  const subscribersLabel = subsCount >= 1000 ? `${(subsCount / 1000).toFixed(1)}K` : String(subsCount);
+  const positivePct = companyRating > 0 ? Math.round((companyRating / 5) * 100) : null;
 
   if (isLoading) {
     return (
@@ -162,71 +166,75 @@ export default function CompanyStoreScreen() {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* Store cover + overlapping avatar (Amazon storefront style) */}
-            <View style={[styles.cover, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            {/* ── Обложка-баннер ── */}
+            <View style={[styles.cover, { backgroundColor: colors.card }]}>
               {coverUri ? (
                 <Image source={{ uri: coverUri }} style={styles.coverImg} resizeMode="cover" />
               ) : (
                 <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
               )}
+              <View style={styles.coverScrim} />
             </View>
 
             <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={styles.avatarFloat}>
-                {logoUri ? (
-                  <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.surface }]} />
-                ) : (
-                  <View style={[styles.logoFallback, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
-                    <Text style={styles.logoInitial}>
-                      {company?.name?.charAt(0).toUpperCase() || '?'}
-                    </Text>
+              {/* Логотип + имя + рейтинг */}
+              <View style={styles.headRow}>
+                <View style={styles.avatarFloat}>
+                  {logoUri ? (
+                    <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.surface }]} />
+                  ) : (
+                    <View style={[styles.logoFallback, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
+                      <Text style={styles.logoInitial}>{company?.name?.charAt(0).toUpperCase() || '?'}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.headInfo}>
+                  <View style={styles.nameRow}>
+                    <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
+                    {companyRating >= 4.5 && (
+                      <Ionicons name="checkmark-circle" size={18} color="#3B82F6" />
+                    )}
                   </View>
-                )}
-              </View>
+                  {company?.address ? (
+                    <View style={styles.addressRow}>
+                      <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                      <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>{company.address}</Text>
+                    </View>
+                  ) : null}
+                  {companyRating >= 4.5 && (
+                    <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
+                      <Ionicons name="shield-checkmark" size={11} color="#3B82F6" />
+                      <Text style={styles.verifiedText}>Магазин подтверждён</Text>
+                    </View>
+                  )}
+                </View>
 
-              <View style={styles.nameRow}>
-                <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
-                {companyRating >= 4.5 && (
-                  <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
-                )}
-              </View>
-              {companyRating >= 4.5 && (
-                <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
-                  <Ionicons name="shield-checkmark" size={12} color="#3B82F6" />
-                  <Text style={styles.verifiedText}>Магазин подтверждён</Text>
-                </View>
-              )}
-              {company?.address ? (
-                <View style={styles.addressRow}>
-                  <Ionicons name="location-outline" size={13} color={colors.textMuted} />
-                  <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>
-                    {company.address}
-                  </Text>
-                </View>
-              ) : null}
-
-              {/* Stat tiles */}
-              <View style={styles.statTiles}>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {companyStats?.total_products ?? products.length}
-                  </Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Товары</Text>
-                </View>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <Text style={[styles.statValue, { color: colors.text }]}>
-                    {companyStats?.subscribers ?? 0}
-                  </Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Подписчики</Text>
-                </View>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                <View style={[styles.ratingBox, { backgroundColor: colors.cardAlt }]}>
                   <View style={styles.ratingValue}>
                     <Ionicons name="star" size={14} color={colors.star} />
-                    <Text style={[styles.statValue, { color: colors.text }]}>
-                      {Number(company?.rating ?? companyStats?.rating ?? 5).toFixed(1)}
-                    </Text>
+                    <Text style={[styles.ratingBoxNum, { color: colors.text }]}>{companyRating.toFixed(1)}</Text>
                   </View>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>Рейтинг</Text>
+                  <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг магазина</Text>
+                </View>
+              </View>
+
+              {/* Статистика с иконками */}
+              <View style={styles.statTiles}>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <Ionicons name="cube-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.statValue, { color: colors.text }]}>{productsCount}</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>товаров</Text>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <Ionicons name="people-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.statValue, { color: colors.text }]}>{subscribersLabel}</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>подписчиков</Text>
+                </View>
+                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
+                  <Ionicons name="thumbs-up-outline" size={16} color={colors.primary} />
+                  <Text style={[styles.statValue, { color: colors.text }]}>{positivePct != null ? `${positivePct}%` : '—'}</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>положительных</Text>
                 </View>
               </View>
 
@@ -375,38 +383,41 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
   cover: {
-    marginHorizontal: 16,
-    height: 96,
-    borderRadius: Radius.card,
-    borderWidth: 1,
+    height: 150,
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
   coverImg: { width: '100%', height: '100%' },
+  coverScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60, backgroundColor: 'rgba(0,0,0,0.25)' },
   companyCard: {
     marginHorizontal: 16,
-    marginTop: -40,
+    marginTop: -44,
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: Spacing.lg,
     marginBottom: 16,
-    gap: 12,
+    gap: 14,
   },
-  avatarFloat: { marginTop: -52 },
-  logo: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3 },
-  logoFallback: { width: 72, height: 72, borderRadius: Radius.card, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  headInfo: { flex: 1, paddingTop: 4, gap: 4 },
+  avatarFloat: { marginTop: -48 },
+  logo: { width: 72, height: 72, borderRadius: 18, borderWidth: 3 },
+  logoFallback: { width: 72, height: 72, borderRadius: 18, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   logoInitial: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  companyName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, marginTop: 2 },
   verifiedText: { color: '#3B82F6', fontSize: 11, fontWeight: '700' },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addressText: { fontSize: 13, flex: 1 },
-  statTiles: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  addressText: { fontSize: 12.5, flex: 1 },
+  ratingBox: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, marginTop: 4 },
+  ratingBoxNum: { fontSize: 16, fontWeight: '800' },
+  ratingBoxLabel: { fontSize: 9.5, fontWeight: '600', marginTop: 1, maxWidth: 70, textAlign: 'center' },
+  statTiles: { flexDirection: 'row', gap: 8 },
+  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, alignItems: 'center', gap: 3 },
+  statValue: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
   ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statTileLabel: { fontSize: 11, fontWeight: '600' },
+  statTileLabel: { fontSize: 10.5, fontWeight: '600' },
   companyDesc: { fontSize: 14, lineHeight: 20 },
   subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: Radius.button },
   subscribeBtnText: { fontSize: 15, fontWeight: '600' },
