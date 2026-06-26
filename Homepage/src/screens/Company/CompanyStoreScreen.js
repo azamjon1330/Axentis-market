@@ -125,6 +125,7 @@ export default function CompanyStoreScreen() {
   };
 
   const logoUri = getImageUrl(company?.logoUrl);
+  const coverUri = getImageUrl(company?.coverUrl);
   const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
 
   if (isLoading) {
@@ -163,7 +164,11 @@ export default function CompanyStoreScreen() {
 
             {/* Store cover + overlapping avatar (Amazon storefront style) */}
             <View style={[styles.cover, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
+              {coverUri ? (
+                <Image source={{ uri: coverUri }} style={styles.coverImg} resizeMode="cover" />
+              ) : (
+                <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
+              )}
             </View>
 
             <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -377,6 +382,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
+  coverImg: { width: '100%', height: '100%' },
   companyCard: {
     marginHorizontal: 16,
     marginTop: -40,

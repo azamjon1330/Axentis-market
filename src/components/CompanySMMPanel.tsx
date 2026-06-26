@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, Upload, Video, Megaphone, MapPin, Package, TrendingUp, X, Navigation, Users, Trash2 } from 'lucide-react';
+import { Star, Upload, Video, Megaphone, MapPin, Package, TrendingUp, X, Navigation, Users, Trash2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import MapLocationPicker from './MapLocationPicker';
 import api, { getImageUrl } from '../utils/api';
@@ -47,6 +47,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [coverImage, setCoverImage] = useState('');
+  const [uploadingCover, setUploadingCover] = useState(false);
   
   // 📱 Адаптивность
   const { isMobile } = useResponsive();
@@ -124,6 +126,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
       console.log('🖼️ Logo URL from API:', logoUrl);
       const fullLogoUrl = getImageUrl(logoUrl) || '';
       console.log('🖼️ Full Logo URL:', fullLogoUrl);
+      setCoverImage(getImageUrl(data.coverUrl || '') || '');
       
       setProfile({
         id: data.id,
@@ -341,6 +344,63 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         <div className={responsive.spacing}>
           {/* Профиль компании с логотипом */}
           <div className={`${responsive.card} overflow-hidden`} style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16 }}>
+            {/* Фоновое (обложка) фото магазина */}
+            <div className="mb-6">
+              <div
+                className="relative w-full rounded-2xl overflow-hidden border"
+                style={{ aspectRatio: '3 / 1', background: 'linear-gradient(135deg, #1b2440, #0f1730)', borderColor: 'rgba(255,255,255,0.07)' }}
+              >
+                {coverImage ? (
+                  <img src={coverImage} alt="Обложка магазина" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-1" style={{ color: '#8B8BAA' }}>
+                    <Upload className="w-6 h-6" />
+                    <span className="text-sm">{language === 'uz' ? 'Fon rasmi yoʻq' : 'Фоновое фото не загружено'}</span>
+                  </div>
+                )}
+                {editMode && (
+                  <label
+                    className="absolute bottom-3 right-3 flex items-center gap-2 bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg cursor-pointer hover:bg-black/75 transition-colors text-sm font-medium"
+                  >
+                    {uploadingCover ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {language === 'uz' ? 'Fon rasmni yuklash' : 'Загрузить фон'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      disabled={uploadingCover}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error(language === 'uz' ? 'Rasm 5 MB dan oshmasligi kerak' : 'Файл должен быть не больше 5 МБ');
+                          return;
+                        }
+                        try {
+                          setUploadingCover(true);
+                          toast.loading(language === 'uz' ? 'Yuklanmoqda…' : 'Загрузка…', { id: 'upload-cover' });
+                          const res = await api.companies.uploadCover(companyId.toString(), file);
+                          toast.success(language === 'uz' ? 'Fon rasmi yuklandi' : 'Фоновое фото загружено', { id: 'upload-cover' });
+                          setCoverImage(getImageUrl(res?.cover_url || '') || '');
+                          await loadCompanyProfile();
+                        } catch (error) {
+                          console.error('❌ Ошибка загрузки обложки:', error);
+                          toast.error(language === 'uz' ? 'Yuklashda xatolik' : 'Ошибка загрузки фона', { id: 'upload-cover' });
+                        } finally {
+                          setUploadingCover(false);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+              <p className="mt-2 text-xs" style={{ color: '#8B8BAA' }}>
+                {language === 'uz'
+                  ? 'Tavsiya etiladi: 1200×400 px (3:1), JPG yoki PNG, 5 MB gacha. Bu rasm magazin sahifasida logotip orqasida koʻrinadi.'
+                  : 'Рекомендуется: 1200×400 px (соотношение 3:1), формат JPG или PNG, до 5 МБ. Это фото показывается на странице магазина за логотипом.'}
+              </p>
+            </div>
+
             {/* Логотип и основная информация */}
             <div className={`flex ${isMobile ? 'flex-col' : 'items-start'} ${responsive.gapLarge} mb-6`}>
               <div className={`relative ${isMobile ? 'mx-auto' : ''}`}>

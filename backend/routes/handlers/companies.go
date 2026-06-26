@@ -179,6 +179,7 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			Mode                string
 			Status              string
 			LogoURL             sql.NullString
+			CoverURL            sql.NullString
 			Address             sql.NullString
 			Description         sql.NullString
 			ProductsDescription sql.NullString
@@ -194,12 +195,12 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 		}
 
 		err := db.QueryRow(`
-			SELECT id, name, phone, mode, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled,
+			SELECT id, name, phone, mode, status, logo_url, cover_url, address, description, products_description, latitude, longitude, delivery_enabled,
 			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng,
 			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24)
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
-			&company.LogoURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
+			&company.LogoURL, &company.CoverURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
 			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng,
 			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours)
 
@@ -219,6 +220,9 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 
 		if company.LogoURL.Valid {
 			result["logoUrl"] = company.LogoURL.String
+		}
+		if company.CoverURL.Valid {
+			result["coverUrl"] = company.CoverURL.String
 		}
 		if company.Address.Valid {
 			result["address"] = company.Address.String
@@ -796,6 +800,55 @@ func UploadCompanyLogo(db *sql.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{
 			"success":  true,
 			"logo_url": logoURL,
+		})
+	}
+}
+
+// UploadCompanyCover - загружает фоновое (обложку) фото магазина.
+func UploadCompanyCover(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Param("id")
+
+		file, err := c.FormFile("file")
+		if err != nil {
+			log.Printf("❌ UploadCompanyCover: Failed to get file: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No file provided"})
+			return
+		}
+
+		ext := filepath.Ext(file.Filename)
+		newFilename := fmt.Sprintf("company_%s_cover_%d%s", companyID, time.Now().Unix(), ext)
+		uploadPath := filepath.Join("uploads", "covers", newFilename)
+
+		if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
+			log.Printf("❌ UploadCompanyCover: Failed to create directory: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create upload directory"})
+			return
+		}
+
+		if err := c.SaveUploadedFile(file, uploadPath); err != nil {
+			log.Printf("❌ UploadCompanyCover: Failed to save file: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
+			return
+		}
+
+		coverURL := fmt.Sprintf("/uploads/covers/%s", newFilename)
+
+		_, err = db.Exec(`
+			UPDATE companies
+			SET cover_url = $1, updated_at = NOW()
+			WHERE id = $2
+		`, coverURL, companyID)
+		if err != nil {
+			log.Printf("❌ UploadCompanyCover: Failed to update database: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cover"})
+			return
+		}
+
+		log.Printf("✅ UploadCompanyCover: Cover uploaded for company %s: %s", companyID, coverURL)
+		c.JSON(http.StatusOK, gin.H{
+			"success":   true,
+			"cover_url": coverURL,
 		})
 	}
 }

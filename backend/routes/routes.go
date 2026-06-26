@@ -129,6 +129,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.POST("/:id/unsubscribe", handlers.UnsubscribeFromCompany(db))
 			companies.PUT("/:id/expenses", middleware.RequireCompany(cfg), handlers.UpdateCompanyExpenses(db))
 			companies.POST("/:id/upload-logo", middleware.RequireCompany(cfg), handlers.UploadCompanyLogo(db))
+			companies.POST("/:id/upload-cover", middleware.RequireCompany(cfg), handlers.UploadCompanyCover(db)) // 🖼️ Фоновое фото магазина
 			companies.PUT("/:id/privacy", middleware.RequireCompany(cfg), handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
 			companies.PUT("/:id/delivery", middleware.RequireCompany(cfg), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
