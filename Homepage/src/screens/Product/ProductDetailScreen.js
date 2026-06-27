@@ -91,7 +91,8 @@ export default function ProductDetailScreen() {
         getProductReviewStats(productId),
         getSimilarProducts(productId),
         getProductVariants(productId),
-        getProductQuestions(productId),
+        // Вопросы приватны: грузим только свои (по телефону). Гость — пустой список.
+        user?.phone ? getProductQuestions(productId, user.phone) : Promise.resolve([]),
         getFrequentlyBoughtWith(productId),
       ]);
       if (qData.status === 'fulfilled') setQuestions(qData.value);
@@ -288,7 +289,7 @@ export default function ProductDetailScreen() {
       });
       setNewQuestion('');
       // Обновляем список вопросов с сервера
-      try { setQuestions(await getProductQuestions(productId)); } catch { /* ignore */ }
+      try { setQuestions(await getProductQuestions(productId, user.phone)); } catch { /* ignore */ }
       Alert.alert(t('thanksWord'), t('questionSentMsg'));
     } catch (err) {
       Alert.alert(t('error'), err?.response?.data?.error || t('uploadFail'));

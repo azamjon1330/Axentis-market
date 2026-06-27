@@ -771,8 +771,9 @@ function MediaCard({ item, companyId: _companyId, companyName: _companyName, onR
   companyName?: string;
   onReload?: () => void;
 }) {
-  const t = useTranslation(getCurrentLanguage());
-  
+  const language = getCurrentLanguage();
+  const t = useTranslation(language);
+
   const handleDelete = async () => {
     if (!confirm(t.deleteAdConfirm)) return;
     
@@ -883,8 +884,9 @@ function UploadModal({
   onUpload: (imageUrl: string, title: string, description: string, adType: 'company' | 'product', productId?: number, file?: File, linkUrl?: string) => void;
   companyId: number;
 }) {
-  const t = useTranslation(getCurrentLanguage());
-  
+  const language = getCurrentLanguage();
+  const t = useTranslation(language);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');

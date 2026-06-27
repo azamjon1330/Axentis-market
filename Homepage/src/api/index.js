@@ -339,6 +339,7 @@ export const getCompanyReviews = async (companyId) => {
   return raw.map((r) => ({
     userName: r.user_name ?? r.userName ?? '',
     userPhone: r.user_phone ?? r.userPhone ?? '',
+    userAvatarUrl: r.user_avatar_url ?? r.userAvatarUrl ?? null,
     rating: r.rating ?? 0,
     comment: r.comment ?? '',
     createdAt: r.created_at ?? r.createdAt ?? '',
@@ -410,8 +411,11 @@ export const getFrequentLocations = async (phone) => {
 };
 
 // ─── ❓ Вопросы к товару ────────────────────────────────────────────────────────
-export const getProductQuestions = async (productId) => {
-  const res = await api.get(ENDPOINTS.productQuestions(productId));
+export const getProductQuestions = async (productId, userPhone) => {
+  // Приватность: вопросы видны только их автору — передаём user_phone.
+  const res = await api.get(ENDPOINTS.productQuestions(productId), {
+    params: userPhone ? { user_phone: userPhone } : undefined,
+  });
   return Array.isArray(res.data) ? res.data : (res.data?.questions || []);
 };
 

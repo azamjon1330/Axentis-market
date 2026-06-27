@@ -31,12 +31,19 @@ func CreateReturn(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// If companyId wasn't supplied, derive it from the order.
-		if req.CompanyID == nil && req.OrderID != nil {
+		// If companyId wasn't supplied (or came through as 0 — old clients that
+		// didn't have company_id in the order detail), derive it from the order.
+		// Inserting company_id = 0 would violate the companies FK and 500.
+		if (req.CompanyID == nil || *req.CompanyID <= 0) && req.OrderID != nil {
 			var cid int64
-			if err := db.QueryRow(`SELECT company_id FROM orders WHERE id = $1`, *req.OrderID).Scan(&cid); err == nil {
+			if err := db.QueryRow(`SELECT company_id FROM orders WHERE id = $1`, *req.OrderID).Scan(&cid); err == nil && cid > 0 {
 				req.CompanyID = &cid
+			} else {
+				req.CompanyID = nil
 			}
+		}
+		if req.CompanyID != nil && *req.CompanyID <= 0 {
+			req.CompanyID = nil
 		}
 
 		// Enforce the company's own return policy (enabled + time window).

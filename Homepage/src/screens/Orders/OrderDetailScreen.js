@@ -51,7 +51,8 @@ export default function OrderDetailScreen() {
     try {
       await createReturn({
         orderId: order.id,
-        companyId: order.companyId,
+        // Не шлём companyId=0 — бэкенд сам выведет его из заказа (иначе FK-ошибка).
+        companyId: order.companyId > 0 ? order.companyId : undefined,
         customerPhone: user?.phone || order.customerPhone,
         reason: returnReason.trim(),
         refundAmount: order.totalAmount || 0,

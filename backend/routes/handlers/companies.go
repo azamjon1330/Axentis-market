@@ -1170,14 +1170,16 @@ func GetCompanyReviews(db *sql.DB) gin.HandlerFunc {
 		companyID := c.Param("id")
 
 		rows, err := db.Query(`
-			SELECT COALESCE(user_name, '') AS user_name,
-			       user_phone,
-			       rating,
-			       COALESCE(comment, '') AS comment,
-			       COALESCE(updated_at, created_at) AS created_at
-			FROM company_ratings
-			WHERE company_id = $1 AND COALESCE(comment, '') <> ''
-			ORDER BY COALESCE(updated_at, created_at) DESC
+			SELECT COALESCE(cr.user_name, '') AS user_name,
+			       cr.user_phone,
+			       cr.rating,
+			       COALESCE(cr.comment, '') AS comment,
+			       COALESCE(cr.updated_at, cr.created_at) AS created_at,
+			       COALESCE(u.avatar_url, '') AS user_avatar_url
+			FROM company_ratings cr
+			LEFT JOIN users u ON u.phone = cr.user_phone
+			WHERE cr.company_id = $1 AND COALESCE(cr.comment, '') <> ''
+			ORDER BY COALESCE(cr.updated_at, cr.created_at) DESC
 			LIMIT 100
 		`, companyID)
 		if err != nil {
@@ -1189,18 +1191,19 @@ func GetCompanyReviews(db *sql.DB) gin.HandlerFunc {
 
 		reviews := make([]gin.H, 0)
 		for rows.Next() {
-			var userName, userPhone, comment string
+			var userName, userPhone, comment, avatarURL string
 			var rating int
 			var createdAt time.Time
-			if err := rows.Scan(&userName, &userPhone, &rating, &comment, &createdAt); err != nil {
+			if err := rows.Scan(&userName, &userPhone, &rating, &comment, &createdAt, &avatarURL); err != nil {
 				continue
 			}
 			reviews = append(reviews, gin.H{
-				"user_name":  userName,
-				"user_phone": userPhone,
-				"rating":     rating,
-				"comment":    comment,
-				"created_at": createdAt,
+				"user_name":       userName,
+				"user_phone":      userPhone,
+				"rating":          rating,
+				"comment":         comment,
+				"created_at":      createdAt,
+				"user_avatar_url": avatarURL,
 			})
 		}
 

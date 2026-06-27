@@ -4,6 +4,7 @@ import {
   Image, ActivityIndicator, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -167,17 +168,24 @@ export default function CompanyStoreScreen() {
               <View style={{ width: 40 }} />
             </View>
 
-            {/* ── Обложка-баннер ── */}
-            <View style={[styles.cover, { backgroundColor: colors.card }]}>
+            {/* ── Обложка-баннер: нижняя часть растворяется в фоне (фейд) ── */}
+            <View style={styles.cover}>
               {coverUri ? (
                 <Image source={{ uri: coverUri }} style={styles.coverImg} resizeMode="cover" />
               ) : (
                 <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
               )}
+              {/* Градиент прозрачный → фон: нижняя грань обложки исчезает плавно */}
+              <LinearGradient
+                colors={['transparent', 'transparent', colors.background]}
+                locations={[0, 0.45, 1]}
+                style={styles.coverFade}
+                pointerEvents="none"
+              />
             </View>
 
-            {/* ── Карточка 1: логотип + имя + рейтинг ── */}
-            <View style={[styles.identityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            {/* ── Карточка 1: логотип + имя + рейтинг (полупрозрачная, наезжает на обложку) ── */}
+            <View style={[styles.identityCard, { backgroundColor: isDark ? 'rgba(22,22,38,0.72)' : 'rgba(255,255,255,0.82)', borderColor: colors.border }]}>
               {logoUri ? (
                 <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.border }]} />
               ) : (
@@ -382,11 +390,18 @@ export default function CompanyStoreScreen() {
             {reviews.map((r, i) => (
               <View key={i} style={[styles.reviewItem, { borderTopColor: colors.divider, borderTopWidth: i === 0 ? 0 : 1 }]}>
                 <View style={styles.reviewHead}>
-                  <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
-                    <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
-                      {(r.userName || 'U').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                  {getImageUrl(r.userAvatarUrl) ? (
+                    <Image
+                      source={{ uri: getImageUrl(r.userAvatarUrl) }}
+                      style={styles.reviewAvatar}
+                    />
+                  ) : (
+                    <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
+                      <Text style={[styles.reviewAvatarText, { color: colors.primary }]}>
+                        {(r.userName || 'U').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.reviewName, { color: colors.text }]}>{r.userName || 'Покупатель'}</Text>
                     <View style={styles.reviewStars}>
@@ -429,18 +444,20 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
   cover: {
-    height: 165,
+    height: 220,
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
   coverImg: { width: '100%', height: '100%' },
-  // Карточка 1 — логотип/имя/рейтинг
+  // Нижняя часть обложки плавно растворяется в фоне приложения
+  coverFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130 },
+  // Карточка 1 — логотип/имя/рейтинг (наезжает на нижние ~20% обложки)
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: -44,
     borderRadius: Radius.card,
     borderWidth: 1,
     padding: 16,

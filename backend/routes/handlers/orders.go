@@ -371,6 +371,7 @@ func GetOrderByID(db *sql.DB) gin.HandlerFunc {
 
 		var o struct {
 			ID                  int64
+			CompanyID           sql.NullInt64
 			CustomerName        string
 			CustomerPhone       string
 			Address             sql.NullString
@@ -389,11 +390,11 @@ func GetOrderByID(db *sql.DB) gin.HandlerFunc {
 		}
 
 		err := db.QueryRow(`
-			SELECT id, customer_name, customer_phone, address, items,
+			SELECT id, company_id, customer_name, customer_phone, address, items,
 			       total_amount, delivery_cost, delivery_type, recipient_name,
 			       delivery_address, delivery_coordinates, markup_profit, status, comment, order_code, created_at
 			FROM orders WHERE id = $1
-		`, id).Scan(&o.ID, &o.CustomerName, &o.CustomerPhone, &o.Address, &o.Items,
+		`, id).Scan(&o.ID, &o.CompanyID, &o.CustomerName, &o.CustomerPhone, &o.Address, &o.Items,
 			&o.TotalAmount, &o.DeliveryCost, &o.DeliveryType, &o.RecipientName,
 			&o.DeliveryAddress, &o.DeliveryCoordinates, &o.MarkupProfit, &o.Status, &o.Comment, &o.OrderCode, &o.CreatedAt)
 		if err == sql.ErrNoRows {
@@ -422,6 +423,8 @@ func GetOrderByID(db *sql.DB) gin.HandlerFunc {
 
 		order := map[string]interface{}{
 			"id":            o.ID,
+			"companyId":     o.CompanyID.Int64,
+			"company_id":    o.CompanyID.Int64,
 			"customerName":  o.CustomerName,
 			"customerPhone": o.CustomerPhone,
 			"items":         itemsArray,

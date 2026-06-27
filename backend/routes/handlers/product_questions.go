@@ -49,13 +49,28 @@ func AskQuestion(db *sql.DB) gin.HandlerFunc {
 // GetProductQuestions lists questions for a product (GET /products/:id/questions).
 func GetProductQuestions(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rows, err := db.Query(`
-			SELECT id, COALESCE(user_name, ''), question, COALESCE(answer, ''),
-			       COALESCE(answered_by, ''), is_answered, created_at, answered_at
-			FROM product_questions
-			WHERE product_id = $1
-			ORDER BY created_at DESC
-		`, c.Param("id"))
+		// Приватность: вопрос виден только автору. Если передан user_phone —
+		// возвращаем только его вопросы. Без параметра (панель продавца) — все.
+		phone := c.Query("user_phone")
+		var rows *sql.Rows
+		var err error
+		if phone != "" {
+			rows, err = db.Query(`
+				SELECT id, COALESCE(user_name, ''), question, COALESCE(answer, ''),
+				       COALESCE(answered_by, ''), is_answered, created_at, answered_at
+				FROM product_questions
+				WHERE product_id = $1 AND user_phone = $2
+				ORDER BY created_at DESC
+			`, c.Param("id"), phone)
+		} else {
+			rows, err = db.Query(`
+				SELECT id, COALESCE(user_name, ''), question, COALESCE(answer, ''),
+				       COALESCE(answered_by, ''), is_answered, created_at, answered_at
+				FROM product_questions
+				WHERE product_id = $1
+				ORDER BY created_at DESC
+			`, c.Param("id"))
+		}
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch questions"})
 			return
