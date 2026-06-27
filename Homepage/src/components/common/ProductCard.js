@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getImageUrl } from '../../utils/imageUrl';
 
 // compact — режим для блоков «Похожие товары» / «С этим покупают»:
@@ -17,6 +18,7 @@ import { getImageUrl } from '../../utils/imageUrl';
 // чуть меньше типографика. Картинка остаётся такой же широкой (aspectRatio 3/4).
 export default function ProductCard({ product, onPress, onFavorite, isFavorite, compact = false }) {
   const { colors, isDark } = useTheme();
+  const { t, language } = useLanguage();
   const [imgError, setImgError] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -43,8 +45,14 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
   const companyRating = Number(product.companyRating ?? product.company_rating ?? 0);
   const companyVerified = companyRating >= 4.5;
 
-  const formatPrice = p => `${(p || 0).toLocaleString('ru-RU')} сум`;
-  const priceLabel = hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice);
+  const localeTag = language === 'uz' ? 'uz-UZ' : 'ru-RU';
+  const formatPrice = p => `${(p || 0).toLocaleString(localeTag)} ${t('sum')}`;
+  // «от 12 000 сум» (ru) / «12 000 so'mdan» (uz) — приставка/суффикс по языку
+  const priceLabel = hasVariants
+    ? (language === 'uz'
+        ? `${formatPrice(displayPrice)}${t('priceFrom')}`
+        : `${t('priceFrom')} ${formatPrice(displayPrice)}`)
+    : formatPrice(displayPrice);
 
   const handleFavorite = () => {
     if (!onFavorite) return;
@@ -140,7 +148,7 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
             {/* В компактном режиме счётчик продаж скрыт */}
             {!compact && soldCount > 0 && (
               <Text style={[styles.sold, { color: colors.textMuted }]}>
-                {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} продано
+                {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} {t('sold')}
               </Text>
             )}
           </View>

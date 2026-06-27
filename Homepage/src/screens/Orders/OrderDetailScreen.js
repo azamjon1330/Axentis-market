@@ -8,25 +8,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getOrderDetail, createReturn, getCompanyDetail } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
 import { getImageUrl } from '../../utils/imageUrl';
 
 const STATUS_CONFIG = {
-  pending: { label: 'Ожидает подтверждения', color: '#FFA726', icon: 'time-outline', step: 0 },
-  confirmed: { label: 'Подтверждён', color: '#7B5CF0', icon: 'checkmark-circle-outline', step: 1 },
-  processing: { label: 'Обрабатывается', color: '#7B5CF0', icon: 'refresh-outline', step: 1 },
-  shipped: { label: 'В пути', color: '#2196F3', icon: 'bicycle-outline', step: 2 },
-  delivered: { label: 'Доставлен', color: '#4CAF50', icon: 'checkmark-done-outline', step: 3 },
-  cancelled: { label: 'Отменён', color: '#FF5252', icon: 'close-circle-outline', step: -1 },
+  pending: { labelKey: 'statusPendingFull', color: '#FFA726', icon: 'time-outline', step: 0 },
+  confirmed: { labelKey: 'statusConfirmed', color: '#7B5CF0', icon: 'checkmark-circle-outline', step: 1 },
+  processing: { labelKey: 'statusProcessing', color: '#7B5CF0', icon: 'refresh-outline', step: 1 },
+  shipped: { labelKey: 'statusShipped', color: '#2196F3', icon: 'bicycle-outline', step: 2 },
+  delivered: { labelKey: 'statusDelivered', color: '#4CAF50', icon: 'checkmark-done-outline', step: 3 },
+  completed: { labelKey: 'statusDelivered', color: '#4CAF50', icon: 'checkmark-done-outline', step: 3 },
+  cancelled: { labelKey: 'statusCancelled', color: '#FF5252', icon: 'close-circle-outline', step: -1 },
 };
 
 export default function OrderDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const { orderId } = route.params;
+  const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
 
   const [order, setOrder] = useState(null);
   const [company, setCompany] = useState(null);
@@ -40,7 +44,7 @@ export default function OrderDetailScreen() {
 
   const submitReturn = async () => {
     if (!returnReason.trim()) {
-      Alert.alert('Возврат', 'Опишите причину возврата');
+      Alert.alert(t('returnWord'), t('describeReturnReason'));
       return;
     }
     setSubmittingReturn(true);
@@ -55,9 +59,9 @@ export default function OrderDetailScreen() {
       setReturnRequested(true);
       setShowReturnForm(false);
       setReturnReason('');
-      Alert.alert('Возврат', 'Заявка на возврат отправлена продавцу. Ожидайте решения.');
+      Alert.alert(t('returnWord'), t('returnSentMsg'));
     } catch (e) {
-      Alert.alert('Ошибка', 'Не удалось отправить заявку на возврат. Попробуйте позже.');
+      Alert.alert(t('error'), t('returnFailMsg'));
     } finally {
       setSubmittingReturn(false);
     }
@@ -86,14 +90,14 @@ export default function OrderDetailScreen() {
   if (!order) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background }]}>
-        <Text style={{ color: colors.text }}>Заказ не найден</Text>
+        <Text style={{ color: colors.text }}>{t('orderNotFound')}</Text>
       </View>
     );
   }
 
   const statusCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
   const orderItems = Array.isArray(order.items) ? order.items : [];
-  const PROGRESS_STEPS = ['Оформлен', 'Подтверждён', 'В пути', 'Доставлен'];
+  const PROGRESS_STEPS = [t('stepPlaced'), t('stepConfirmed'), t('stepInTransit'), t('stepDelivered')];
 
   // Возврат разрешён политикой компании: включён + статус доставлен/выполнен + не истёк срок
   const returnEnabled = company ? company.returnEnabled !== false : true;
@@ -115,7 +119,7 @@ export default function OrderDetailScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Заказ №{order.orderCode}
+          {t('orderLabel')} №{order.orderCode}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -126,9 +130,9 @@ export default function OrderDetailScreen() {
             <Ionicons name={statusCfg.icon} size={28} color={statusCfg.color} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.statusLabel, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+            <Text style={[styles.statusLabel, { color: statusCfg.color }]}>{t(statusCfg.labelKey)}</Text>
             <Text style={[styles.statusDate, { color: colors.textMuted }]}>
-              Заказ от {new Date(order.createdAt).toLocaleDateString('ru-RU', {
+              {t('orderFrom')} {new Date(order.createdAt).toLocaleDateString(dateLocale, {
                 day: 'numeric', month: 'long', year: 'numeric',
               })}
             </Text>
@@ -167,11 +171,11 @@ export default function OrderDetailScreen() {
         )}
 
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Доставка</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('deliveryTitle')}</Text>
           <View style={styles.infoRow}>
             <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              {order.deliveryType === 'delivery' ? 'Курьером' : 'Самовывоз'}
+              {order.deliveryType === 'delivery' ? t('byCourier') : t('pickup')}
             </Text>
           </View>
           {order.deliveryAddress && (
@@ -189,45 +193,65 @@ export default function OrderDetailScreen() {
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Товары</Text>
-          {orderItems.map((item, i) => (
-            <View key={i} style={[styles.orderItem, i > 0 && { borderTopWidth: 1, borderTopColor: colors.divider }]}>
-              {item.imageUrl ? (
-                <Image
-                  source={{ uri: getImageUrl(item.imageUrl) || '' }}
-                  style={[styles.itemImg, { backgroundColor: colors.cardAlt }]}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={[styles.itemImg, { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' }]}>
-                  <Ionicons name="cube-outline" size={24} color={colors.textMuted} />
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('productsTitle')}</Text>
+          {orderItems.map((item, i) => {
+            // Цена для покупателя — продажная (с наценкой). Себестоимость (item.price)
+            // НИКОГДА не показываем. Старые заказы без markup → fallback на price.
+            const unitPrice = item.priceWithMarkup ?? item.price ?? 0;
+            // Вариант (цвет/размер) — показываем, если есть и не «Любой».
+            const color = item.color && item.color !== 'Любой' && item.color !== 'любой' ? item.color : null;
+            const size = item.size || null;
+            const variantParts = [];
+            if (color) variantParts.push(`${t('colorLabel')}: ${color}`);
+            if (size) variantParts.push(`${t('sizeLabel')}: ${size}`);
+            return (
+              <View key={i} style={[styles.orderItem, i > 0 && { borderTopWidth: 1, borderTopColor: colors.divider }]}>
+                {item.imageUrl ? (
+                  <Image
+                    source={{ uri: getImageUrl(item.imageUrl) || '' }}
+                    style={[styles.itemImg, { backgroundColor: colors.cardAlt }]}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[styles.itemImg, { backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="cube-outline" size={24} color={colors.textMuted} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.itemName, { color: colors.text }]}>{item.productName}</Text>
+                  {variantParts.length > 0 && (
+                    <View style={styles.variantRow}>
+                      {variantParts.map((vp, vi) => (
+                        <View key={vi} style={[styles.variantChip, { backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
+                          <Text style={[styles.variantChipText, { color: colors.textSecondary }]}>{vp}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  <Text style={[styles.itemQty, { color: colors.textMuted }]}>{item.quantity} {t('pcs')}</Text>
                 </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.itemName, { color: colors.text }]}>{item.productName}</Text>
-                <Text style={[styles.itemQty, { color: colors.textMuted }]}>{item.quantity} шт.</Text>
+                <Text style={[styles.itemPrice, { color: colors.text }]}>
+                  {(unitPrice * item.quantity).toLocaleString(dateLocale)} {t('sum')}
+                </Text>
               </View>
-              <Text style={[styles.itemPrice, { color: colors.text }]}>
-                {(item.price * item.quantity).toLocaleString('ru-RU')} сум
-              </Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Оплата</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('paymentTitle')}</Text>
           <View style={styles.infoRow}>
             <Ionicons name={order.paymentMethod === 'card' ? 'card-outline' : 'cash-outline'} size={18} color={colors.textMuted} />
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
               {order.paymentMethod === 'card'
-                ? `Карта (${(order.cardSubtype || 'card').toUpperCase()})`
-                : 'Наличными'}
+                ? `${t('paymentCard')} (${(order.cardSubtype || 'card').toUpperCase()})`
+                : t('paymentCash')}
             </Text>
           </View>
           <View style={[styles.totalRow, { borderTopColor: colors.divider }]}>
-            <Text style={[styles.totalLabel, { color: colors.text }]}>Итого</Text>
+            <Text style={[styles.totalLabel, { color: colors.text }]}>{t('total')}</Text>
             <Text style={[styles.totalValue, { color: colors.text }]}>
-              {order.totalAmount.toLocaleString('ru-RU')} сум
+              {order.totalAmount.toLocaleString(dateLocale)} {t('sum')}
             </Text>
           </View>
         </View>
@@ -236,14 +260,14 @@ export default function OrderDetailScreen() {
         {canReturn && !returnRequested && (
           showReturnForm ? (
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Оформить возврат</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('returnTitle')}</Text>
               <Text style={[styles.infoText, { color: colors.textMuted }]}>
-                Возврат возможен в течение {returnWindowHours} ч после заказа
+                {t('returnPossibleWithin')} {returnWindowHours} {t('hoursShort')} {t('afterOrder')}
               </Text>
               <TextInput
                 value={returnReason}
                 onChangeText={setReturnReason}
-                placeholder="Опишите причину возврата..."
+                placeholder={t('returnReasonPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 multiline
                 style={[styles.returnInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.cardAlt }]}
@@ -255,14 +279,14 @@ export default function OrderDetailScreen() {
                   disabled={submittingReturn}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.returnBtnText}>{submittingReturn ? 'Отправка...' : 'Отправить заявку'}</Text>
+                  <Text style={styles.returnBtnText}>{submittingReturn ? t('sending') : t('sendRequest')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.returnBtn, { backgroundColor: colors.cardAlt }]}
                   onPress={() => { setShowReturnForm(false); setReturnReason(''); }}
                   activeOpacity={0.8}
                 >
-                  <Text style={[styles.returnBtnText, { color: colors.text }]}>Отмена</Text>
+                  <Text style={[styles.returnBtnText, { color: colors.text }]}>{t('cancel')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -273,7 +297,7 @@ export default function OrderDetailScreen() {
               activeOpacity={0.8}
             >
               <Ionicons name="return-down-back-outline" size={20} color="#FF7043" />
-              <Text style={[styles.supportText, { color: '#FF7043' }]}>Оформить возврат</Text>
+              <Text style={[styles.supportText, { color: '#FF7043' }]}>{t('returnTitle')}</Text>
             </TouchableOpacity>
           )
         )}
@@ -281,7 +305,7 @@ export default function OrderDetailScreen() {
         {returnRequested && (
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <Ionicons name="checkmark-circle-outline" size={22} color="#4CAF50" />
-            <Text style={[styles.infoText, { color: colors.textSecondary }]}>Заявка на возврат отправлена продавцу</Text>
+            <Text style={[styles.infoText, { color: colors.textSecondary }]}>{t('returnRequestedMsg')}</Text>
           </View>
         )}
 
@@ -289,7 +313,7 @@ export default function OrderDetailScreen() {
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <Ionicons name="time-outline" size={20} color={colors.textMuted} />
             <Text style={[styles.infoText, { color: colors.textMuted }]}>
-              Срок возврата истёк ({returnWindowHours} ч после заказа)
+              {t('returnExpired')} ({returnWindowHours} {t('hoursShort')})
             </Text>
           </View>
         )}
@@ -297,17 +321,17 @@ export default function OrderDetailScreen() {
         {isDeliveredOrDone && !returnEnabled && (
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
             <Ionicons name="information-circle-outline" size={20} color={colors.textMuted} />
-            <Text style={[styles.infoText, { color: colors.textMuted }]}>Эта компания не принимает возвраты</Text>
+            <Text style={[styles.infoText, { color: colors.textMuted }]}>{t('noReturnsAccepted')}</Text>
           </View>
         )}
 
         <TouchableOpacity
           style={[styles.supportBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => Linking.openURL('tel:+74951234567').catch(() => Alert.alert('Поддержка', 'Свяжитесь с нами по телефону'))}
+          onPress={() => Linking.openURL('tel:+74951234567').catch(() => Alert.alert(t('supportTitle'), t('supportPhoneMsg')))}
           activeOpacity={0.8}
         >
           <Ionicons name="headset-outline" size={20} color={colors.primary} />
-          <Text style={[styles.supportText, { color: colors.primary }]}>Связаться с поддержкой</Text>
+          <Text style={[styles.supportText, { color: colors.primary }]}>{t('contactSupport')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -341,7 +365,10 @@ const styles = StyleSheet.create({
   orderItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 10 },
   itemImg: { width: 60, height: 60, borderRadius: 10 },
   itemName: { fontSize: 14, fontWeight: '500', lineHeight: 19 },
-  itemQty: { fontSize: 12, marginTop: 2 },
+  variantRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 5 },
+  variantChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
+  variantChipText: { fontSize: 11, fontWeight: '600' },
+  itemQty: { fontSize: 12, marginTop: 4 },
   itemPrice: { fontSize: 15, fontWeight: '700' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 10 },
   totalLabel: { fontSize: 16, fontWeight: '700' },

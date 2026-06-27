@@ -197,13 +197,22 @@ const mapOrder = (o) => ({
   customerName: o.customerName ?? o.customer_name ?? '',
   customerPhone: o.customerPhone ?? o.customer_phone ?? '',
   address: o.address,
-  items: Array.isArray(o.items) ? o.items.map((i) => ({
-    productId: i.productId ?? i.product_id ?? 0,
-    productName: i.productName ?? i.product_name ?? i.name ?? 'Товар',
-    quantity: i.quantity ?? 1,
-    price: i.price ?? 0,
-    imageUrl: i.imageUrl ?? i.image_url,
-  })) : [],
+  items: Array.isArray(o.items) ? o.items.map((i) => {
+    // price = себестоимость (закупочная) — НИКОГДА не показываем покупателю.
+    // priceWithMarkup = продажная цена с наценкой — её видит покупатель.
+    const basePrice = i.price ?? 0;
+    const sellPrice = i.price_with_markup ?? i.priceWithMarkup ?? i.sellingPrice ?? basePrice;
+    return {
+      productId: i.productId ?? i.product_id ?? 0,
+      productName: i.productName ?? i.product_name ?? i.name ?? 'Товар',
+      quantity: i.quantity ?? 1,
+      price: basePrice,
+      priceWithMarkup: sellPrice,
+      color: i.color ?? i.selected_color ?? i.selectedColor ?? undefined,
+      size: i.size ?? i.selected_size ?? i.selectedSize ?? undefined,
+      imageUrl: i.imageUrl ?? i.image_url,
+    };
+  }) : [],
   totalAmount: o.totalAmount ?? o.total_amount ?? 0,
   status: o.status ?? 'pending',
   comment: o.comment,

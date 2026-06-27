@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useCart } from '../../context/CartContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import {
@@ -24,6 +25,7 @@ const { width } = Dimensions.get('window');
 export default function ProductDetailScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { addItem, items } = useCart();
   const { isFavorite: ctxIsFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation();
@@ -52,6 +54,7 @@ export default function ProductDetailScreen() {
   const [questions, setQuestions] = useState([]);
   const [newQuestion, setNewQuestion] = useState('');
   const [isSubmittingQuestion, setIsSubmittingQuestion] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
   const [imgErrors, setImgErrors] = useState({});
   const [company, setCompany] = useState(null);
   const [companyLogoError, setCompanyLogoError] = useState(false);
@@ -269,11 +272,11 @@ export default function ProductDetailScreen() {
 
   const handleAskQuestion = async () => {
     if (!user) {
-      Alert.alert('Вход', 'Войдите в аккаунт, чтобы задать вопрос');
+      Alert.alert(t('loginWord'), t('loginToAskMsg'));
       return;
     }
     if (!newQuestion.trim()) {
-      Alert.alert('Вопрос', 'Введите текст вопроса');
+      Alert.alert(t('questionWord'), t('enterQuestion'));
       return;
     }
     setIsSubmittingQuestion(true);
@@ -286,9 +289,9 @@ export default function ProductDetailScreen() {
       setNewQuestion('');
       // Обновляем список вопросов с сервера
       try { setQuestions(await getProductQuestions(productId)); } catch { /* ignore */ }
-      Alert.alert('Спасибо!', 'Ваш вопрос отправлен продавцу. Ответ появится здесь.');
+      Alert.alert(t('thanksWord'), t('questionSentMsg'));
     } catch (err) {
-      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить вопрос');
+      Alert.alert(t('error'), err?.response?.data?.error || t('uploadFail'));
     } finally {
       setIsSubmittingQuestion(false);
     }
@@ -768,54 +771,70 @@ export default function ProductDetailScreen() {
             )}
           </View>
 
-          {/* ❓ Вопросы о товаре */}
+          {/* ❓ Вопросы о товаре — раскрываются по кнопке */}
           <View style={styles.reviewsSection}>
-            <Text style={[styles.sectionLabel, { color: colors.text }]}>
-              Вопросы о товаре {questions.length > 0 ? `(${questions.length})` : ''}
-            </Text>
-
-            <View style={[styles.questionInputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-              <TextInput
-                style={[styles.questionInput, { color: colors.text }]}
-                value={newQuestion}
-                onChangeText={setNewQuestion}
-                placeholder={user ? 'Задайте вопрос продавцу...' : 'Войдите, чтобы задать вопрос'}
-                placeholderTextColor={colors.textMuted}
-                editable={!!user}
-                multiline
+            <TouchableOpacity
+              style={[styles.questionToggleBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+              onPress={() => setShowQuestions((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.questionToggleText, { color: colors.text }]}>
+                {t('questionsTitle')}{questions.length > 0 ? ` (${questions.length})` : ''}
+              </Text>
+              <Ionicons
+                name={showQuestions ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={colors.textMuted}
               />
-              <TouchableOpacity
-                style={[styles.questionSendBtn, { backgroundColor: colors.primary, opacity: isSubmittingQuestion || !user ? 0.5 : 1 }]}
-                onPress={handleAskQuestion}
-                disabled={isSubmittingQuestion || !user}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="send" size={18} color="#FFF" />
-              </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
 
-            {questions.length === 0 ? (
-              <Text style={[styles.noReviews, { color: colors.textMuted }]}>Пока нет вопросов. Задайте первый!</Text>
-            ) : (
-              questions.map((q) => (
-                <View key={q.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <View style={styles.questionRow}>
-                    <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.reviewName, { color: colors.text }]}>{q.userName || 'Покупатель'}</Text>
-                      <Text style={[styles.reviewComment, { color: colors.textSecondary, marginTop: 2 }]}>{q.question}</Text>
-                    </View>
-                  </View>
-                  {q.isAnswered && q.answer ? (
-                    <View style={[styles.answerBox, { backgroundColor: colors.cardAlt, borderLeftColor: colors.primary }]}>
-                      <Text style={[styles.answerLabel, { color: colors.primary }]}>Ответ продавца</Text>
-                      <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{q.answer}</Text>
-                    </View>
-                  ) : (
-                    <Text style={[styles.reviewDate, { color: colors.textMuted, marginTop: 6 }]}>Ожидает ответа продавца</Text>
-                  )}
+            {showQuestions && (
+              <View style={{ marginTop: 12, gap: 10 }}>
+                <View style={[styles.questionInputRow, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+                  <TextInput
+                    style={[styles.questionInput, { color: colors.text }]}
+                    value={newQuestion}
+                    onChangeText={setNewQuestion}
+                    placeholder={user ? t('askPlaceholder') : t('loginToAskPlaceholder')}
+                    placeholderTextColor={colors.textMuted}
+                    editable={!!user}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={[styles.questionSendBtn, { backgroundColor: colors.primary, opacity: isSubmittingQuestion || !user ? 0.5 : 1 }]}
+                    onPress={handleAskQuestion}
+                    disabled={isSubmittingQuestion || !user}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="send" size={18} color="#FFF" />
+                  </TouchableOpacity>
                 </View>
-              ))
+
+                {questions.length === 0 ? (
+                  <Text style={[styles.noReviews, { color: colors.textMuted }]}>{t('noQuestionsYet')}</Text>
+                ) : (
+                  questions.map((q) => (
+                    <View key={q.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                      <View style={styles.questionRow}>
+                        <Ionicons name="help-circle-outline" size={18} color={colors.primary} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.reviewName, { color: colors.text }]}>{q.userName || 'Покупатель'}</Text>
+                          <Text style={[styles.reviewComment, { color: colors.textSecondary, marginTop: 2 }]}>{q.question}</Text>
+                        </View>
+                      </View>
+                      {q.isAnswered && q.answer ? (
+                        <View style={[styles.answerBox, { backgroundColor: colors.cardAlt, borderLeftColor: colors.primary }]}>
+                          <Text style={[styles.answerLabel, { color: colors.primary }]}>Ответ продавца</Text>
+                          <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{q.answer}</Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.reviewDate, { color: colors.textMuted, marginTop: 6 }]}>Ожидает ответа продавца</Text>
+                      )}
+                    </View>
+                  ))
+                )}
+              </View>
             )}
           </View>
 
@@ -1076,7 +1095,9 @@ const styles = StyleSheet.create({
   voteRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
   voteBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   voteCount: { fontSize: 12, fontWeight: '600' },
-  questionInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderWidth: 1, borderRadius: 12, padding: 8, marginVertical: 10 },
+  questionToggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14 },
+  questionToggleText: { flex: 1, fontSize: 15, fontWeight: '700' },
+  questionInputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, borderWidth: 1, borderRadius: 12, padding: 8 },
   questionInput: { flex: 1, fontSize: 14, minHeight: 38, maxHeight: 100, paddingHorizontal: 6, textAlignVertical: 'top' },
   questionSendBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   questionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },

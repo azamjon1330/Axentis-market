@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../api';
 
 const NOTIF_ICONS = {
@@ -21,7 +22,9 @@ const NOTIF_ICONS = {
 export default function NotificationsScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
+  const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
   const [notifications, setNotifications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +99,7 @@ export default function NotificationsScreen() {
             {item.message}
           </Text>
           <Text style={[styles.notifDate, { color: colors.textMuted }]}>
-            {new Date(item.createdAt).toLocaleDateString('ru-RU', {
+            {new Date(item.createdAt).toLocaleDateString(dateLocale, {
               day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
             })}
           </Text>
@@ -113,10 +116,10 @@ export default function NotificationsScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Уведомления</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('notifications')}</Text>
         {unreadCount > 0 && (
           <TouchableOpacity onPress={handleMarkAll} activeOpacity={0.7}>
-            <Text style={[styles.markAllText, { color: colors.primary }]}>Прочитать все</Text>
+            <Text style={[styles.markAllText, { color: colors.primary }]}>{t('markAllRead')}</Text>
           </TouchableOpacity>
         )}
         {unreadCount === 0 && <View style={{ width: 80 }} />}
@@ -139,9 +142,9 @@ export default function NotificationsScreen() {
           ListEmptyComponent={
             <View style={styles.centered}>
               <Ionicons name="notifications-off-outline" size={64} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Нет уведомлений</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('noNotifications')}</Text>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Здесь будут появляться уведомления о заказах и акциях
+                {t('notificationsHint')}
               </Text>
             </View>
           }

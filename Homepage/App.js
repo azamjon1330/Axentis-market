@@ -10,6 +10,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import NotificationsManager from './src/context/NotificationsManager';
 import Navigation from './src/navigation';
 
 SplashScreen.preventAutoHideAsync();
@@ -43,6 +44,7 @@ export default function App() {
           <AuthProvider>
             <CartProvider>
               <FavoritesProvider>
+                <NotificationsManager />
                 <Navigation />
               </FavoritesProvider>
             </CartProvider>

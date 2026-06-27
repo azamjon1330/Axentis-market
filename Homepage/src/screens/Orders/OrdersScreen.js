@@ -8,30 +8,34 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getUserOrders } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
 import { getImageUrl } from '../../utils/imageUrl';
 
 const TABS = [
-  { key: '', label: 'Все' },
-  { key: 'pending,confirmed,processing,shipped', label: 'Активные' },
-  { key: 'delivered', label: 'Доставленные' },
-  { key: 'cancelled', label: 'Отменённые' },
+  { key: '', labelKey: 'tabAll' },
+  { key: 'pending,confirmed,processing,shipped', labelKey: 'tabActive' },
+  { key: 'delivered,completed', labelKey: 'tabDelivered' },
+  { key: 'cancelled', labelKey: 'tabCancelled' },
 ];
 
 const STATUS_CONFIG = {
-  pending: { label: 'Ожидает', color: '#FFA726', icon: 'time-outline' },
-  confirmed: { label: 'Подтверждён', color: '#7B5CF0', icon: 'checkmark-circle-outline' },
-  processing: { label: 'Обрабатывается', color: '#7B5CF0', icon: 'refresh-outline' },
-  shipped: { label: 'В пути', color: '#2196F3', icon: 'bicycle-outline' },
-  delivered: { label: 'Доставлен', color: '#4CAF50', icon: 'checkmark-done-outline' },
-  cancelled: { label: 'Отменён', color: '#FF5252', icon: 'close-circle-outline' },
+  pending: { labelKey: 'statusPending', color: '#FFA726', icon: 'time-outline' },
+  confirmed: { labelKey: 'statusConfirmed', color: '#7B5CF0', icon: 'checkmark-circle-outline' },
+  processing: { labelKey: 'statusProcessing', color: '#7B5CF0', icon: 'refresh-outline' },
+  shipped: { labelKey: 'statusShipped', color: '#2196F3', icon: 'bicycle-outline' },
+  delivered: { labelKey: 'statusDelivered', color: '#4CAF50', icon: 'checkmark-done-outline' },
+  completed: { labelKey: 'statusDelivered', color: '#4CAF50', icon: 'checkmark-done-outline' },
+  cancelled: { labelKey: 'statusCancelled', color: '#FF5252', icon: 'close-circle-outline' },
 };
 
 export default function OrdersScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
+  const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
   const [activeTab, setActiveTab] = useState('');
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +50,7 @@ export default function OrdersScreen() {
       const data = await getUserOrders(user.phone);
       setOrders(data);
     } catch (e) {
-      setError('Не удалось загрузить заказы');
+      setError(t('errorLoadOrders'));
       setOrders([]);
     } finally {
       setIsLoading(false);
@@ -91,14 +95,14 @@ export default function OrdersScreen() {
 
           <View style={styles.cardInfo}>
             <View style={styles.cardTopRow}>
-              <Text style={[styles.orderNum, { color: colors.text }]}>Заказ №{item.orderCode}</Text>
+              <Text style={[styles.orderNum, { color: colors.text }]}>{t('orderLabel')} №{item.orderCode}</Text>
               <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + '20' }]}>
                 <Ionicons name={statusCfg.icon} size={12} color={statusCfg.color} />
-                <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                <Text style={[styles.statusText, { color: statusCfg.color }]}>{t(statusCfg.labelKey)}</Text>
               </View>
             </View>
             <Text style={[styles.orderDate, { color: colors.textMuted }]}>
-              {new Date(item.createdAt).toLocaleDateString('ru-RU', {
+              {new Date(item.createdAt).toLocaleDateString(dateLocale, {
                 day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit',
               })}
             </Text>
@@ -113,13 +117,13 @@ export default function OrdersScreen() {
         <View style={[styles.cardDivider, { backgroundColor: colors.divider }]} />
 
         <View style={styles.cardBottom}>
-          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Итого</Text>
+          <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>{t('total')}</Text>
           <Text style={[styles.totalValue, { color: colors.text }]}>
-            {item.totalAmount.toLocaleString('ru-RU')} сум
+            {item.totalAmount.toLocaleString(dateLocale)} {t('sum')}
           </Text>
           {item.deliveryType && (
             <Text style={[styles.deliveryInfo, { color: colors.textMuted }]}>
-              · {item.deliveryType === 'delivery' ? 'Доставка' : 'Самовывоз'}
+              · {item.deliveryType === 'delivery' ? t('deliveryWord') : t('pickup')}
             </Text>
           )}
         </View>
@@ -135,7 +139,7 @@ export default function OrdersScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Мои заказы</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('myOrders')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -159,7 +163,7 @@ export default function OrdersScreen() {
               activeOpacity={0.7}
             >
               <Text style={[styles.tabText, { color: activeTab === item.key ? '#FFF' : colors.textSecondary }]}>
-                {item.label}
+                {t(item.labelKey)}
               </Text>
             </TouchableOpacity>
           )}
@@ -173,10 +177,10 @@ export default function OrdersScreen() {
       ) : error ? (
         <View style={styles.centered}>
           <Ionicons name="wifi-outline" size={48} color={colors.textMuted} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Ошибка загрузки</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('errorLoading')}</Text>
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>{error}</Text>
           <TouchableOpacity onPress={load} style={[styles.retryBtn, { backgroundColor: colors.primary }]} activeOpacity={0.8}>
-            <Text style={styles.retryBtnText}>Повторить</Text>
+            <Text style={styles.retryBtnText}>{t('retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -192,9 +196,9 @@ export default function OrdersScreen() {
           ListEmptyComponent={
             <View style={styles.centered}>
               <Ionicons name="receipt-outline" size={64} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Заказов нет</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('noOrders')}</Text>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                {activeTab ? 'Нет заказов в этой категории' : 'Вы ещё не делали заказов'}
+                {activeTab ? t('noOrdersInCategory') : t('neverOrdered')}
               </Text>
             </View>
           }
