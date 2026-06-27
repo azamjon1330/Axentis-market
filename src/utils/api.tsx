@@ -1383,6 +1383,14 @@ export const reviews = {
       body: JSON.stringify(data),
     });
   },
+  // ⭐ Все отзывы на товары компании (для панели управления продавца)
+  listByCompany: async (companyId: number | string) => {
+    return apiCall(`/companies/${companyId}/product-reviews`);
+  },
+  // 🗑 Продавец удаляет неуместный отзыв
+  delete: async (reviewId: number | string) => {
+    return apiCall(`/reviews/${reviewId}`, { method: 'DELETE' });
+  },
 };
 
 // ============================================================================

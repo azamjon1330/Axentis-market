@@ -337,3 +337,68 @@ func VoteReview(db *sql.DB) gin.HandlerFunc {
 		c.JSON(http.StatusOK, gin.H{"message": "Vote added", "action": "added"})
 	}
 }
+
+// GetCompanyProductReviews lists every review left on a company's products,
+// with the product name so the seller can see which product each review is for
+// (GET /companies/:id/product-reviews). Used by the company management panel.
+func GetCompanyProductReviews(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		companyID := c.Param("id")
+		rows, err := db.Query(`
+			SELECT r.id, r.product_id, COALESCE(p.name, '') AS product_name,
+			       r.user_phone, COALESCE(r.user_name, '') AS user_name, r.rating,
+			       COALESCE(r.comment, '') AS comment, r.created_at,
+			       COALESCE(u.avatar_url, '') AS user_avatar_url
+			FROM reviews r
+			JOIN products p ON p.id = r.product_id
+			LEFT JOIN users u ON u.phone = r.user_phone
+			WHERE p.company_id = $1
+			ORDER BY r.created_at DESC
+			LIMIT 300
+		`, companyID)
+		if err != nil {
+			log.Printf("❌ GetCompanyProductReviews: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reviews"})
+			return
+		}
+		defer rows.Close()
+
+		reviews := make([]gin.H, 0)
+		for rows.Next() {
+			var (
+				id, productID                            int64
+				productName, userPhone, userName, comment, avatar string
+				rating                                   int
+				createdAt                                string
+			)
+			if err := rows.Scan(&id, &productID, &productName, &userPhone, &userName, &rating, &comment, &createdAt, &avatar); err != nil {
+				continue
+			}
+			reviews = append(reviews, gin.H{
+				"id":              id,
+				"productId":       productID,
+				"productName":     productName,
+				"userPhone":       userPhone,
+				"userName":        userName,
+				"rating":          rating,
+				"comment":         comment,
+				"createdAt":       createdAt,
+				"userAvatarUrl":   avatar,
+			})
+		}
+		c.JSON(http.StatusOK, gin.H{"reviews": reviews})
+	}
+}
+
+// DeleteReview removes a product review (DELETE /reviews/:id). The seller can
+// remove inappropriate reviews from their management panel.
+func DeleteReview(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if _, err := db.Exec(`DELETE FROM reviews WHERE id = $1`, c.Param("id")); err != nil {
+			log.Printf("❌ DeleteReview: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete review"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"success": true})
+	}
+}

@@ -110,6 +110,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			reviews.POST("", handlers.CreateReview(db))
 			reviews.POST("/:id/vote", handlers.VoteReview(db)) // 👍 Лайк/дизлайк отзыва
+			reviews.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteReview(db)) // 🗑 Продавец удаляет отзыв
 		}
 
 		// Companies routes
@@ -135,6 +136,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
 			companies.GET("/:id/reviews", handlers.GetCompanyReviews(db)) // 💬 Отзывы магазина
+			companies.GET("/:id/product-reviews", handlers.GetCompanyProductReviews(db)) // ⭐ Отзывы на товары компании (для панели)
 		}
 
 		// Sales routes
