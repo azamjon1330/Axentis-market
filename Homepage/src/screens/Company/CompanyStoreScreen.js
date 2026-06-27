@@ -211,34 +211,36 @@ export default function CompanyStoreScreen() {
                   )}
                 </View>
 
-                <View style={[styles.ratingBox, { backgroundColor: colors.cardAlt }]}>
+                <View style={styles.ratingBox}>
                   <View style={styles.ratingValue}>
-                    <Ionicons name="star" size={14} color={colors.star} />
+                    <Ionicons name="star" size={18} color={colors.star} />
                     <Text style={[styles.ratingBoxNum, { color: colors.text }]}>{companyRating.toFixed(1)}</Text>
                   </View>
-                  <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг магазина</Text>
+                  <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг{'\n'}магазина</Text>
                 </View>
               </View>
 
-              {/* Статистика с иконками */}
+              {/* Статистика — иконки в цветных кружках, разделённые линиями */}
               <View style={styles.statTiles}>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
-                    <Ionicons name="cube-outline" size={15} color={colors.primary} />
+                <View style={styles.statTile}>
+                  <View style={[styles.statIconCircle, { backgroundColor: '#7B5CF0' + '22' }]}>
+                    <Ionicons name="bag-handle" size={22} color="#7B5CF0" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{productsCount}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>товаров</Text>
                 </View>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
-                    <Ionicons name="people-outline" size={15} color={colors.primary} />
+                <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
+                <View style={styles.statTile}>
+                  <View style={[styles.statIconCircle, { backgroundColor: '#3B82F6' + '22' }]}>
+                    <Ionicons name="people" size={22} color="#3B82F6" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{subscribersLabel}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>подписчиков</Text>
                 </View>
-                <View style={[styles.statTile, { backgroundColor: colors.cardAlt }]}>
-                  <View style={[styles.statIconBox, { backgroundColor: colors.primary + '22' }]}>
-                    <Ionicons name="thumbs-up-outline" size={15} color={colors.primary} />
+                <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
+                <View style={styles.statTile}>
+                  <View style={[styles.statIconCircle, { backgroundColor: '#22C55E' + '22' }]}>
+                    <Ionicons name="thumbs-up" size={22} color="#22C55E" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{positivePct != null ? `${positivePct}%` : '—'}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]} numberOfLines={2}>положительных отзывов</Text>
@@ -450,8 +452,8 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   headInfo: { flex: 1, paddingTop: 4, gap: 4 },
   avatarFloat: { marginTop: -48 },
-  logo: { width: 72, height: 72, borderRadius: 18, borderWidth: 3 },
-  logoFallback: { width: 72, height: 72, borderRadius: 18, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
+  logo: { width: 76, height: 76, borderRadius: 38, borderWidth: 3 },
+  logoFallback: { width: 76, height: 76, borderRadius: 38, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   logoInitial: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   companyName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
@@ -459,15 +461,16 @@ const styles = StyleSheet.create({
   verifiedText: { color: '#3B82F6', fontSize: 11, fontWeight: '700' },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addressText: { fontSize: 12.5, flex: 1 },
-  ratingBox: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, marginTop: 4 },
-  ratingBoxNum: { fontSize: 16, fontWeight: '800' },
-  ratingBoxLabel: { fontSize: 9.5, fontWeight: '600', marginTop: 1, maxWidth: 70, textAlign: 'center' },
-  statTiles: { flexDirection: 'row', gap: 8 },
-  statTile: { flex: 1, borderRadius: Radius.input, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', gap: 5 },
-  statIconBox: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  statValue: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3 },
+  ratingBox: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, marginTop: 4 },
+  ratingBoxNum: { fontSize: 22, fontWeight: '800' },
+  ratingBoxLabel: { fontSize: 11, fontWeight: '600', marginTop: 2, textAlign: 'center', lineHeight: 14 },
+  statTiles: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
+  statTile: { flex: 1, paddingVertical: 4, paddingHorizontal: 4, alignItems: 'center', gap: 7 },
+  statDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 8 },
+  statIconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  statValue: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
   ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  statTileLabel: { fontSize: 10.5, fontWeight: '600' },
+  statTileLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
   companyDesc: { fontSize: 14, lineHeight: 20 },
   subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: Radius.button },
   subscribeBtnText: { fontSize: 15, fontWeight: '600' },

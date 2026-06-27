@@ -330,7 +330,8 @@ export default function ProductDetailScreen() {
   // Ширина карточки в блоках «Похожие» / «С этим покупают» — примерно на 30%
   // меньше карточки на главной (там 2 в ряд), но та же раскладка ProductCard.
   const SIM_CARD_W = Math.round((width - 32) / 2.85);
-  const IMG_W = Math.round((width - 32) * 0.46); // фото в двухколоночной шапке
+  const IMG_W = Math.round((width - 32) * 0.46); // (устар.) фото в двухколоночной шапке
+  const IMG_FULL = width - 32; // фото на всю ширину контента
   const normalizeImages = (imgs) =>
     Array.isArray(imgs) ? imgs : imgs ? [imgs] : [];
 
@@ -358,67 +359,67 @@ export default function ProductDetailScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.body}>
-          {/* ── Двухколоночная шапка: фото слева, информация справа ── */}
-          <View style={styles.topHeader}>
-            <View style={[styles.imgCol, { width: IMG_W, backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
-              {images.length > 0 ? (
-                <>
-                  <ScrollView
-                    ref={imgRef}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={(e) => {
-                      const i = Math.round(e.nativeEvent.contentOffset.x / IMG_W);
-                      imgIndexRef.current = i;
-                      setImgIndex(i);
-                    }}
-                  >
-                    {images.map((img, i) => (
-                      imgErrors[i] ? (
-                        <View key={i} style={[styles.noImg, { width: IMG_W, height: IMG_W }]}>
-                          <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
-                        </View>
-                      ) : (
-                        <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setZoomVisible(true)}>
-                          <Image
-                            source={{ uri: getImageUrl(img) || '' }}
-                            style={{ width: IMG_W, height: IMG_W }}
-                            resizeMode="cover"
-                            onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
-                          />
-                        </TouchableOpacity>
-                      )
-                    ))}
-                  </ScrollView>
-                  {images.length > 1 && (
-                    <View style={styles.imgDots}>
-                      {images.map((_, i) => (
-                        <View
-                          key={i}
-                          style={[
-                            styles.imgDot,
-                            { backgroundColor: i === imgIndex ? colors.primary : colors.border },
-                            i === imgIndex && { width: 14 },
-                          ]}
+          {/* ── Фото товара на всю ширину ── */}
+          <View style={[styles.imgColFull, { width: IMG_FULL, backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
+            {images.length > 0 ? (
+              <>
+                <ScrollView
+                  ref={imgRef}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) => {
+                    const i = Math.round(e.nativeEvent.contentOffset.x / IMG_FULL);
+                    imgIndexRef.current = i;
+                    setImgIndex(i);
+                  }}
+                >
+                  {images.map((img, i) => (
+                    imgErrors[i] ? (
+                      <View key={i} style={[styles.noImg, { width: IMG_FULL, height: IMG_FULL }]}>
+                        <Ionicons name="cube-outline" size={64} color={colors.textMuted} />
+                      </View>
+                    ) : (
+                      <TouchableOpacity key={i} activeOpacity={0.95} onPress={() => setZoomVisible(true)}>
+                        <Image
+                          source={{ uri: getImageUrl(img) || '' }}
+                          style={{ width: IMG_FULL, height: IMG_FULL }}
+                          resizeMode="cover"
+                          onError={() => setImgErrors(prev => ({ ...prev, [i]: true }))}
                         />
-                      ))}
-                    </View>
-                  )}
-                </>
-              ) : (
-                <View style={[styles.noImg, { width: IMG_W, height: IMG_W }]}>
-                  <Ionicons name="cube-outline" size={48} color={colors.textMuted} />
-                </View>
-              )}
-              {discount && discount > 0 && (
-                <View style={[styles.badge, styles.badgeAbs, { backgroundColor: colors.error }]}>
-                  <Text style={styles.badgeText}>-{discount}%</Text>
-                </View>
-              )}
-            </View>
+                      </TouchableOpacity>
+                    )
+                  ))}
+                </ScrollView>
+                {images.length > 1 && (
+                  <View style={styles.imgDots}>
+                    {images.map((_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.imgDot,
+                          { backgroundColor: i === imgIndex ? colors.primary : colors.border },
+                          i === imgIndex && { width: 14 },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={[styles.noImg, { width: IMG_FULL, height: IMG_FULL }]}>
+                <Ionicons name="cube-outline" size={64} color={colors.textMuted} />
+              </View>
+            )}
+            {discount && discount > 0 && (
+              <View style={[styles.badge, styles.badgeAbs, { backgroundColor: colors.error }]}>
+                <Text style={styles.badgeText}>-{discount}%</Text>
+              </View>
+            )}
+          </View>
 
-            <View style={styles.infoCol}>
+          {/* ── Информация о товаре под фото ── */}
+          <View style={styles.infoColFull}>
               <Text style={[styles.prodName, { color: colors.text }]} numberOfLines={3}>{product.name}</Text>
               <View style={styles.ratingRow}>
                 <Ionicons name="star" size={13} color={colors.star} />
@@ -442,7 +443,6 @@ export default function ProductDetailScreen() {
               {originalPrice && !selectedVariant && (
                 <Text style={[styles.oldPrice, { color: colors.textMuted }]}>{originalPrice.toLocaleString('ru-RU')} сум</Text>
               )}
-            </View>
           </View>
 
           {hasVariants && (
@@ -1001,10 +1001,13 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeAbs: { position: 'absolute', top: 8, left: 8 },
   badgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
-  // Двухколоночная шапка
+  // Двухколоночная шапка (устар.)
   topHeader: { flexDirection: 'row', gap: 14, marginBottom: 18 },
   imgCol: { borderRadius: 18, borderWidth: 1, overflow: 'hidden' },
   infoCol: { flex: 1, paddingTop: 2 },
+  // Фото на всю ширину + информация под ним
+  imgColFull: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', alignSelf: 'center' },
+  infoColFull: { paddingTop: 16, marginBottom: 18 },
   priceFrom: { fontSize: 12, marginTop: 8, marginBottom: 2 },
   variantStrip: { flexShrink: 0 },
   variantStripContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
