@@ -15,7 +15,7 @@ import { Radius } from '../../constants/theme';
 export default function CartScreen() {
   const { colors, isDark } = useTheme();
   const { items, count, total, isLoading, updateItem, removeItem, clearAllItems, refresh } = useCart();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
   const [updatingId, setUpdatingId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,7 +35,7 @@ export default function CartScreen() {
     }
     // Block increment if it would exceed known variant stock
     if (delta > 0 && item.stockQuantity !== undefined && newQty > item.stockQuantity) {
-      Alert.alert('Недостаточно товара', `На складе доступно только ${item.stockQuantity} шт.`);
+      Alert.alert(t('notEnoughStock'), `${t('inStockOnlyPrefix')} ${item.stockQuantity} ${t('inStockOnlySuffix')}`);
       return;
     }
     setUpdatingId(item.id);
@@ -56,7 +56,7 @@ export default function CartScreen() {
     const parsed = parseInt(raw, 10);
     if (!isNaN(parsed) && parsed > 0 && parsed !== item.quantity) {
       if (item.stockQuantity !== undefined && parsed > item.stockQuantity) {
-        Alert.alert('Недостаточно товара', `На складе доступно только ${item.stockQuantity} шт.`);
+        Alert.alert(t('notEnoughStock'), `${t('inStockOnlyPrefix')} ${item.stockQuantity} ${t('inStockOnlySuffix')}`);
         setQtyInputs(prev => { const n = { ...prev }; delete n[item.id]; return n; });
         return;
       }
@@ -96,7 +96,7 @@ export default function CartScreen() {
     );
   };
 
-  const formatPrice = (p) => `${p.toLocaleString('ru-RU')} сум`;
+  const formatPrice = (p) => `${p.toLocaleString(language === 'uz' ? 'uz-UZ' : 'ru-RU')} ${t('sum')}`;
 
   const renderItem = ({ item }) => {
     const product = item.product;
@@ -122,7 +122,7 @@ export default function CartScreen() {
         <View style={styles.itemInfo}>
           <View style={styles.itemNameRow}>
             <Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>
-              {product?.name || 'Товар'}
+              {product?.name || t('productWord')}
             </Text>
             <TouchableOpacity
               onPress={() => handleRemove(item)}
@@ -135,8 +135,8 @@ export default function CartScreen() {
           {(item.selected_color || item.selected_size) && (
             <Text style={[styles.itemColor, { color: colors.textMuted }]}>
               {[
-                item.selected_color ? `Цвет: ${item.selected_color}` : null,
-                item.selected_size ? `Размер: ${item.selected_size}` : null,
+                item.selected_color ? `${t('colorLabel')}: ${item.selected_color}` : null,
+                item.selected_size ? `${t('sizeLabel')}: ${item.selected_size}` : null,
               ].filter(Boolean).join(' · ')}
             </Text>
           )}
@@ -236,13 +236,13 @@ export default function CartScreen() {
             {/* Stripe-style order review */}
             <View style={styles.summaryRow}>
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-                Товары · {count} шт.
+                {t('productsTitle')} · {count} {t('pcs')}
               </Text>
               <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(total)}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Доставка</Text>
-              <Text style={[styles.summaryValue, { color: colors.textMuted }]}>при оформлении</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('deliveryWord')}</Text>
+              <Text style={[styles.summaryValue, { color: colors.textMuted }]}>{t('atCheckout')}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.divider }]} />
             <View style={styles.totalRow}>

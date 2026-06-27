@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getCategoryProducts, getProducts } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 
@@ -14,6 +15,7 @@ const LIMIT = 20;
 
 export default function CategoryProductsScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const { category, categoryName } = route.params;
@@ -76,10 +78,10 @@ export default function CategoryProductsScreen() {
   });
 
   const SORTS = [
-    { key: 'popular', label: 'Популярное' },
-    { key: 'new', label: 'Новинки' },
-    { key: 'price_asc', label: 'Дешевле' },
-    { key: 'price_desc', label: 'Дороже' },
+    { key: 'popular', label: t('sortPopular') },
+    { key: 'new', label: t('sortNew') },
+    { key: 'price_asc', label: t('sortCheaper') },
+    { key: 'price_desc', label: t('sortExpensive') },
   ];
 
   return (
@@ -119,7 +121,7 @@ export default function CategoryProductsScreen() {
 
       {!isLoading && (
         <Text style={[styles.countText, { color: colors.textSecondary }]}>
-          {total} товаров
+          {total} {t('items')}
         </Text>
       )}
 
@@ -154,9 +156,9 @@ export default function CategoryProductsScreen() {
           ListEmptyComponent={
             <View style={styles.centered}>
               <Ionicons name="cube-outline" size={56} color={colors.textMuted} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Товары не найдены</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('notFound')}</Text>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                В этой категории пока нет товаров
+                {t('noProductsInCategory')}
               </Text>
             </View>
           }

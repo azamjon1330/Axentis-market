@@ -9,6 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { createOrder, getPaymentCards, addPaymentCard, getCompanyDetail, getUserAddresses, getFrequentLocations } from '../../api';
 
 // Парсит строку координат "lat,lng" в объект { lat, lng }
@@ -19,7 +20,6 @@ function parseCoords(str) {
   return null;
 }
 
-const STEPS = ['Доставка', 'Оплата', 'Подтверждение'];
 const DELIVERY_COST_PER_KM = 1500;
 const DEFAULT_FREE_RADIUS_KM = 2;
 
@@ -44,8 +44,11 @@ export default function CheckoutScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { items, total, clearAllItems } = useCart();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
+  const STEPS = [t('stepDelivery'), t('stepPayment'), t('stepConfirm')];
+  const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
 
   const [step, setStep] = useState(0);
   const [address, setAddress] = useState(user?.defaultDeliveryAddress || '');
@@ -127,7 +130,7 @@ export default function CheckoutScreen() {
     return Math.ceil(dist - radius) * perKm;
   }, [deliveryCoords, companyInfo]);
 
-  const formatPrice = (p) => `${p.toLocaleString('ru-RU')} сум`;
+  const formatPrice = (p) => `${p.toLocaleString(dateLocale)} ${t('sum')}`;
 
   const canContinue = useMemo(() => {
     if (step === 1) {
@@ -167,7 +170,7 @@ export default function CheckoutScreen() {
       seen.add(key);
       out.push({
         id: `saved-${a.id}`,
-        title: a.title || (a.isDefault ? 'По умолчанию' : 'Сохранённый адрес'),
+        title: a.title || (a.isDefault ? t('byDefaultAddr') : t('savedAddress')),
         address: a.address,
         lat: a.latitude,
         lng: a.longitude,
@@ -180,7 +183,7 @@ export default function CheckoutScreen() {
       seen.add(key);
       out.push({
         id: `freq-${key}`,
-        title: `Частое место${f.count ? ` · ${f.count} зак.` : ''}`,
+        title: `${t('frequentPlace')}${f.count ? ` · ${f.count} ${t('ordersShort')}` : ''}`,
         address: f.address,
         lat: f.latitude,
         lng: f.longitude,
@@ -200,7 +203,7 @@ export default function CheckoutScreen() {
 
   const handleNext = () => {
     if (step === 0 && !address.trim()) {
-      Alert.alert('Укажите адрес доставки');
+      Alert.alert(t('specifyDeliveryAddress'));
       return;
     }
     if (step < 2) setStep(s => s + 1);
@@ -220,15 +223,15 @@ export default function CheckoutScreen() {
     if (!user) return;
     const digits = inlineCardNumber.replace(/\s/g, '');
     if (digits.length !== 16) {
-      Alert.alert('Ошибка', 'Введите полный 16-значный номер карты');
+      Alert.alert(t('error'), t('enterFullCardNumber'));
       return;
     }
     if (!/^\d{2}\/\d{2}$/.test(inlineExpiry)) {
-      Alert.alert('Ошибка', 'Введите срок в формате ММ/ГГ');
+      Alert.alert(t('error'), t('enterExpiry'));
       return;
     }
     if (!inlineHolderName.trim()) {
-      Alert.alert('Ошибка', 'Введите имя держателя карты');
+      Alert.alert(t('error'), t('enterCardHolder'));
       return;
     }
     const nameParts = inlineHolderName.trim().split(/\s+/);
@@ -246,7 +249,7 @@ export default function CheckoutScreen() {
       setSavedCards(prev => [...prev, card]);
       setInlineCardSaved(true);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось добавить карту');
+      Alert.alert(t('error'), t('cardAddFailed'));
     } finally {
       setSavingInlineCard(false);
     }
@@ -274,7 +277,7 @@ export default function CheckoutScreen() {
         customerPhone: user.phone,
         items: companyItems.map(i => ({
           productId: i.productId,
-          productName: i.product?.name || 'Товар',
+          productName: i.product?.name || t('productWord'),
           quantity: i.quantity,
           price: i.product?.price || 0,
           price_with_markup: i.product?.sellingPrice || i.product?.price || 0,
@@ -297,15 +300,15 @@ export default function CheckoutScreen() {
       await clearAllItems();
       navigation.replace('OrderConfirmed', { orderId: order.id, orderCode: order.orderCode });
     } catch (err) {
-      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось оформить заказ. Попробуйте позже.');
+      Alert.alert(t('error'), err?.response?.data?.error || t('orderFailed'));
     } finally {
       setIsPlacing(false);
     }
   };
 
   const paymentOptions = [
-    { key: 'card', label: 'Банковская карта', icon: 'card-outline' },
-    { key: 'cash', label: 'Наличными при получении', icon: 'cash-outline' },
+    { key: 'card', label: t('bankCard'), icon: 'card-outline' },
+    { key: 'cash', label: t('cashOnDelivery'), icon: 'cash-outline' },
   ];
 
   return (
@@ -319,7 +322,7 @@ export default function CheckoutScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Оформление заказа</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('checkoutTitle')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -358,10 +361,10 @@ export default function CheckoutScreen() {
               <View style={[styles.deliveryBadge, { backgroundColor: colors.primary + '15', borderColor: colors.primary + '40' }]}>
                 <Ionicons name="bicycle-outline" size={18} color={colors.primary} />
                 <Text style={[styles.deliveryBadgeText, { color: colors.primary }]}>
-                  {deliveryCost > 0 ? `Доставка: ${formatPrice(deliveryCost)}` : 'Курьерская доставка · Бесплатно'}
+                  {deliveryCost > 0 ? `${t('deliveryWord')}: ${formatPrice(deliveryCost)}` : t('courierDeliveryFree')}
                 </Text>
               </View>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Адрес доставки</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('deliveryAddressTitle')}</Text>
 
               {locationSuggestions.length > 0 && (
                 <View style={styles.suggestList}>
@@ -402,7 +405,7 @@ export default function CheckoutScreen() {
                   style={[styles.input, { color: colors.text }]}
                   value={address}
                   onChangeText={text => { setAddress(text); setDeliveryCoords(null); }}
-                  placeholder="ул. Ленина, 10, кв. 25"
+                  placeholder={t('addressPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
                 />
@@ -415,7 +418,7 @@ export default function CheckoutScreen() {
               >
                 <Ionicons name="map" size={18} color={colors.primary} />
                 <Text style={[styles.mapPickText, { color: colors.primary }]}>
-                  {deliveryCoords ? 'Изменить место на карте' : 'Выбрать место на карте'}
+                  {deliveryCoords ? t('changePlaceOnMap') : t('selectPlaceOnMap')}
                 </Text>
               </TouchableOpacity>
 
@@ -423,21 +426,21 @@ export default function CheckoutScreen() {
                 <View style={styles.coordsConfirmRow}>
                   <Ionicons name="checkmark-circle" size={16} color={colors.success || '#4CAF50'} />
                   <Text style={[styles.coordsConfirmText, { color: colors.textSecondary }]}>
-                    Точка на карте выбрана ({deliveryCoords.lat.toFixed(4)}, {deliveryCoords.lng.toFixed(4)})
+                    {t('placeSelectedOnMap')} ({deliveryCoords.lat.toFixed(4)}, {deliveryCoords.lng.toFixed(4)})
                   </Text>
                 </View>
               )}
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Получатель</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('recipient')}</Text>
               <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
                   value={recipientName}
                   onChangeText={setRecipientName}
-                  placeholder="Имя получателя"
+                  placeholder={t('recipientNamePlaceholder')}
                   placeholderTextColor={colors.textMuted}
                 />
               </View>
@@ -455,13 +458,13 @@ export default function CheckoutScreen() {
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Комментарий к заказу</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('orderComment')}</Text>
               <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border, minHeight: 80, alignItems: 'flex-start', paddingTop: 12 }]}>
                 <TextInput
                   style={[styles.input, { color: colors.text }]}
                   value={comment}
                   onChangeText={setComment}
-                  placeholder="Например: оставить у двери"
+                  placeholder={t('commentPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
                   numberOfLines={3}
@@ -474,7 +477,7 @@ export default function CheckoutScreen() {
         {step === 1 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Способ оплаты</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('paymentMethodTitle')}</Text>
               {paymentOptions.map(opt => (
                 <TouchableOpacity
                   key={opt.key}
@@ -503,7 +506,7 @@ export default function CheckoutScreen() {
                   <ActivityIndicator color={colors.primary} style={{ paddingVertical: 8 }} />
                 ) : savedCards.length > 0 ? (
                   <>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Выберите карту</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('selectCard')}</Text>
                     {savedCards.map(card => (
                       <TouchableOpacity
                         key={card.id}
@@ -531,7 +534,7 @@ export default function CheckoutScreen() {
                         </View>
                         {card.isDefault && (
                           <View style={[styles.defaultBadge, { backgroundColor: colors.primary + '20' }]}>
-                            <Text style={[styles.defaultBadgeText, { color: colors.primary }]}>Основная</Text>
+                            <Text style={[styles.defaultBadgeText, { color: colors.primary }]}>{t('mainCard')}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -544,7 +547,7 @@ export default function CheckoutScreen() {
                     >
                       <Ionicons name={showAddCardForm ? 'remove-circle-outline' : 'add-circle-outline'} size={20} color={colors.primary} />
                       <Text style={[styles.addCardBtnText, { color: colors.primary }]}>
-                        {showAddCardForm ? 'Отмена' : 'Добавить новую карту'}
+                        {showAddCardForm ? t('cancel') : t('addNewCard')}
                       </Text>
                     </TouchableOpacity>
 
@@ -587,7 +590,7 @@ export default function CheckoutScreen() {
                           <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
                           <TextInput
                             style={[styles.input, { color: colors.text }]}
-                            placeholder="ММ/ГГ"
+                            placeholder={t('expiryPlaceholder')}
                             placeholderTextColor={colors.textMuted}
                             value={inlineExpiry}
                             onChangeText={handleExpiryChange}
@@ -599,7 +602,7 @@ export default function CheckoutScreen() {
                           <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
                           <TextInput
                             style={[styles.input, { color: colors.text }]}
-                            placeholder="Имя Фамилия"
+                            placeholder={t('holderNamePlaceholder')}
                             placeholderTextColor={colors.textMuted}
                             value={inlineHolderName}
                             onChangeText={setInlineHolderName}
@@ -615,13 +618,13 @@ export default function CheckoutScreen() {
                           >
                             {savingInlineCard
                               ? <ActivityIndicator color="#FFF" />
-                              : <Text style={styles.saveCardBtnText}>Сохранить карту</Text>
+                              : <Text style={styles.saveCardBtnText}>{t('saveCard')}</Text>
                             }
                           </TouchableOpacity>
                         ) : (
                           <View style={[styles.savedBadge, { backgroundColor: (colors.success || '#4CAF50') + '20', borderColor: (colors.success || '#4CAF50') + '60' }]}>
                             <Ionicons name="checkmark-circle" size={18} color={colors.success || '#4CAF50'} />
-                            <Text style={[styles.savedBadgeText, { color: colors.success || '#4CAF50' }]}>Карта сохранена</Text>
+                            <Text style={[styles.savedBadgeText, { color: colors.success || '#4CAF50' }]}>{t('cardSaved')}</Text>
                           </View>
                         )}
                       </>
@@ -629,7 +632,7 @@ export default function CheckoutScreen() {
                   </>
                 ) : (
                   <>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Данные карты</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('cardData')}</Text>
                     <View style={styles.cardTypesGrid}>
                       {CARD_TYPES.map(ct => (
                         <TouchableOpacity
@@ -667,7 +670,7 @@ export default function CheckoutScreen() {
                       <Ionicons name="calendar-outline" size={18} color={colors.textSecondary} />
                       <TextInput
                         style={[styles.input, { color: colors.text }]}
-                        placeholder="ММ/ГГ"
+                        placeholder={t('expiryPlaceholder')}
                         placeholderTextColor={colors.textMuted}
                         value={inlineExpiry}
                         onChangeText={handleExpiryChange}
@@ -679,7 +682,7 @@ export default function CheckoutScreen() {
                       <Ionicons name="person-outline" size={18} color={colors.textSecondary} />
                       <TextInput
                         style={[styles.input, { color: colors.text }]}
-                        placeholder="Имя Фамилия"
+                        placeholder={t('holderNamePlaceholder')}
                         placeholderTextColor={colors.textMuted}
                         value={inlineHolderName}
                         onChangeText={setInlineHolderName}
@@ -695,13 +698,13 @@ export default function CheckoutScreen() {
                       >
                         {savingInlineCard
                           ? <ActivityIndicator color="#FFF" />
-                          : <Text style={styles.saveCardBtnText}>Сохранить карту</Text>
+                          : <Text style={styles.saveCardBtnText}>{t('saveCard')}</Text>
                         }
                       </TouchableOpacity>
                     ) : (
                       <View style={[styles.savedBadge, { backgroundColor: (colors.success || '#4CAF50') + '20', borderColor: (colors.success || '#4CAF50') + '60' }]}>
                         <Ionicons name="checkmark-circle" size={18} color={colors.success || '#4CAF50'} />
-                        <Text style={[styles.savedBadgeText, { color: colors.success || '#4CAF50' }]}>Карта сохранена</Text>
+                        <Text style={[styles.savedBadgeText, { color: colors.success || '#4CAF50' }]}>{t('cardSaved')}</Text>
                       </View>
                     )}
                   </>
@@ -714,7 +717,7 @@ export default function CheckoutScreen() {
         {step === 2 && (
           <>
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Ваш заказ</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('yourOrder')}</Text>
               {items.map(item => (
                 <View key={item.id} style={styles.orderItemRow}>
                   <View style={{ flex: 1 }}>
@@ -729,18 +732,18 @@ export default function CheckoutScreen() {
                   </View>
                   <Text style={[styles.orderItemQty, { color: colors.textSecondary }]}>× {item.quantity}</Text>
                   <Text style={[styles.orderItemPrice, { color: colors.text }]}>
-                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} сум
+                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString(dateLocale)} {t('sum')}
                   </Text>
                 </View>
               ))}
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Доставка</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('deliveryWord')}</Text>
               <View style={styles.confirmRow}>
                 <Ionicons name="bicycle-outline" size={16} color={colors.textSecondary} />
                 <Text style={[styles.confirmText, { color: colors.textSecondary, flex: 1 }]} numberOfLines={2}>
-                  {address || 'Адрес не указан'}
+                  {address || t('addressNotSet')}
                 </Text>
                 {(deliveryCoords || address.trim()) && (
                   <TouchableOpacity onPress={openInMaps} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -751,15 +754,15 @@ export default function CheckoutScreen() {
             </View>
 
             <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Оплата</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('paymentTitle')}</Text>
               <View style={styles.confirmRow}>
                 <Ionicons name={paymentMethod === 'card' ? 'card-outline' : 'cash-outline'} size={16} color={colors.textSecondary} />
                 <Text style={[styles.confirmText, { color: colors.textSecondary }]}>
                   {paymentMethod === 'cash'
-                    ? 'Наличными при получении'
+                    ? t('cashOnDelivery')
                     : selectedCard
                       ? `${CARD_TYPES.find(ct => ct.key === selectedCard.cardType)?.label} **** ${selectedCard.cardNumberLast4}`
-                      : 'Банковская карта'
+                      : t('bankCard')
                   }
                 </Text>
               </View>
@@ -772,20 +775,20 @@ export default function CheckoutScreen() {
                     {item.product?.name}
                   </Text>
                   <Text style={[styles.summaryValue, { color: colors.text }]}>
-                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString('ru-RU')} сум
+                    {((item.product?.sellingPrice || item.product?.price || 0) * item.quantity).toLocaleString(dateLocale)} {t('sum')}
                   </Text>
                 </View>
               ))}
               <View style={styles.summaryRow}>
-                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Доставка</Text>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{t('deliveryWord')}</Text>
                 {deliveryCost > 0
                   ? <Text style={[styles.summaryValue, { color: colors.text }]}>{formatPrice(deliveryCost)}</Text>
-                  : <Text style={[styles.freeText, { color: colors.success || '#4CAF50' }]}>Бесплатно</Text>
+                  : <Text style={[styles.freeText, { color: colors.success || '#4CAF50' }]}>{t('free')}</Text>
                 }
               </View>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.summaryRow}>
-                <Text style={[styles.totalLabel, { color: colors.text }]}>Итого</Text>
+                <Text style={[styles.totalLabel, { color: colors.text }]}>{t('total')}</Text>
                 <Text style={[styles.totalValue, { color: colors.text }]}>{formatPrice(total + deliveryCost)}</Text>
               </View>
             </View>
@@ -797,7 +800,7 @@ export default function CheckoutScreen() {
 
       <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.bottomTotal}>
-          <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>Итого</Text>
+          <Text style={[styles.bottomTotalLabel, { color: colors.textSecondary }]}>{t('total')}</Text>
           <Text style={[styles.bottomTotalValue, { color: colors.text }]}>{formatPrice(total + deliveryCost)}</Text>
         </View>
         <TouchableOpacity
@@ -810,7 +813,7 @@ export default function CheckoutScreen() {
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={[styles.nextBtnText, { color: canContinue ? '#FFF' : colors.textMuted }]}>
-              {step < 2 ? 'Продолжить' : `Оплатить ${formatPrice(total + deliveryCost)}`}
+              {step < 2 ? t('continueBtn') : `${t('payAction')} ${formatPrice(total + deliveryCost)}`}
             </Text>
           )}
         </TouchableOpacity>

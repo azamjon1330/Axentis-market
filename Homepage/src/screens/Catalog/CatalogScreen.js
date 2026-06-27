@@ -7,12 +7,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getCategories } from '../../api';
 import { Spacing, Radius, Typography } from '../../constants/theme';
 import CategoryIcon from '../../components/common/CategoryIcon';
 
 export default function CatalogScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -63,14 +65,14 @@ export default function CatalogScreen() {
 
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Каталог</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('catalogTitle')}</Text>
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => navigation.navigate('Search')}
           style={[styles.search, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <Ionicons name="search-outline" size={18} color={colors.textMuted} />
-          <Text style={[styles.searchText, { color: colors.textMuted }]}>Поиск товаров, брендов…</Text>
+          <Text style={[styles.searchText, { color: colors.textMuted }]}>{t('searchProductsBrands')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -91,7 +93,7 @@ export default function CatalogScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="grid-outline" size={52} color={colors.textMuted} />
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Категории появятся здесь</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>{t('categoriesHere')}</Text>
             </View>
           }
         />

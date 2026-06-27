@@ -124,6 +124,14 @@ export default function NotificationsManager() {
           seenRef.current = maxId;
           await AsyncStorage.setItem(LAST_SEEN_KEY, String(maxId));
         }
+
+        // Бейдж на иконке приложения = число непрочитанных уведомлений.
+        try {
+          const unread = list.filter((n) => !(n.isRead ?? n.is_read ?? false)).length;
+          await Notifications.setBadgeCountAsync(unread);
+        } catch {
+          // ignore
+        }
       } catch {
         // сеть могла отвалиться — попробуем в следующий тик
       }
