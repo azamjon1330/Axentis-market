@@ -174,53 +174,50 @@ export default function CompanyStoreScreen() {
               ) : (
                 <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
               )}
-              <View style={styles.coverScrim} />
             </View>
 
-            <View style={[styles.companyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              {/* Логотип + имя + рейтинг */}
-              <View style={styles.headRow}>
-                <View style={styles.avatarFloat}>
-                  {logoUri ? (
-                    <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.surface }]} />
-                  ) : (
-                    <View style={[styles.logoFallback, { backgroundColor: colors.primary, borderColor: colors.surface }]}>
-                      <Text style={styles.logoInitial}>{company?.name?.charAt(0).toUpperCase() || '?'}</Text>
-                    </View>
-                  )}
+            {/* ── Карточка 1: логотип + имя + рейтинг ── */}
+            <View style={[styles.identityCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              {logoUri ? (
+                <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.border }]} />
+              ) : (
+                <View style={[styles.logoFallback, { backgroundColor: colors.primary, borderColor: colors.border }]}>
+                  <Text style={styles.logoInitial}>{company?.name?.charAt(0).toUpperCase() || '?'}</Text>
                 </View>
+              )}
 
-                <View style={styles.headInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
-                    {companyRating >= 4.5 && (
-                      <Ionicons name="checkmark-circle" size={18} color="#3B82F6" />
-                    )}
-                  </View>
-                  {company?.address ? (
-                    <View style={styles.addressRow}>
-                      <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-                      <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>{company.address}</Text>
-                    </View>
-                  ) : null}
+              <View style={styles.headInfo}>
+                <View style={styles.nameRow}>
+                  <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
                   {companyRating >= 4.5 && (
-                    <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
-                      <Ionicons name="shield-checkmark" size={11} color="#3B82F6" />
-                      <Text style={styles.verifiedText}>Магазин подтверждён</Text>
-                    </View>
+                    <Ionicons name="checkmark-circle" size={18} color="#3B82F6" />
                   )}
                 </View>
-
-                <View style={styles.ratingBox}>
-                  <View style={styles.ratingValue}>
-                    <Ionicons name="star" size={18} color={colors.star} />
-                    <Text style={[styles.ratingBoxNum, { color: colors.text }]}>{companyRating.toFixed(1)}</Text>
+                {company?.address ? (
+                  <View style={styles.addressRow}>
+                    <Ionicons name="location-outline" size={13} color={colors.textMuted} />
+                    <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>{company.address}</Text>
                   </View>
-                  <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг{'\n'}магазина</Text>
-                </View>
+                ) : null}
+                {companyRating >= 4.5 && (
+                  <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
+                    <Ionicons name="shield-checkmark" size={11} color="#3B82F6" />
+                    <Text style={styles.verifiedText}>Магазин подтверждён</Text>
+                  </View>
+                )}
               </View>
 
-              {/* Статистика — иконки в цветных кружках, разделённые линиями */}
+              <View style={styles.ratingBox}>
+                <View style={styles.ratingValue}>
+                  <Ionicons name="star" size={18} color={colors.star} />
+                  <Text style={[styles.ratingBoxNum, { color: colors.text }]}>{companyRating.toFixed(1)}</Text>
+                </View>
+                <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг{'\n'}магазина</Text>
+              </View>
+            </View>
+
+            {/* ── Карточка 2: статистика + кнопка подписки ── */}
+            <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.statTiles}>
                 <View style={styles.statTile}>
                   <View style={[styles.statIconCircle, { backgroundColor: '#7B5CF0' + '22' }]}>
@@ -251,25 +248,23 @@ export default function CompanyStoreScreen() {
                 style={[
                   styles.subscribeBtn,
                   {
-                    backgroundColor: isSubscribed ? 'transparent' : colors.primary,
-                    borderColor: isSubscribed ? colors.primary : 'transparent',
-                    borderWidth: 1,
+                    backgroundColor: isSubscribed ? colors.primary : colors.primary,
                   },
                 ]}
                 onPress={handleSubscribe}
                 disabled={isSubscribing}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
                 {isSubscribing ? (
-                  <ActivityIndicator color={isSubscribed ? colors.primary : '#FFF'} size="small" />
+                  <ActivityIndicator color="#FFF" size="small" />
                 ) : (
                   <>
                     <Ionicons
                       name={isSubscribed ? 'checkmark-circle-outline' : 'add-circle-outline'}
-                      size={18}
-                      color={isSubscribed ? colors.primary : '#FFF'}
+                      size={20}
+                      color="#FFF"
                     />
-                    <Text style={[styles.subscribeBtnText, { color: isSubscribed ? colors.primary : '#FFF' }]}>
+                    <Text style={[styles.subscribeBtnText, { color: '#FFF' }]}>
                       {isSubscribed ? 'Подписан' : 'Подписаться'}
                     </Text>
                   </>
@@ -434,36 +429,45 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
   cover: {
-    height: 150,
+    height: 165,
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
   coverImg: { width: '100%', height: '100%' },
-  coverScrim: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60, backgroundColor: 'rgba(0,0,0,0.25)' },
-  companyCard: {
+  // Карточка 1 — логотип/имя/рейтинг
+  identityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
     marginHorizontal: 16,
-    marginTop: -44,
+    marginTop: 16,
     borderRadius: Radius.card,
     borderWidth: 1,
-    padding: Spacing.lg,
-    marginBottom: 16,
-    gap: 14,
+    padding: 16,
   },
-  headRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  headInfo: { flex: 1, paddingTop: 4, gap: 4 },
-  avatarFloat: { marginTop: -48 },
-  logo: { width: 76, height: 76, borderRadius: 38, borderWidth: 3 },
-  logoFallback: { width: 76, height: 76, borderRadius: 38, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
-  logoInitial: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
+  // Карточка 2 — статистика + подписка
+  statsCard: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: 16,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    padding: 16,
+    gap: 16,
+  },
+  headInfo: { flex: 1, gap: 5 },
+  logo: { width: 78, height: 78, borderRadius: 39, borderWidth: 1 },
+  logoFallback: { width: 78, height: 78, borderRadius: 39, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  logoInitial: { fontSize: 30, fontWeight: '800', color: '#FFFFFF' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  companyName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20, marginTop: 2 },
-  verifiedText: { color: '#3B82F6', fontSize: 11, fontWeight: '700' },
+  companyName: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, flexShrink: 1 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, marginTop: 2 },
+  verifiedText: { color: '#3B82F6', fontSize: 11.5, fontWeight: '700' },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addressText: { fontSize: 12.5, flex: 1 },
-  ratingBox: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, marginTop: 4 },
-  ratingBoxNum: { fontSize: 22, fontWeight: '800' },
-  ratingBoxLabel: { fontSize: 11, fontWeight: '600', marginTop: 2, textAlign: 'center', lineHeight: 14 },
+  addressText: { fontSize: 13, flex: 1 },
+  ratingBox: { alignItems: 'center', justifyContent: 'center', paddingLeft: 8, paddingVertical: 4 },
+  ratingBoxNum: { fontSize: 24, fontWeight: '800' },
+  ratingBoxLabel: { fontSize: 11, fontWeight: '600', marginTop: 3, textAlign: 'center', lineHeight: 14 },
   statTiles: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4 },
   statTile: { flex: 1, paddingVertical: 4, paddingHorizontal: 4, alignItems: 'center', gap: 7 },
   statDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', marginVertical: 8 },
@@ -472,8 +476,8 @@ const styles = StyleSheet.create({
   ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statTileLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
   companyDesc: { fontSize: 14, lineHeight: 20 },
-  subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 13, borderRadius: Radius.button },
-  subscribeBtnText: { fontSize: 15, fontWeight: '600' },
+  subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 16 },
+  subscribeBtnText: { fontSize: 16, fontWeight: '700' },
   productsLabel: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 12 },
   tabsRow: { flexDirection: 'row', paddingHorizontal: 16, borderBottomWidth: 1, marginBottom: 12 },
   tabBtn: { paddingVertical: 12, marginRight: 22, alignItems: 'center' },
