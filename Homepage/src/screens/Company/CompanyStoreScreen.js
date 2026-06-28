@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Image, ActivityIndicator, Alert,
+  Image, ActivityIndicator, Alert, Share,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -128,6 +128,15 @@ export default function CompanyStoreScreen() {
     }
   };
 
+  const handleShareStore = async () => {
+    try {
+      await Share.share({
+        title: company?.name || t('storeWord'),
+        message: `${company?.name || t('storeWord')}\nhttps://axentis.uz`,
+      });
+    } catch { /* ignore */ }
+  };
+
   const logoUri = getImageUrl(company?.logoUrl);
   const coverUri = getImageUrl(company?.coverUrl);
   const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
@@ -167,7 +176,12 @@ export default function CompanyStoreScreen() {
               <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
                 {company?.name || t('storeWord')}
               </Text>
-              <View style={{ width: 40 }} />
+              <TouchableOpacity
+                style={[styles.backBtn, { backgroundColor: colors.surface }]}
+                onPress={handleShareStore}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
+              </TouchableOpacity>
             </View>
 
             {/* ── Обложка-баннер: нижняя часть растворяется в фоне (фейд) ── */}
@@ -177,17 +191,24 @@ export default function CompanyStoreScreen() {
               ) : (
                 <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
               )}
-              {/* Градиент прозрачный → фон: нижняя грань обложки исчезает плавно */}
+              {/* Лёгкое затемнение сверху — приглушает обложку и держит шапку читаемой */}
               <LinearGradient
-                colors={['transparent', 'transparent', colors.background]}
-                locations={[0, 0.45, 1]}
+                colors={[colors.background + 'B3', 'transparent']}
+                locations={[0, 0.55]}
+                style={styles.coverTopTint}
+                pointerEvents="none"
+              />
+              {/* Нижняя грань обложки плавно и долго растворяется в фоне приложения */}
+              <LinearGradient
+                colors={['transparent', colors.background + 'CC', colors.background]}
+                locations={[0, 0.68, 1]}
                 style={styles.coverFade}
                 pointerEvents="none"
               />
             </View>
 
             {/* ── Карточка 1: логотип + имя + рейтинг (полупрозрачная, наезжает на обложку) ── */}
-            <View style={[styles.identityCard, { backgroundColor: isDark ? 'rgba(22,22,38,0.72)' : 'rgba(255,255,255,0.82)', borderColor: colors.border }]}>
+            <View style={[styles.identityCard, { backgroundColor: isDark ? 'rgba(23,28,42,0.55)' : 'rgba(255,255,255,0.72)', borderColor: isDark ? 'rgba(255,255,255,0.08)' : colors.border }]}>
               {logoUri ? (
                 <Image source={{ uri: logoUri }} style={[styles.logo, { borderColor: colors.border }]} />
               ) : (
@@ -227,27 +248,27 @@ export default function CompanyStoreScreen() {
             </View>
 
             {/* ── Карточка 2: статистика + кнопка подписки ── */}
-            <View style={[styles.statsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.statsCard, { backgroundColor: isDark ? 'rgba(20,24,38,0.6)' : 'rgba(255,255,255,0.72)', borderColor: isDark ? 'rgba(255,255,255,0.07)' : colors.border }]}>
               <View style={styles.statTiles}>
                 <View style={styles.statTile}>
-                  <View style={[styles.statIconCircle, { backgroundColor: '#7B5CF0' + '22' }]}>
-                    <Ionicons name="bag-handle" size={22} color="#7B5CF0" />
+                  <View style={[styles.statIconCircle, { backgroundColor: colors.primary + '1A', borderWidth: 1, borderColor: colors.primary + '3A' }]}>
+                    <Ionicons name="bag-handle" size={20} color={colors.primaryLight} />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{productsCount}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>{t('productsWord')}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
                 <View style={styles.statTile}>
-                  <View style={[styles.statIconCircle, { backgroundColor: '#3B82F6' + '22' }]}>
-                    <Ionicons name="people" size={22} color="#3B82F6" />
+                  <View style={[styles.statIconCircle, { backgroundColor: '#3B82F6' + '16', borderWidth: 1, borderColor: '#3B82F6' + '3A' }]}>
+                    <Ionicons name="people" size={20} color="#5C9BFF" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{subscribersLabel}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>{t('subscribersWord')}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
                 <View style={styles.statTile}>
-                  <View style={[styles.statIconCircle, { backgroundColor: '#22C55E' + '22' }]}>
-                    <Ionicons name="thumbs-up" size={22} color="#22C55E" />
+                  <View style={[styles.statIconCircle, { backgroundColor: '#22C55E' + '16', borderWidth: 1, borderColor: '#22C55E' + '3A' }]}>
+                    <Ionicons name="thumbs-up" size={20} color="#3DDC84" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{positivePct != null ? `${positivePct}%` : '—'}</Text>
                   <Text style={[styles.statTileLabel, { color: colors.textMuted }]} numberOfLines={2}>{t('positiveReviewsWord')}</Text>
@@ -255,30 +276,32 @@ export default function CompanyStoreScreen() {
               </View>
 
               <TouchableOpacity
-                style={[
-                  styles.subscribeBtn,
-                  {
-                    backgroundColor: isSubscribed ? colors.primary : colors.primary,
-                  },
-                ]}
+                style={styles.subscribeBtnWrap}
                 onPress={handleSubscribe}
                 disabled={isSubscribing}
-                activeOpacity={0.85}
+                activeOpacity={0.9}
               >
-                {isSubscribing ? (
-                  <ActivityIndicator color="#FFF" size="small" />
-                ) : (
-                  <>
-                    <Ionicons
-                      name={isSubscribed ? 'checkmark-circle-outline' : 'add-circle-outline'}
-                      size={20}
-                      color="#FFF"
-                    />
-                    <Text style={[styles.subscribeBtnText, { color: '#FFF' }]}>
-                      {isSubscribed ? t('subscribed') : t('subscribe')}
-                    </Text>
-                  </>
-                )}
+                <LinearGradient
+                  colors={isSubscribed ? [colors.cardAlt, colors.cardAlt] : [colors.primary, colors.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.subscribeBtn, isSubscribed && { borderWidth: 1, borderColor: colors.border }]}
+                >
+                  {isSubscribing ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name={isSubscribed ? 'checkmark-circle-outline' : 'add-circle-outline'}
+                        size={20}
+                        color={isSubscribed ? colors.textSecondary : '#FFF'}
+                      />
+                      <Text style={[styles.subscribeBtnText, { color: isSubscribed ? colors.textSecondary : '#FFF' }]}>
+                        {isSubscribed ? t('subscribed') : t('subscribe')}
+                      </Text>
+                    </>
+                  )}
+                </LinearGradient>
               </TouchableOpacity>
             </View>
 
@@ -287,7 +310,7 @@ export default function CompanyStoreScreen() {
               {[
                 { key: 'products', label: t('productsTitle') },
                 { key: 'about', label: t('aboutStore') },
-                { key: 'reviews', label: `${t('storeReviewsTab')}${reviews.length > 0 ? ` ${reviews.length}` : ''}` },
+                { key: 'reviews', label: `${t('reviewsTitle')}${reviews.length > 0 ? ` ${reviews.length}` : ''}` },
               ].map((tab) => {
                 const active = activeTab === tab.key;
                 return (
@@ -446,32 +469,34 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
   topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
   cover: {
-    height: 220,
+    height: 234,
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
   coverImg: { width: '100%', height: '100%' },
-  // Нижняя часть обложки плавно растворяется в фоне приложения
-  coverFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130 },
-  // Карточка 1 — логотип/имя/рейтинг (наезжает на нижние ~20% обложки)
+  // Верхнее затемнение — приглушает яркость обложки
+  coverTopTint: { position: 'absolute', left: 0, right: 0, top: 0, height: 110 },
+  // Нижняя часть обложки плавно и долго растворяется в фоне приложения
+  coverFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 180 },
+  // Карточка 1 — логотип/имя/рейтинг (frosted, наезжает на растворяющийся низ обложки)
   identityCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     marginHorizontal: 16,
-    marginTop: -44,
-    borderRadius: Radius.card,
+    marginTop: -58,
+    borderRadius: 26,
     borderWidth: 1,
-    padding: 16,
+    padding: 18,
   },
-  // Карточка 2 — статистика + подписка
+  // Карточка 2 — статистика + подписка (frosted)
   statsCard: {
     marginHorizontal: 16,
     marginTop: 14,
     marginBottom: 16,
-    borderRadius: Radius.card,
+    borderRadius: 26,
     borderWidth: 1,
-    padding: 16,
+    padding: 18,
     gap: 16,
   },
   headInfo: { flex: 1, gap: 5 },
@@ -495,6 +520,7 @@ const styles = StyleSheet.create({
   ratingValue: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statTileLabel: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
   companyDesc: { fontSize: 14, lineHeight: 20 },
+  subscribeBtnWrap: { borderRadius: 16, overflow: 'hidden' },
   subscribeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 16 },
   subscribeBtnText: { fontSize: 16, fontWeight: '700' },
   productsLabel: { fontSize: 20, fontWeight: '700', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 12 },
