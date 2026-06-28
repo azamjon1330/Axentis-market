@@ -70,7 +70,12 @@ export const getProductReviews = async (id, userPhone) => {
 
 export const getProductReviewStats = async (id) => {
   const res = await api.get(ENDPOINTS.productReviewStats(id));
-  return res.data;
+  const d = res.data || {};
+  // Backend returns { count, average_rating }; normalize to the shape the UI expects.
+  return {
+    totalReviews: d.totalReviews ?? d.count ?? 0,
+    averageRating: d.averageRating ?? d.average_rating ?? 0,
+  };
 };
 
 export const getProductVariants = async (id) => {

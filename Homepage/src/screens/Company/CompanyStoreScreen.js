@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useFavorites } from '../../context/FavoritesContext';
+import { useLanguage } from '../../context/LanguageContext';
 import {
   getCompanyDetail, getProducts, getCompanyStats, subscribeToCompany, unsubscribeFromCompany,
   rateCompany, getCompanyReviews,
@@ -37,6 +38,7 @@ export default function CompanyStoreScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { isFavorite, toggle: toggleFav } = useFavorites();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const { companyId } = route.params;
@@ -78,7 +80,7 @@ export default function CompanyStoreScreen() {
 
   const handleSubmitReview = async () => {
     if (!user) {
-      Alert.alert('Требуется авторизация', 'Войдите в аккаунт, чтобы оставить отзыв');
+      Alert.alert(t('authRequired'), t('loginToReview'));
       return;
     }
     setSubmittingReview(true);
@@ -92,9 +94,9 @@ export default function CompanyStoreScreen() {
       setNewComment('');
       setNewRating(5);
       await Promise.all([loadReviews(), getCompanyDetail(companyId).then(setCompany).catch(() => {})]);
-      Alert.alert('Спасибо!', 'Ваш отзыв о магазине сохранён');
+      Alert.alert(t('thanksWord'), t('storeReviewSaved'));
     } catch (err) {
-      Alert.alert('Ошибка', err?.response?.data?.error || 'Не удалось отправить отзыв');
+      Alert.alert(t('error'), err?.response?.data?.error || t('reviewSendFail'));
     } finally {
       setSubmittingReview(false);
     }
@@ -104,7 +106,7 @@ export default function CompanyStoreScreen() {
 
   const handleSubscribe = async () => {
     if (!user) {
-      Alert.alert('Требуется авторизация', 'Войдите в аккаунт чтобы подписаться');
+      Alert.alert(t('authRequired'), t('loginToSubscribe'));
       return;
     }
     setIsSubscribing(true);
@@ -120,7 +122,7 @@ export default function CompanyStoreScreen() {
         setIsSubscribed(true);
       }
     } catch {
-      Alert.alert('Ошибка', 'Попробуйте позже');
+      Alert.alert(t('error'), t('tryLater'));
     } finally {
       setIsSubscribing(false);
     }
@@ -163,7 +165,7 @@ export default function CompanyStoreScreen() {
                 <Ionicons name="chevron-back" size={22} color={colors.text} />
               </TouchableOpacity>
               <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
-                {company?.name || 'Магазин'}
+                {company?.name || t('storeWord')}
               </Text>
               <View style={{ width: 40 }} />
             </View>
@@ -210,7 +212,7 @@ export default function CompanyStoreScreen() {
                 {companyRating >= 4.5 && (
                   <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
                     <Ionicons name="shield-checkmark" size={11} color="#3B82F6" />
-                    <Text style={styles.verifiedText}>Магазин подтверждён</Text>
+                    <Text style={styles.verifiedText}>{t('storeVerified')}</Text>
                   </View>
                 )}
               </View>
@@ -220,7 +222,7 @@ export default function CompanyStoreScreen() {
                   <Ionicons name="star" size={18} color={colors.star} />
                   <Text style={[styles.ratingBoxNum, { color: colors.text }]}>{companyRating.toFixed(1)}</Text>
                 </View>
-                <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>Рейтинг{'\n'}магазина</Text>
+                <Text style={[styles.ratingBoxLabel, { color: colors.textMuted }]}>{t('storeRating')}</Text>
               </View>
             </View>
 
@@ -232,7 +234,7 @@ export default function CompanyStoreScreen() {
                     <Ionicons name="bag-handle" size={22} color="#7B5CF0" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{productsCount}</Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>товаров</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>{t('productsWord')}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
                 <View style={styles.statTile}>
@@ -240,7 +242,7 @@ export default function CompanyStoreScreen() {
                     <Ionicons name="people" size={22} color="#3B82F6" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{subscribersLabel}</Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>подписчиков</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]}>{t('subscribersWord')}</Text>
                 </View>
                 <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
                 <View style={styles.statTile}>
@@ -248,7 +250,7 @@ export default function CompanyStoreScreen() {
                     <Ionicons name="thumbs-up" size={22} color="#22C55E" />
                   </View>
                   <Text style={[styles.statValue, { color: colors.text }]}>{positivePct != null ? `${positivePct}%` : '—'}</Text>
-                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]} numberOfLines={2}>положительных отзывов</Text>
+                  <Text style={[styles.statTileLabel, { color: colors.textMuted }]} numberOfLines={2}>{t('positiveReviewsWord')}</Text>
                 </View>
               </View>
 
@@ -273,7 +275,7 @@ export default function CompanyStoreScreen() {
                       color="#FFF"
                     />
                     <Text style={[styles.subscribeBtnText, { color: '#FFF' }]}>
-                      {isSubscribed ? 'Подписан' : 'Подписаться'}
+                      {isSubscribed ? t('subscribed') : t('subscribe')}
                     </Text>
                   </>
                 )}
@@ -283,9 +285,9 @@ export default function CompanyStoreScreen() {
             {/* Вкладки */}
             <View style={[styles.tabsRow, { borderBottomColor: colors.border }]}>
               {[
-                { key: 'products', label: 'Товары' },
-                { key: 'about', label: 'О магазине' },
-                { key: 'reviews', label: `Отзывы магазина${reviews.length > 0 ? ` ${reviews.length}` : ''}` },
+                { key: 'products', label: t('productsTitle') },
+                { key: 'about', label: t('aboutStore') },
+                { key: 'reviews', label: `${t('storeReviewsTab')}${reviews.length > 0 ? ` ${reviews.length}` : ''}` },
               ].map((tab) => {
                 const active = activeTab === tab.key;
                 return (
@@ -302,18 +304,18 @@ export default function CompanyStoreScreen() {
           activeTab === 'products' ? (
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
-              <Text style={[styles.emptyText, { color: colors.textMuted }]}>Нет товаров</Text>
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>{t('noProducts')}</Text>
             </View>
           ) : null
         }
         ListFooterComponent={
           activeTab === 'about' ? (
             <View style={styles.reviewsWrap}>
-              <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 10 }]}>О магазине</Text>
+              <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 10 }]}>{t('aboutStore')}</Text>
               {company?.description ? (
                 <Text style={[styles.companyDesc, { color: colors.textSecondary, marginBottom: 16 }]}>{company.description}</Text>
               ) : (
-                <Text style={[styles.companyDesc, { color: colors.textMuted, marginBottom: 16 }]}>Описание пока не добавлено.</Text>
+                <Text style={[styles.companyDesc, { color: colors.textMuted, marginBottom: 16 }]}>{t('descNotAdded')}</Text>
               )}
               {company?.address ? (
                 <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
@@ -323,24 +325,24 @@ export default function CompanyStoreScreen() {
               ) : null}
               <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
                 <Ionicons name="cube-outline" size={18} color={colors.primary} />
-                <Text style={[styles.aboutText, { color: colors.text }]}>{productsCount} товаров в каталоге</Text>
+                <Text style={[styles.aboutText, { color: colors.text }]}>{productsCount} {t('productsInCatalog')}</Text>
               </View>
               <View style={[styles.aboutRow, { borderTopColor: colors.divider }]}>
                 <Ionicons name="star-outline" size={18} color={colors.primary} />
-                <Text style={[styles.aboutText, { color: colors.text }]}>Рейтинг магазина: {companyRating.toFixed(1)} / 5</Text>
+                <Text style={[styles.aboutText, { color: colors.text }]}>{t('storeRatingLine')} {companyRating.toFixed(1)} / 5</Text>
               </View>
             </View>
           ) : activeTab !== 'reviews' ? null : (
           <View style={styles.reviewsWrap}>
             <Text style={[styles.productsLabel, { color: colors.text, paddingHorizontal: 0, marginBottom: 4 }]}>
-              Отзывы о магазине {reviews.length > 0 ? `(${reviews.length})` : ''}
+              {t('storeReviewsTitle')} {reviews.length > 0 ? `(${reviews.length})` : ''}
             </Text>
 
             {/* Оцените магазин */}
             <View style={styles.rateCard}>
-              <Text style={[styles.rateTitle, { color: colors.text }]}>Оцените магазин</Text>
+              <Text style={[styles.rateTitle, { color: colors.text }]}>{t('rateStore')}</Text>
               <Text style={[styles.rateSub, { color: colors.textMuted }]}>
-                Ваш отзыв поможет другим покупателям сделать правильный выбор
+                {t('reviewHelps')}
               </Text>
               <View style={styles.starRow}>
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -352,7 +354,7 @@ export default function CompanyStoreScreen() {
               <View style={[styles.reviewInputWrap, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
                 <TextInput
                   style={[styles.reviewInput, { color: colors.text }]}
-                  placeholder="Поделитесь своими впечатлениями о магазине…"
+                  placeholder={t('storeReviewPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   multiline
                   maxLength={500}
@@ -362,7 +364,7 @@ export default function CompanyStoreScreen() {
                 <Text style={[styles.charCounter, { color: colors.textMuted }]}>{newComment.length}/500</Text>
               </View>
               <View style={styles.tipsRow}>
-                {['Качество товара', 'Скорость доставки', 'Обслуживание', 'Цены'].map((tip) => (
+                {[t('tipQuality'), t('tipDeliverySpeed'), t('tipService'), t('tipPrices')].map((tip) => (
                   <TouchableOpacity
                     key={tip}
                     style={[styles.tipChip, { backgroundColor: colors.inputBg, borderColor: colors.border }]}
@@ -382,7 +384,7 @@ export default function CompanyStoreScreen() {
               >
                 {submittingReview
                   ? <ActivityIndicator color="#FFF" />
-                  : <Text style={styles.submitBtnText}>Отправить отзыв</Text>}
+                  : <Text style={styles.submitBtnText}>{t('submitReviewBtn')}</Text>}
               </TouchableOpacity>
             </View>
 
@@ -403,7 +405,7 @@ export default function CompanyStoreScreen() {
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.reviewName, { color: colors.text }]}>{r.userName || 'Покупатель'}</Text>
+                    <Text style={[styles.reviewName, { color: colors.text }]}>{r.userName || t('buyer')}</Text>
                     <View style={styles.reviewStars}>
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Ionicons key={s} name={s <= r.rating ? 'star' : 'star-outline'} size={11} color={colors.star} />

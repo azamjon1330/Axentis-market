@@ -9,6 +9,7 @@ import { WebView } from 'react-native-webview';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { addUserAddress } from '../../api';
 import { GOOGLE_MAPS_API_KEY } from '../../config';
@@ -89,6 +90,7 @@ function buildMapHtml(center) {
 
 export default function MapLocationPickerScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
@@ -129,13 +131,13 @@ export default function MapLocationPickerScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Нет доступа', 'Разрешите доступ к геолокации в настройках устройства.');
+        Alert.alert(t('noAccessTitle'), t('allowGeo'));
         return;
       }
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       centerMapTo(loc.coords.latitude, loc.coords.longitude, 17);
     } catch {
-      Alert.alert('Ошибка', 'Не удалось получить геолокацию.');
+      Alert.alert(t('error'), t('geoFail'));
     } finally {
       setLocating(false);
     }
@@ -181,10 +183,10 @@ export default function MapLocationPickerScreen() {
       if (found) {
         centerMapTo(found.lat, found.lng, 16);
       } else {
-        Alert.alert('Не найдено', 'По вашему запросу ничего не найдено.');
+        Alert.alert(t('notFoundTitle'), t('nothingFoundQuery'));
       }
     } catch {
-      Alert.alert('Ошибка', 'Не удалось выполнить поиск.');
+      Alert.alert(t('error'), t('searchFail'));
     } finally {
       setSearching(false);
     }
@@ -235,8 +237,8 @@ export default function MapLocationPickerScreen() {
   };
 
   const headerTitle = returnTo === 'DeliveryAddresses'
-    ? 'Новый адрес'
-    : 'Выберите место доставки';
+    ? t('newAddress')
+    : t('selectDeliveryPlace');
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -274,7 +276,7 @@ export default function MapLocationPickerScreen() {
               style={[styles.searchInput, { color: colors.text }]}
               value={search}
               onChangeText={setSearch}
-              placeholder="Поиск адреса"
+              placeholder={t('searchAddressPh')}
               placeholderTextColor={colors.textMuted}
               returnKeyType="search"
               onSubmitEditing={handleSearch}
@@ -310,14 +312,14 @@ export default function MapLocationPickerScreen() {
         <View style={styles.coordRow}>
           <Ionicons name="location" size={20} color={colors.primary} />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.coordTitle, { color: colors.text }]}>Выбранная точка</Text>
+            <Text style={[styles.coordTitle, { color: colors.text }]}>{t('selectedPoint')}</Text>
             <Text style={[styles.coordSub, { color: colors.textSecondary }]}>
               {coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : '—'}
             </Text>
           </View>
         </View>
         <Text style={[styles.hint, { color: colors.textMuted }]}>
-          Передвигайте карту или маркер, чтобы выбрать точное место
+          {t('moveMapHint')}
         </Text>
         <TouchableOpacity
           style={[styles.confirmBtn, { backgroundColor: colors.primary }]}
@@ -327,7 +329,7 @@ export default function MapLocationPickerScreen() {
         >
           {confirming
             ? <ActivityIndicator color="#FFF" />
-            : <Text style={styles.confirmText}>Выбрать это место</Text>}
+            : <Text style={styles.confirmText}>{t('selectThisPlace')}</Text>}
         </TouchableOpacity>
       </View>
     </View>

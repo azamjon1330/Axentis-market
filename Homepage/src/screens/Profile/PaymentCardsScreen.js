@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getPaymentCards, addPaymentCard, deletePaymentCard, setDefaultCard } from '../../api';
 
 const CARD_TYPES = [
@@ -19,6 +20,7 @@ const CARD_TYPES = [
 
 export default function PaymentCardsScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const navigation = useNavigation();
 
@@ -57,15 +59,15 @@ export default function PaymentCardsScreen() {
     if (!user) return;
     const digits = cardNumber.replace(/\s/g, '');
     if (digits.length !== 16 || !/^\d{16}$/.test(digits)) {
-      Alert.alert('Ошибка', 'Введите полный 16-значный номер карты');
+      Alert.alert(t('error'), t('enterCardNumber16'));
       return;
     }
     if (!/^\d{2}\/\d{2}$/.test(expiry)) {
-      Alert.alert('Ошибка', 'Введите срок в формате ММ/ГГ');
+      Alert.alert(t('error'), t('enterExpiryMMYY'));
       return;
     }
     if (!holderName.trim()) {
-      Alert.alert('Ошибка', 'Введите имя держателя карты');
+      Alert.alert(t('error'), t('enterCardHolderName'));
       return;
     }
     const nameParts = holderName.trim().split(/\s+/);
@@ -85,24 +87,24 @@ export default function PaymentCardsScreen() {
       setShowForm(false);
       resetForm();
     } catch {
-      Alert.alert('Ошибка', 'Не удалось добавить карту');
+      Alert.alert(t('error'), t('cardAddFail'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (card) => {
-    Alert.alert('Удалить карту', `Удалить карту **** ${card.cardNumberLast4}?`, [
-      { text: 'Отмена', style: 'cancel' },
+    Alert.alert(t('deleteCard'), `${t('deleteCardQ')} ${card.cardNumberLast4}?`, [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Удалить',
+        text: t('deleteWord'),
         style: 'destructive',
         onPress: async () => {
           try {
             await deletePaymentCard(card.id);
             setCards(prev => prev.filter(c => c.id !== card.id));
           } catch {
-            Alert.alert('Ошибка', 'Не удалось удалить карту');
+            Alert.alert(t('error'), t('cardDeleteFail'));
           }
         },
       },
@@ -115,7 +117,7 @@ export default function PaymentCardsScreen() {
       await setDefaultCard(card.id);
       setCards(prev => prev.map(c => ({ ...c, isDefault: c.id === card.id })));
     } catch {
-      Alert.alert('Ошибка', 'Не удалось установить карту по умолчанию');
+      Alert.alert(t('error'), t('setDefaultCardFail'));
     }
   };
 
@@ -155,7 +157,7 @@ export default function PaymentCardsScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Способы оплаты</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('paymentMethods')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -167,7 +169,7 @@ export default function PaymentCardsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Ionicons name="card-outline" size={52} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>Нет добавленных карт</Text>
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{t('noCards')}</Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -182,20 +184,20 @@ export default function PaymentCardsScreen() {
               </Text>
               {item.isDefault && (
                 <View style={styles.defaultBadge}>
-                  <Text style={styles.defaultBadgeText}>Основная</Text>
+                  <Text style={styles.defaultBadgeText}>{t('mainBadge')}</Text>
                 </View>
               )}
             </View>
             <Text style={styles.cardNumber}>**** **** **** {item.cardNumberLast4}</Text>
             <View style={styles.cardBottom}>
               <View>
-                <Text style={styles.cardLabel}>Держатель</Text>
+                <Text style={styles.cardLabel}>{t('cardHolder')}</Text>
                 <Text style={styles.cardValue}>
                   {item.cardHolderFirstName} {item.cardHolderLastName}
                 </Text>
               </View>
               <View>
-                <Text style={styles.cardLabel}>Срок</Text>
+                <Text style={styles.cardLabel}>{t('expiryShort')}</Text>
                 <Text style={styles.cardValue}>{item.cardExpiry}</Text>
               </View>
               <TouchableOpacity
@@ -215,7 +217,7 @@ export default function PaymentCardsScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="add" size={22} color="#FFF" />
-            <Text style={styles.addBtnText}>Добавить карту</Text>
+            <Text style={styles.addBtnText}>{t('addCardBtn')}</Text>
           </TouchableOpacity>
         }
       />
@@ -228,14 +230,14 @@ export default function PaymentCardsScreen() {
       >
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Новая карта</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('newCard')}</Text>
             <TouchableOpacity onPress={() => { setShowForm(false); resetForm(); }}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Тип карты</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('cardTypeLabel')}</Text>
             <View style={styles.typeRow}>
               {CARD_TYPES.map((ct) => (
                 <TouchableOpacity
@@ -256,7 +258,7 @@ export default function PaymentCardsScreen() {
               ))}
             </View>
 
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Номер карты</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('cardNumberLabel')}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border, letterSpacing: 2 }]}
               placeholder="1234 5678 9012 3456"
@@ -267,10 +269,10 @@ export default function PaymentCardsScreen() {
               maxLength={19}
             />
 
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Срок действия</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('expiryDateLabel')}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="ММ/ГГ"
+              placeholder={t('expiryPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={expiry}
               onChangeText={handleExpiryChange}
@@ -278,10 +280,10 @@ export default function PaymentCardsScreen() {
               maxLength={5}
             />
 
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Имя держателя</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{t('holderNameLabel')}</Text>
             <TextInput
               style={[styles.input, { backgroundColor: colors.inputBg, color: colors.text, borderColor: colors.border }]}
-              placeholder="Имя Фамилия"
+              placeholder={t('holderNamePlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={holderName}
               onChangeText={setHolderName}
@@ -297,7 +299,7 @@ export default function PaymentCardsScreen() {
               {saving ? (
                 <ActivityIndicator color="#FFF" />
               ) : (
-                <Text style={styles.saveBtnText}>Сохранить</Text>
+                <Text style={styles.saveBtnText}>{t('saveWord')}</Text>
               )}
             </TouchableOpacity>
           </ScrollView>
