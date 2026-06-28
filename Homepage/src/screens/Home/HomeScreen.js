@@ -170,8 +170,8 @@ export default function HomeScreen() {
   // filtering by category, and when there are no approved ads).
   const ListHeader = useMemo(() => {
     const showBanner = !debouncedSearch.trim() && !activeCategory && ads.length > 0;
-    let sectionTitle = 'Популярные товары';
-    if (debouncedSearch.trim()) sectionTitle = 'Результаты поиска';
+    let sectionTitle = t('popularProducts');
+    if (debouncedSearch.trim()) sectionTitle = t('searchResults');
     else if (activeCategory) sectionTitle = activeCategory;
     return (
       <View>
@@ -183,7 +183,7 @@ export default function HomeScreen() {
         <SectionHeader title={sectionTitle} style={{ marginTop: showBanner ? Spacing.sm : Spacing.xs }} />
       </View>
     );
-  }, [ads, debouncedSearch, activeCategory]);
+  }, [ads, debouncedSearch, activeCategory, t]);
 
   if (isLoading) {
     return (
@@ -203,7 +203,7 @@ export default function HomeScreen() {
         {/* Greeting + actions */}
         <View style={styles.greetingRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.greetingHello, { color: colors.textMuted }]}>Добро пожаловать</Text>
+            <Text style={[styles.greetingHello, { color: colors.textMuted }]}>{t('welcome')}</Text>
             <Text style={[styles.greetingName, { color: colors.text }]} numberOfLines={1}>
               {user?.name ? user.name : 'Axentis Market'}
             </Text>
@@ -231,7 +231,7 @@ export default function HomeScreen() {
             <Ionicons name="search-outline" size={18} color={colors.textMuted} />
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Поиск товаров..."
+              placeholder={t('searchPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={search}
               onChangeText={setSearch}
@@ -254,7 +254,7 @@ export default function HomeScreen() {
           contentContainerStyle={styles.chipsRow}
           style={styles.chipsScroll}
         >
-          <Chip label="Все" active={activeCategory === null} onPress={() => setActiveCategory(null)} icon="apps-outline" />
+          <Chip label={t('tabAll')} active={activeCategory === null} onPress={() => setActiveCategory(null)} icon="apps-outline" />
           {categories.map(cat => (
             <Chip
               key={cat.id}
@@ -285,7 +285,7 @@ export default function HomeScreen() {
           <View style={styles.empty}>
             <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
             <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {debouncedSearch.trim() ? 'Ничего не найдено' : 'Нет доступных товаров'}
+              {debouncedSearch.trim() ? t('nothingFound') : t('noProductsAvailable')}
             </Text>
           </View>
         }
@@ -329,7 +329,7 @@ export default function HomeScreen() {
       >
         {/* Drawer header */}
         <View style={[styles.drawerHeader, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.drawerTitle, { color: colors.text }]}>Каталог</Text>
+          <Text style={[styles.drawerTitle, { color: colors.text }]}>{t('catalogTitle')}</Text>
           <TouchableOpacity
             onPress={closeDrawer}
             style={[styles.closeBtn, { backgroundColor: colors.inputBg }]}
@@ -347,7 +347,7 @@ export default function HomeScreen() {
           <View style={[styles.drawerIconBox, { backgroundColor: colors.primary + '20' }]}>
             <Ionicons name="apps-outline" size={20} color={colors.primary} />
           </View>
-          <Text style={[styles.drawerRowText, { color: colors.text }]}>Все товары</Text>
+          <Text style={[styles.drawerRowText, { color: colors.text }]}>{t('allProducts')}</Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
 

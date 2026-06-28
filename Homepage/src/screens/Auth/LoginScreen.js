@@ -100,8 +100,8 @@ export default function LoginScreen() {
       if (!err?.response) {
         // Нет ответа от сервера — проблема сети или сервер недоступен
         Alert.alert(
-          'Нет связи с сервером',
-          `Не удалось подключиться к axentis.uz.\n\nПроверьте интернет или попробуйте позже.\n\n(${err?.message || 'Network Error'})`,
+          t('noServerConnection'),
+          `${t('connectFailMsg')}\n\n(${err?.message || 'Network Error'})`,
         );
       } else if (status === 404) {
         Alert.alert(t('userNotFound'), t('userNotRegistered'), [
@@ -109,10 +109,10 @@ export default function LoginScreen() {
           { text: 'OK', style: 'cancel' },
         ]);
       } else if (status === 401) {
-        Alert.alert('Неверные данные', serverMsg || 'Неверный телефон или пароль');
+        Alert.alert(t('invalidData'), serverMsg || t('invalidPhoneOrPass'));
       } else {
         Alert.alert(
-          `Ошибка${status ? ` ${status}` : ''}`,
+          `${t('error')}${status ? ` ${status}` : ''}`,
           serverMsg || err?.message || t('loginError'),
         );
       }
@@ -124,11 +124,11 @@ export default function LoginScreen() {
   const handleRegister = async () => {
     if (!isRegValid) {
       if (regPassword !== regConfirm) {
-        Alert.alert('Ошибка', 'Пароли не совпадают');
+        Alert.alert(t('error'), t('passwordMismatch'));
         return;
       }
       if (regPassword.length < 6) {
-        Alert.alert('Ошибка', 'Пароль должен быть не менее 6 символов');
+        Alert.alert(t('error'), t('passwordTooShort'));
         return;
       }
       return;
@@ -141,9 +141,9 @@ export default function LoginScreen() {
       const status = err?.response?.status;
       const serverMsg = err?.response?.data?.error;
       if (!err?.response) {
-        Alert.alert('Нет связи с сервером', `Не удалось подключиться к axentis.uz.\n\n(${err?.message || 'Network Error'})`);
+        Alert.alert(t('noServerConnection'), `${t('connectFailMsg')}\n\n(${err?.message || 'Network Error'})`);
       } else {
-        Alert.alert(`Ошибка${status ? ` ${status}` : ''}`, serverMsg || t('registerError'));
+        Alert.alert(`${t('error')}${status ? ` ${status}` : ''}`, serverMsg || t('registerError'));
       }
     } finally {
       setRegLoading(false);

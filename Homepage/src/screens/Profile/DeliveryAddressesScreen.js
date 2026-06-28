@@ -8,10 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { getUserAddresses, deleteUserAddress, setDefaultAddress } from '../../api';
 
 export default function DeliveryAddressesScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const { user } = useAuth();
   const navigation = useNavigation();
 
@@ -37,10 +39,10 @@ export default function DeliveryAddressesScreen() {
   }, [loadAddresses]));
 
   const handleDelete = (id) => {
-    Alert.alert('Удалить адрес?', 'Это действие необратимо.', [
-      { text: 'Отмена', style: 'cancel' },
+    Alert.alert(t('deleteAddressQ'), t('irreversibleAction'), [
+      { text: t('cancel'), style: 'cancel' },
       {
-        text: 'Удалить',
+        text: t('deleteWord'),
         style: 'destructive',
         onPress: async () => {
           if (!user?.phone) return;
@@ -48,7 +50,7 @@ export default function DeliveryAddressesScreen() {
             await deleteUserAddress(user.phone, id);
             setAddresses(prev => prev.filter(a => a.id !== id));
           } catch {
-            Alert.alert('Ошибка', 'Не удалось удалить адрес.');
+            Alert.alert(t('error'), t('addressDeleteFail'));
           }
         },
       },
@@ -63,7 +65,7 @@ export default function DeliveryAddressesScreen() {
         prev.map(a => ({ ...a, isDefault: a.id === updated.id })),
       );
     } catch {
-      Alert.alert('Ошибка', 'Не удалось установить адрес по умолчанию.');
+      Alert.alert(t('error'), t('setDefaultAddrFail'));
     }
   };
 
@@ -86,7 +88,7 @@ export default function DeliveryAddressesScreen() {
           </Text>
           {item.isDefault && (
             <View style={[styles.defaultBadge, { backgroundColor: `${colors.primary}22` }]}>
-              <Text style={[styles.defaultText, { color: colors.primary }]}>По умолчанию</Text>
+              <Text style={[styles.defaultText, { color: colors.primary }]}>{t('byDefaultAddr')}</Text>
             </View>
           )}
         </View>
@@ -96,12 +98,12 @@ export default function DeliveryAddressesScreen() {
         {!item.isDefault && (
           <TouchableOpacity style={styles.actionBtn} onPress={() => handleSetDefault(item.id)}>
             <Ionicons name="checkmark-circle-outline" size={16} color={colors.primary} />
-            <Text style={[styles.actionText, { color: colors.primary }]}>По умолчанию</Text>
+            <Text style={[styles.actionText, { color: colors.primary }]}>{t('byDefaultAddr')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item.id)}>
           <Ionicons name="trash-outline" size={16} color="#EF4444" />
-          <Text style={[styles.actionText, { color: '#EF4444' }]}>Удалить</Text>
+          <Text style={[styles.actionText, { color: '#EF4444' }]}>{t('deleteWord')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -115,7 +117,7 @@ export default function DeliveryAddressesScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: colors.surface }]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Адреса доставки</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('deliveryAddresses')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -139,9 +141,9 @@ export default function DeliveryAddressesScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Ionicons name="location-outline" size={64} color={colors.textSecondary} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Нет сохранённых адресов</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{t('noSavedAddresses')}</Text>
               <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-                Добавьте адрес доставки, чтобы быстро оформлять заказы
+                {t('addAddressHint')}
               </Text>
             </View>
           }
@@ -155,7 +157,7 @@ export default function DeliveryAddressesScreen() {
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={20} color="#FFF" />
-          <Text style={styles.addBtnText}>Добавить адрес</Text>
+          <Text style={styles.addBtnText}>{t('addAddressBtn')}</Text>
         </TouchableOpacity>
       </View>
     </View>

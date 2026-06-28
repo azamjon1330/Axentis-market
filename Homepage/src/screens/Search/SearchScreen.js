@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 import { searchProducts } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 
@@ -14,6 +15,7 @@ const POPULAR_SEARCHES = ['AirPods', 'Samsung', 'iPhone', 'Nike', 'Adidas', 'Pla
 
 export default function SearchScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const inputRef = useRef(null);
   const [query, setQuery] = useState('');
@@ -64,7 +66,7 @@ export default function SearchScreen() {
             value={query}
             onChangeText={handleChange}
             onSubmitEditing={handleSubmit}
-            placeholder="Поиск товаров"
+            placeholder={t('searchPlaceholder')}
             placeholderTextColor={colors.textMuted}
             autoFocus
             returnKeyType="search"
@@ -76,13 +78,13 @@ export default function SearchScreen() {
           )}
         </View>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Text style={[styles.cancelText, { color: colors.primary }]}>Отмена</Text>
+          <Text style={[styles.cancelText, { color: colors.primary }]}>{t('cancel')}</Text>
         </TouchableOpacity>
       </View>
 
       {!hasSearched ? (
         <View style={styles.idle}>
-          <Text style={[styles.popularTitle, { color: colors.text }]}>Популярные запросы</Text>
+          <Text style={[styles.popularTitle, { color: colors.text }]}>{t('popularQueries')}</Text>
           <View style={styles.tagsWrap}>
             {POPULAR_SEARCHES.map((tag) => (
               <TouchableOpacity
@@ -104,9 +106,9 @@ export default function SearchScreen() {
       ) : results.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="search-outline" size={56} color={colors.textMuted} />
-          <Text style={[styles.noResultTitle, { color: colors.text }]}>Ничего не найдено</Text>
+          <Text style={[styles.noResultTitle, { color: colors.text }]}>{t('nothingFound')}</Text>
           <Text style={[styles.noResultText, { color: colors.textMuted }]}>
-            По запросу «{query}» товаров не найдено
+            {t('byQuery')} «{query}» {t('notFoundProducts')}
           </Text>
         </View>
       ) : (
@@ -127,7 +129,7 @@ export default function SearchScreen() {
           )}
           ListHeaderComponent={
             <Text style={[styles.resultCount, { color: colors.textSecondary }]}>
-              Найдено: {results.length} товаров
+              {t('foundLabel')} {results.length} {t('productsWord')}
             </Text>
           }
           ListFooterComponent={<View style={{ height: 20 }} />}

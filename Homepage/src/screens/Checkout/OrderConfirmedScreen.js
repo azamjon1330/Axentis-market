@@ -5,9 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../context/ThemeContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function OrderConfirmedScreen() {
   const { colors, isDark } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const route = useRoute();
   const { orderId, orderCode } = route.params;
@@ -34,8 +36,8 @@ export default function OrderConfirmedScreen() {
         </Animated.View>
 
         <Animated.View style={[styles.textBlock, { opacity: fadeAnim }]}>
-          <Text style={[styles.title, { color: colors.text }]}>Заказ оформлен</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Спасибо! Ваш заказ принят</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('orderPlaced')}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>{t('orderAcceptedThanks')}</Text>
           <Text style={[styles.orderCode, { color: colors.primary }]}>#{orderCode}</Text>
         </Animated.View>
       </View>
@@ -47,7 +49,7 @@ export default function OrderConfirmedScreen() {
           activeOpacity={0.8}
         >
           <Ionicons name="receipt-outline" size={18} color={colors.primary} />
-          <Text style={[styles.ordersBtnText, { color: colors.primary }]}>Мои заказы</Text>
+          <Text style={[styles.ordersBtnText, { color: colors.primary }]}>{t('myOrders')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -55,7 +57,7 @@ export default function OrderConfirmedScreen() {
           onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Main' }] })}
           activeOpacity={0.8}
         >
-          <Text style={[styles.homeBtnText, { color: colors.text }]}>На главную</Text>
+          <Text style={[styles.homeBtnText, { color: colors.text }]}>{t('toHome')}</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

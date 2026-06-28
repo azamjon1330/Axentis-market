@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { getImageUrl } from '../../utils/imageUrl';
+import { useLanguage } from '../../context/LanguageContext';
 
 const { width: SW } = Dimensions.get('window');
 const W = SW - 32;
@@ -12,13 +13,14 @@ const H = 164;
 const INTERVAL = 10000;
 
 const PLACEHOLDERS = [
-  { id: 'a', title: 'Скидки до 50%', sub: 'На электронику и гаджеты', bg: '#1F6FEB' },
-  { id: 'b', title: 'Новые поступления', sub: 'Свежие товары каждый день', bg: '#0EA371' },
-  { id: 'c', title: 'Быстрая доставка', sub: 'По всему Узбекистану', bg: '#D05A00' },
+  { id: 'a', titleKey: 'bannerSaleTitle', subKey: 'bannerSaleSub', bg: '#1F6FEB' },
+  { id: 'b', titleKey: 'bannerNewTitle', subKey: 'bannerNewSub', bg: '#0EA371' },
+  { id: 'c', titleKey: 'bannerDeliveryTitle', subKey: 'bannerDeliverySub', bg: '#D05A00' },
 ];
 
 export default function BannerCarousel({ ads }) {
   const navigation = useNavigation();
+  const { t } = useLanguage();
   const ref = useRef(null);
   const [idx, setIdx] = useState(0);
   const idxRef = useRef(0);
@@ -70,10 +72,10 @@ export default function BannerCarousel({ ads }) {
                   if (canOpen) {
                     await Linking.openURL(ad.linkUrl);
                   } else {
-                    Alert.alert('Ошибка', 'Не удалось открыть ссылку');
+                    Alert.alert(t('error'), t('linkOpenFail'));
                   }
                 } catch {
-                  Alert.alert('Ошибка', 'Не удалось открыть ссылку');
+                  Alert.alert(t('error'), t('linkOpenFail'));
                 }
               };
               return (
@@ -96,8 +98,8 @@ export default function BannerCarousel({ ads }) {
               <View key={p.id} style={[styles.slide, { backgroundColor: p.bg }]}>
                 <View style={styles.circle} />
                 <View style={styles.txt}>
-                  <Text style={styles.title}>{p.title}</Text>
-                  <Text style={styles.sub}>{p.sub}</Text>
+                  <Text style={styles.title}>{t(p.titleKey)}</Text>
+                  <Text style={styles.sub}>{t(p.subKey)}</Text>
                 </View>
               </View>
             ))
