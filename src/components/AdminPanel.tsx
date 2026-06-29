@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck } from 'lucide-react';
+import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck, MessageSquare } from 'lucide-react';
 import api from '../utils/api';
 // TODO: Main company management not yet in new API
 import CompanyManagement from './CompanyManagement';
@@ -9,6 +9,7 @@ import AdminAdsPanel from './AdminAdsPanel';
 import AdminCategoriesPanel from './AdminCategoriesPanel';
 import AdminNotificationsPanel from './AdminNotificationsPanel';
 import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
+import BroadcastChatPanel from './BroadcastChatPanel';
 import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
 import AdminPromoCodesPanel from './AdminPromoCodesPanel';
@@ -22,7 +23,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers' | 'chat'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -427,6 +428,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => handleNavigate('chat')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'chat'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span className="font-medium">{language === 'uz' ? 'Umumiy chat' : 'Общий чат'}</span>
+            </button>
+
+            <button
               onClick={() => handleNavigate('discounts')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'discounts'
@@ -510,6 +523,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'categories' && 'Категории товаров'}
               {activeTab === 'notifications' && 'Уведомления'}
               {activeTab === 'companyMessages' && 'Сообщения компаниям'}
+              {activeTab === 'chat' && (language === 'uz' ? 'Umumiy chat' : 'Общий чат')}
               {activeTab === 'discounts' && 'Модерация скидок'}
               {activeTab === 'promo' && (language === 'uz' ? 'Promokodlar' : 'Промокоды')}
               {activeTab === 'referrals' && 'Реферальные агенты'}
@@ -795,6 +809,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <AdminPromoCodesPanel />
           ) : activeTab === 'couriers' ? (
             <CouriersManagementPanel />
+          ) : activeTab === 'chat' ? (
+            <BroadcastChatPanel isAdmin />
           ) : (
             <AdminAdsPanel />
           )}
