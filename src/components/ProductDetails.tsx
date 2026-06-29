@@ -4,6 +4,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import api, { getImageUrl } from '../utils/api';
 import { LinkifiedText } from './LinkifiedText';
 import ProductQA from './ProductQA';
+import { toast } from 'sonner';
 
 interface Product {
   id: number;
@@ -122,6 +123,21 @@ export default function ProductDetails({
     : typeof product.images === 'string' ? (() => { try { return JSON.parse(product.images as any); } catch { return []; } })()
     : [];
   const images = rawImages.length > 0 ? rawImages : [{ url: '' }];
+
+  // 🔗 Поделиться товаром — та же ссылка, что и в приложении Homepage (#product-ID).
+  const handleShare = async () => {
+    const url = `${window.location.origin}/#product-${product.id}`;
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({ title: product.name, text: `${product.name}\n${url}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Ссылка на товар скопирована');
+      }
+    } catch {
+      /* пользователь отменил шеринг — игнорируем */
+    }
+  };
 
   const themeColor = '#C0BCBC';
   const textColor = isNight ? 'text-white' : 'text-black';
@@ -248,7 +264,7 @@ export default function ProductDetails({
               <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-black'}`} />
             </button>
           )}
-          <button className="p-2 -mr-2 rounded-full hover:bg-black/10 transition-colors">
+          <button onClick={handleShare} className="p-2 -mr-2 rounded-full hover:bg-black/10 transition-colors" title="Поделиться">
             <Share2 className="w-6 h-6 text-black" />
           </button>
         </div>

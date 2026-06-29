@@ -262,11 +262,45 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
   };
 
+  // 🔗 Открыть товар по ID (для deep-link вида #product-123, как делится
+  // приложение Homepage). Дотягиваем товар с бэкенда и нормализуем картинки.
+  const openProductById = async (id: number) => {
+    try {
+      const p: any = await api.products.get(String(id));
+      if (!p || !p.id) return;
+      const normalized: any = {
+        ...p,
+        company_id: p.company_id ?? p.companyId,
+        images: Array.isArray(p.images)
+          ? p.images.map((im: any) => (typeof im === 'string' ? { url: getImageUrl(im) || im } : im))
+          : [],
+      };
+      setSelectedProduct(normalized);
+      window.history.replaceState({ view: 'product', product: normalized, page: 'home' }, '', `#product-${id}`);
+    } catch (error) {
+      console.error('❌ [DeepLink] Не удалось открыть товар по ссылке:', error);
+    }
+  };
+
   // 🔄 HISTORY API HANDLER
   useEffect(() => {
-    // Initial state - preserve page: 'home' context
-    const currentState = window.history.state || {};
-    window.history.replaceState({ ...currentState, view: 'home', page: 'home' }, '', '#home');
+    // 🔗 Deep-link: если зашли по ссылке на конкретный товар/компанию
+    // (например, https://axentis.uz/#product-123), открываем именно их,
+    // а не сбрасываем на главную.
+    const initialHash = window.location.hash || '';
+    const productMatch = initialHash.match(/^#product-(\d+)/);
+    const companyMatch = initialHash.match(/^#company-(\d+)/);
+    if (productMatch) {
+      openProductById(Number(productMatch[1]));
+    } else if (companyMatch) {
+      const cid = Number(companyMatch[1]);
+      setViewingCompanyId(cid);
+      window.history.replaceState({ view: 'company', id: cid, page: 'home' }, '', `#company-${cid}`);
+    } else {
+      // Initial state - preserve page: 'home' context
+      const currentState = window.history.state || {};
+      window.history.replaceState({ ...currentState, view: 'home', page: 'home' }, '', '#home');
+    }
 
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state;
