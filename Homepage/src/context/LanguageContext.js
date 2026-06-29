@@ -390,6 +390,10 @@ const translations = {
     onlyInStock: 'Только в наличии',
     applyBtn: 'Применить',
     resetBtn: 'Сбросить',
+    addPhotoBtn: 'Добавить фото',
+    withPhoto: 'С фото',
+    recentlyViewed: 'Вы недавно смотрели',
+    recommendedForYou: 'Рекомендуем вам',
   },
   uz: {
     home: 'Bosh sahifa',
@@ -776,6 +780,10 @@ const translations = {
     onlyInStock: 'Faqat mavjud',
     applyBtn: "Qo'llash",
     resetBtn: 'Tozalash',
+    addPhotoBtn: "Foto qo'shish",
+    withPhoto: 'Foto bilan',
+    recentlyViewed: "Yaqinda ko'rganlaringiz",
+    recommendedForYou: 'Sizga tavsiya etamiz',
   },
 };
 

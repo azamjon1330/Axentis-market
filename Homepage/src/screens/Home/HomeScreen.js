@@ -16,13 +16,13 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { getProducts, getCategories, getApprovedAds } from '../../api';
+import { getProducts, getCategories, getApprovedAds, getRecentlyViewed, getRecommendations } from '../../api';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
 import CategoryIcon from '../../components/common/CategoryIcon';
@@ -52,6 +52,8 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState(null);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
 
   // Drawer
   const DRAWER_WIDTH = Math.min(width * 0.82, 340);
@@ -94,6 +96,20 @@ export default function HomeScreen() {
   }, [getModeParams]);
 
   useEffect(() => { loadInitial(); }, [loadInitial]);
+
+  // «Недавно смотрели» + «Рекомендуем вам» — обновляем при возврате на главную,
+  // чтобы только что просмотренные товары сразу появлялись в ленте.
+  const loadPersonalized = useCallback(async () => {
+    if (!user?.phone) { setRecentlyViewed([]); setRecommendations([]); return; }
+    const [rv, rc] = await Promise.allSettled([
+      getRecentlyViewed(user.phone, 12),
+      getRecommendations(user.phone, 12),
+    ]);
+    if (rv.status === 'fulfilled') setRecentlyViewed(rv.value);
+    if (rc.status === 'fulfilled') setRecommendations(rc.value);
+  }, [user?.phone]);
+
+  useFocusEffect(useCallback(() => { loadPersonalized(); }, [loadPersonalized]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -173,6 +189,30 @@ export default function HomeScreen() {
     let sectionTitle = t('popularProducts');
     if (debouncedSearch.trim()) sectionTitle = t('searchResults');
     else if (activeCategory) sectionTitle = activeCategory;
+    const showFeeds = !debouncedSearch.trim() && !activeCategory;
+    const renderFeedRow = (title, data) => (
+      <View style={styles.feedSection}>
+        <Text style={[styles.feedTitle, { color: colors.text }]}>{title}</Text>
+        <FlatList
+          data={data}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => 'feed-' + String(item.id)}
+          contentContainerStyle={styles.feedRow}
+          renderItem={({ item }) => (
+            <View style={{ width: 132 }}>
+              <ProductCard
+                product={item}
+                compact
+                onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+                onFavorite={() => toggleFav(item.id, item)}
+                isFavorite={isFavorite(item.id)}
+              />
+            </View>
+          )}
+        />
+      </View>
+    );
     return (
       <View>
         {showBanner && (
@@ -180,10 +220,12 @@ export default function HomeScreen() {
             <BannerCarousel ads={ads} />
           </View>
         )}
+        {showFeeds && recentlyViewed.length > 0 && renderFeedRow(t('recentlyViewed'), recentlyViewed)}
+        {showFeeds && recommendations.length > 0 && renderFeedRow(t('recommendedForYou'), recommendations)}
         <SectionHeader title={sectionTitle} style={{ marginTop: showBanner ? Spacing.sm : Spacing.xs }} />
       </View>
     );
-  }, [ads, debouncedSearch, activeCategory, t]);
+  }, [ads, debouncedSearch, activeCategory, t, recentlyViewed, recommendations, colors, navigation, isFavorite, toggleFav]);
 
   if (isLoading) {
     return (
@@ -446,6 +488,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
+  feedSection: { marginTop: 8, marginBottom: 4 },
+  feedTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 10 },
+  feedRow: { gap: 12, paddingHorizontal: 16 },
 
   grid: {
     paddingHorizontal: 12,

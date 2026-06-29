@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -20,7 +21,8 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 		rows, err := db.Query(`
 			SELECT r.id, r.product_id, r.user_phone, r.user_name, r.rating, r.comment, r.created_at,
 			       COALESCE(r.likes, 0) as likes, COALESCE(r.dislikes, 0) as dislikes,
-			       COALESCE(u.avatar_url, '') as user_avatar_url
+			       COALESCE(u.avatar_url, '') as user_avatar_url,
+			       COALESCE(r.images::text, '[]') as images
 			FROM reviews r
 			LEFT JOIN users u ON u.phone = r.user_phone
 			WHERE r.product_id = $1
@@ -46,6 +48,7 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 				Likes         int
 				Dislikes      int
 				UserAvatarURL string
+				Images        string
 			}
 
 			err := rows.Scan(
@@ -59,10 +62,16 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 				&review.Likes,
 				&review.Dislikes,
 				&review.UserAvatarURL,
+				&review.Images,
 			)
 			if err != nil {
 				log.Printf("❌ GetProductReviews scan error: %v", err)
 				continue
+			}
+
+			images := []string{}
+			if review.Images != "" {
+				_ = json.Unmarshal([]byte(review.Images), &images)
 			}
 
 			reviewData := map[string]interface{}{
@@ -76,6 +85,7 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 				"likes":           review.Likes,
 				"dislikes":        review.Dislikes,
 				"user_avatar_url": review.UserAvatarURL,
+				"images":          images,
 			}
 
 			// Если передан телефон пользователя, проверяем его голос
@@ -105,11 +115,12 @@ func GetProductReviews(db *sql.DB) gin.HandlerFunc {
 func CreateReview(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			ProductID int64  `json:"product_id" binding:"required"`
-			UserPhone string `json:"user_phone" binding:"required"`
-			UserName  string `json:"user_name" binding:"required"`
-			Rating    int    `json:"rating" binding:"required,min=1,max=5"`
-			Comment   string `json:"comment"`
+			ProductID int64    `json:"product_id" binding:"required"`
+			UserPhone string   `json:"user_phone" binding:"required"`
+			UserName  string   `json:"user_name" binding:"required"`
+			Rating    int      `json:"rating" binding:"required,min=1,max=5"`
+			Comment   string   `json:"comment"`
+			Images    []string `json:"images"`
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -118,15 +129,24 @@ func CreateReview(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("📝 CreateReview called for product %d by user %s (rating: %d)", 
-			req.ProductID, req.UserPhone, req.Rating)
+		// Не больше 5 фото на отзыв; пустые/битые ссылки отбрасываем.
+		clean := make([]string, 0, len(req.Images))
+		for _, u := range req.Images {
+			if u != "" && len(clean) < 5 {
+				clean = append(clean, u)
+			}
+		}
+		imagesJSON, _ := json.Marshal(clean)
+
+		log.Printf("📝 CreateReview called for product %d by user %s (rating: %d, photos: %d)",
+			req.ProductID, req.UserPhone, req.Rating, len(clean))
 
 		var reviewID int64
 		err := db.QueryRow(`
-			INSERT INTO reviews (product_id, user_phone, user_name, rating, comment) 
-			VALUES ($1, $2, $3, $4, $5) 
+			INSERT INTO reviews (product_id, user_phone, user_name, rating, comment, images)
+			VALUES ($1, $2, $3, $4, $5, $6::jsonb)
 			RETURNING id
-		`, req.ProductID, req.UserPhone, req.UserName, req.Rating, req.Comment).Scan(&reviewID)
+		`, req.ProductID, req.UserPhone, req.UserName, req.Rating, req.Comment, string(imagesJSON)).Scan(&reviewID)
 
 		if err != nil {
 			log.Printf("❌ CreateReview error: %v", err)
@@ -142,6 +162,7 @@ func CreateReview(db *sql.DB) gin.HandlerFunc {
 			"user_name":  req.UserName,
 			"rating":     req.Rating,
 			"comment":    req.Comment,
+			"images":     clean,
 		})
 	}
 }

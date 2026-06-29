@@ -492,6 +492,8 @@ func MigrateAlgorithmTables(db *sql.DB) {
 			UNIQUE(product_id, user_phone)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_product_views_phone ON product_views(user_phone)`,
+		// Быстрый «недавно смотрели»: свежие просмотры пользователя без сортировки на лету.
+		`CREATE INDEX IF NOT EXISTS idx_product_views_phone_recent ON product_views(user_phone, last_viewed_at DESC)`,
 
 		// Notifications table (if not exists yet)
 		`CREATE TABLE IF NOT EXISTS notifications (
