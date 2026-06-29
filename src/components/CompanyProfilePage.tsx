@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Search, Star, BadgeCheck, TrendingUp, Package, Heart } from 'lucide-react';
+import { ArrowLeft, Search, Star, BadgeCheck, TrendingUp, Package, Heart, Users, ThumbsUp, ShoppingBag, MapPin, ShieldCheck, Plus, Check } from 'lucide-react';
 import { getImageUrl } from '../utils/api';
 // TODO: Company rating/subscriptions not yet in new API
 // import { rateCompany } from '../utils/api-old-supabase.tsx.backup';
@@ -346,134 +346,150 @@ export default function CompanyProfilePage({
   const totalRatings = company.total_ratings || 0;
 
   const textColor = isNight ? 'text-white' : 'text-black';
-  const bgColor = isNight ? 'bg-[#1a0b16]' : 'bg-[#F5F5F5]';
-  const cardBg = isNight ? 'bg-[#2d1222]' : 'bg-white';
+  const bgColor = isNight ? 'bg-[#08090D]' : 'bg-white';
+  const cardBg = isNight ? 'bg-[#171C2A]' : 'bg-[#F6F7F9]';
   const secondaryText = isNight ? 'text-gray-400' : 'text-gray-500';
 
+  // 🎨 Палитра Homepage (CompanyStoreScreen)
+  const hp = {
+    bg: isNight ? '#08090D' : '#FFFFFF',
+    surface: isNight ? 'rgba(20,24,38,0.6)' : 'rgba(255,255,255,0.72)',
+    text: isNight ? '#FFFFFF' : '#0B0E16',
+    textSec: isNight ? '#9CA3AF' : '#5B6472',
+    textMuted: isNight ? '#6B7280' : '#9AA1AE',
+    border: isNight ? 'rgba(255,255,255,0.08)' : 'rgba(11,14,22,0.08)',
+    primary: '#6D5DFB',
+    primaryDark: '#5546E0',
+    star: '#F5B50A',
+    divider: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(11,14,22,0.06)',
+  };
+  const coverUrl = (company as any).coverUrl ? getImageUrl((company as any).coverUrl) : '';
+  const coverVideoUrl = (company as any).coverVideoUrl ? getImageUrl((company as any).coverVideoUrl) : '';
+  const logoUrl = (company as any).logoUrl ? getImageUrl((company as any).logoUrl) : '';
+  const positivePct = averageRating > 0 ? Math.round((averageRating / 5) * 100) : null;
+  const subsLabel = subscribersCount >= 1000 ? `${(subscribersCount / 1000).toFixed(1)}K` : String(subscribersCount);
+  const verified = (company as any).verified || averageRating >= 4.5;
+
   return (
-    <div className={`h-screen ${bgColor} flex flex-col`}>
-      {/* HEADER - минималистичный */}
-      <header 
-        className={`flex-shrink-0 ${cardBg} border-b ${isNight ? 'border-gray-800' : 'border-gray-200'}`}
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    <div className="h-screen relative" style={{ background: hp.bg }}>
+      {/* Прозрачная шапка поверх обложки (как в Homepage) */}
+      <div
+        className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-4"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)', paddingBottom: 12 }}
       >
-        <div className="px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
-          <button
-            onClick={onBack}
-            className={`p-2 ${isNight ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} rounded-lg transition`}
-          >
-            <ArrowLeft className={`w-5 h-5 ${textColor}`} />
-          </button>
-          
-          <h1 className={`text-base font-semibold ${textColor}`}>Профиль компании</h1>
-          
-          <button
-            onClick={handleSubscribe}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition ${
-              isSubscribed
-                ? `${isNight ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'}`
-                : 'bg-[#C0BCBC] text-white'
-            }`}
-          >
-            {isSubscribed ? 'Подписан' : 'Подписаться'}
-          </button>
-        </div>
-      </header>
+        <button onClick={onBack} className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.32)' }}>
+          <ArrowLeft className="w-[22px] h-[22px] text-white" />
+        </button>
+        <h1 className="text-[17px] font-bold text-white truncate max-w-[55%] text-center" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+          {company.name}
+        </h1>
+        <div className="w-10 h-10" />
+      </div>
 
-      {/* КОНТЕНТ с вертикальным скроллом */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="h-full overflow-y-auto">
         <div className="max-w-2xl mx-auto pb-6">
-          {/* ИНФОРМАЦИЯ О КОМПАНИИ */}
-          <div className={`${cardBg} mx-4 mt-4 rounded-xl p-5 border ${isNight ? 'border-gray-800' : 'border-gray-200'}`}>
-            <div className="flex items-start gap-4 mb-4">
-              {/* Иконка */}
-              <div className={`w-16 h-16 ${isNight ? 'bg-gray-800' : 'bg-gray-100'} rounded-xl flex items-center justify-center flex-shrink-0`}>
-                <span className="text-3xl">🏢</span>
-              </div>
-              
-              {/* Название и верификация */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className={`text-lg font-semibold ${textColor} truncate`}>
-                    {company.name}
-                  </h2>
-                  {company.verified && (
-                    <BadgeCheck className="w-5 h-5 text-blue-500 fill-blue-500 flex-shrink-0" />
-                  )}
-                </div>
-                
-                {/* Описание */}
-                {company.description && (
-                  <p className={`text-sm ${secondaryText} line-clamp-2`}>
-                    {company.description}
-                  </p>
-                )}
-              </div>
-            </div>
+          {/* ── Обложка ── */}
+          <div className="relative" style={{ height: 300, overflow: 'hidden' }}>
+            {coverVideoUrl ? (
+              <video src={coverVideoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+            ) : coverUrl ? (
+              <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full" style={{ background: `${hp.primary}22` }} />
+            )}
+            {/* Затемнение сверху для читаемости шапки */}
+            <div className="absolute top-0 left-0 right-0" style={{ height: 150, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.15) 45%, transparent)' }} />
+            {/* Низ обложки растворяется в фоне */}
+            <div className="absolute bottom-0 left-0 right-0" style={{ height: 180, background: `linear-gradient(to top, ${hp.bg}, ${hp.bg}CC 32%, transparent)` }} />
+          </div>
 
-            {/* 🆕 Описание товаров компании */}
-            {company.productsDescription && (
-              <div className={`mt-4 p-4 ${isNight ? 'bg-gray-800/50' : 'bg-blue-50'} rounded-lg border ${isNight ? 'border-gray-700' : 'border-blue-200'}`}>
-                <div className={`text-xs font-semibold ${isNight ? 'text-gray-400' : 'text-blue-600'} mb-2`}>
-                  📝 О ТОВАРАХ
-                </div>
-                <LinkifiedText 
-                  text={company.productsDescription} 
-                  className={`text-sm ${textColor} whitespace-pre-wrap`}
-                  linkClassName="text-blue-600 hover:text-blue-800 underline font-medium"
-                />
+          {/* ── Карточка 1: логотип + имя + рейтинг ── */}
+          <div className="mx-4 -mt-16 relative z-10 rounded-3xl p-4 flex items-center gap-3.5" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            {logoUrl ? (
+              <img src={logoUrl} alt="" className="w-[72px] h-[72px] rounded-full object-cover flex-shrink-0" style={{ border: `1px solid ${hp.border}` }} />
+            ) : (
+              <div className="w-[72px] h-[72px] rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: hp.primary }}>
+                <span className="text-2xl font-extrabold text-white">{company.name?.charAt(0).toUpperCase() || '?'}</span>
               </div>
             )}
-
-            {/* Рейтинг */}
-            <div className="flex items-center gap-1 mb-4 flex-wrap">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  className={`w-6 h-6 cursor-pointer transition-all hover:scale-110 ${
-                    star <= (hoveredRating || selectedRating)
-                      ? 'text-[#C0BCBC]'
-                      : `${isNight ? 'text-gray-700' : 'text-gray-300'}`
-                  }`}
-                  onMouseEnter={() => setHoveredRating(star)}
-                  onMouseLeave={() => setHoveredRating(0)}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleRate(star);
-                  }}
-                >
-                  <Star
-                    className={`w-full h-full ${
-                      star <= (hoveredRating || selectedRating)
-                        ? 'fill-[#C0BCBC]'
-                        : 'fill-none'
-                    }`}
-                  />
-                </button>
-              ))}
-              <span className={`text-sm ${secondaryText} ml-2`}>
-                {averageRating.toFixed(1)} ({totalRatings})
-              </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-xl font-extrabold truncate" style={{ color: hp.text }}>{company.name}</h2>
+                {verified && <BadgeCheck className="w-[18px] h-[18px] flex-shrink-0" style={{ color: '#3B82F6' }} />}
+              </div>
+              {(company as any).address && (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: hp.textMuted }} />
+                  <span className="text-[13px] truncate" style={{ color: hp.textMuted }}>{(company as any).address}</span>
+                </div>
+              )}
+              {verified && (
+                <div className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded-full" style={{ background: 'rgba(59,130,246,0.10)' }}>
+                  <ShieldCheck className="w-3 h-3" style={{ color: '#3B82F6' }} />
+                  <span className="text-[11px] font-bold" style={{ color: '#3B82F6' }}>Магазин подтверждён</span>
+                </div>
+              )}
             </div>
-
-            {/* Статистика */}
-            <div className={`grid grid-cols-3 gap-4 pt-4 border-t ${isNight ? 'border-gray-800' : 'border-gray-200'}`}>
-              <div className="text-center">
-                <p className={`text-xl font-bold ${textColor}`}>{0}</p>
-                <p className={`text-xs ${secondaryText} mt-1`}>Ko'rishlar</p>
+            <div className="text-center pl-2 flex-shrink-0">
+              <div className="flex items-center gap-1 justify-center">
+                <Star className="w-[18px] h-[18px]" style={{ color: hp.star, fill: hp.star }} />
+                <span className="text-2xl font-extrabold" style={{ color: hp.text }}>{averageRating.toFixed(1)}</span>
               </div>
-              <div className="text-center">
-                <p className={`text-xl font-bold ${textColor}`}>{subscribersCount}</p>
-                <p className={`text-xs ${secondaryText} mt-1`}>Obunachi</p>
-              </div>
-              <div className="text-center">
-                <p className={`text-xl font-bold ${textColor}`}>{cachedProducts.length}</p>
-                <p className={`text-xs ${secondaryText} mt-1`}>Tovarlar</p>
-              </div>
+              <div className="text-[11px] font-semibold mt-0.5 leading-tight" style={{ color: hp.textMuted }}>Рейтинг<br />магазина</div>
             </div>
           </div>
+
+          {/* ── Карточка 2: статистика + подписка ── */}
+          <div className="mx-4 mt-3.5 rounded-3xl p-4" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}`, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+            <div className="flex items-center">
+              <div className="flex-1 flex flex-col items-center gap-1.5">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: `${hp.primary}1A`, border: `1px solid ${hp.primary}3A` }}>
+                  <ShoppingBag className="w-5 h-5" style={{ color: '#8B7FFF' }} />
+                </div>
+                <span className="text-[22px] font-extrabold" style={{ color: hp.text }}>{cachedProducts.length}</span>
+                <span className="text-[11px] font-semibold" style={{ color: hp.textMuted }}>товаров</span>
+              </div>
+              <div style={{ width: 1, alignSelf: 'stretch', margin: '8px 0', background: hp.divider }} />
+              <div className="flex-1 flex flex-col items-center gap-1.5">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.10)', border: '1px solid rgba(59,130,246,0.23)' }}>
+                  <Users className="w-5 h-5" style={{ color: '#5C9BFF' }} />
+                </div>
+                <span className="text-[22px] font-extrabold" style={{ color: hp.text }}>{subsLabel}</span>
+                <span className="text-[11px] font-semibold" style={{ color: hp.textMuted }}>подписчиков</span>
+              </div>
+              <div style={{ width: 1, alignSelf: 'stretch', margin: '8px 0', background: hp.divider }} />
+              <div className="flex-1 flex flex-col items-center gap-1.5">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.23)' }}>
+                  <ThumbsUp className="w-5 h-5" style={{ color: '#3DDC84' }} />
+                </div>
+                <span className="text-[22px] font-extrabold" style={{ color: hp.text }}>{positivePct != null ? `${positivePct}%` : '—'}</span>
+                <span className="text-[11px] font-semibold text-center leading-tight" style={{ color: hp.textMuted }}>положительных<br />отзывов</span>
+              </div>
+            </div>
+
+            <button
+              onClick={handleSubscribe}
+              className="w-full mt-4 py-4 rounded-2xl flex items-center justify-center gap-2.5 font-bold transition-transform active:scale-[0.98]"
+              style={isSubscribed
+                ? { background: isNight ? '#1B2233' : '#F2F3F6', color: hp.textSec, border: `1px solid ${hp.border}` }
+                : { background: `linear-gradient(135deg, ${hp.primary}, ${hp.primaryDark})`, color: '#FFFFFF' }}
+            >
+              {isSubscribed ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+              {isSubscribed ? 'Вы подписаны' : 'Подписаться'}
+            </button>
+          </div>
+
+          {/* Описание товаров компании */}
+          {company.productsDescription && (
+            <div className="mx-4 mt-3.5 rounded-2xl p-4" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}` }}>
+              <div className="text-xs font-bold mb-2" style={{ color: hp.textMuted }}>📝 О ТОВАРАХ</div>
+              <LinkifiedText
+                text={company.productsDescription}
+                className="text-sm whitespace-pre-wrap"
+                linkClassName="underline font-medium"
+              />
+            </div>
+          )}
 
           {/* ПОИСК - ПЕРЕМЕЩЁН ВВЕРХ */}
           <div className="px-4 mt-4">

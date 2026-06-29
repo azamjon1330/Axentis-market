@@ -139,10 +139,25 @@ export default function ProductDetails({
     }
   };
 
-  const themeColor = '#C0BCBC';
+  // 🎨 Палитра Homepage (Luxury Dark Minimalism)
+  const hp = {
+    bg: isNight ? '#08090D' : '#FFFFFF',
+    surface: isNight ? '#10131F' : '#F6F7F9',
+    card: isNight ? '#171C2A' : '#FFFFFF',
+    cardAlt: isNight ? '#1B2233' : '#F2F3F6',
+    text: isNight ? '#FFFFFF' : '#0B0E16',
+    textSec: isNight ? '#9CA3AF' : '#5B6472',
+    textMuted: isNight ? '#6B7280' : '#9AA1AE',
+    border: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(11,14,22,0.08)',
+    primary: '#6D5DFB',
+    price: '#E8472A',
+    error: '#EF4444',
+    star: '#F5B50A',
+  };
+  const themeColor = hp.bg;
   const textColor = isNight ? 'text-white' : 'text-black';
-  const bgColor = isNight ? 'bg-[#1a0b16]' : 'bg-[#F5F5F5]';
-  const cardBg = isNight ? 'bg-[#2d1222]' : 'bg-white';
+  const bgColor = isNight ? 'bg-[#08090D]' : 'bg-white';
+  const cardBg = isNight ? 'bg-[#171C2A]' : 'bg-[#F6F7F9]';
   const secondaryText = isNight ? 'text-gray-400' : 'text-gray-500';
 
   useEffect(() => {
@@ -248,25 +263,24 @@ export default function ProductDetails({
 
   return (
     <div className={`flex flex-col h-full ${bgColor}`}>
-      {/* Header */}
+      {/* Header — как в Homepage: круглые кнопки на фоне, без заголовка */}
       <header
-        className="shrink-0 px-4 py-3 flex items-center justify-between shadow-sm"
-        style={{ backgroundColor: themeColor, paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
+        className="shrink-0 px-4 py-3 flex items-center justify-between"
+        style={{ backgroundColor: hp.bg, paddingTop: 'calc(0.75rem + env(safe-area-inset-top))' }}
       >
-        <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-black/10 transition-colors">
-          <ArrowLeft className="w-6 h-6 text-black" />
+        <button onClick={onBack} className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: hp.card, border: `1px solid ${hp.border}` }}>
+          <ArrowLeft className="w-[22px] h-[22px]" style={{ color: hp.text }} />
         </button>
-        <h1 className="text-lg font-bold text-black truncate max-w-[50%] text-center">{product.name}</h1>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <button onClick={handleShare} className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: hp.card, border: `1px solid ${hp.border}` }} title="Поделиться">
+            <Share2 className="w-5 h-5" style={{ color: hp.text }} />
+          </button>
           {onToggleLike && (
             <button onClick={() => onToggleLike(product.id)}
-              className={`p-2 rounded-full transition-all ${isLiked ? 'bg-red-100/50 hover:bg-red-100' : 'hover:bg-black/10'}`}>
-              <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-red-500 text-red-500 scale-110' : 'text-black'}`} />
+              className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: hp.card, border: `1px solid ${hp.border}` }}>
+              <Heart className="w-5 h-5 transition-all" style={{ color: isLiked ? hp.error : hp.text, fill: isLiked ? hp.error : 'transparent' }} />
             </button>
           )}
-          <button onClick={handleShare} className="p-2 -mr-2 rounded-full hover:bg-black/10 transition-colors" title="Поделиться">
-            <Share2 className="w-6 h-6 text-black" />
-          </button>
         </div>
       </header>
 
@@ -291,17 +305,17 @@ export default function ProductDetails({
           </div>
 
           <div className="px-4 space-y-4">
-            <h2 className={`text-2xl font-bold leading-tight ${textColor}`}>{product.name}</h2>
+            <h2 className="text-2xl font-extrabold leading-tight" style={{ color: hp.text }}>{product.name}</h2>
 
             {/* Price & Stock */}
-            <div className={`p-4 rounded-xl ${cardBg} shadow-sm border border-gray-100 dark:border-gray-800`}>
+            <div className="p-4 rounded-2xl" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}` }}>
               <div className="flex justify-between items-start">
                 <div className="flex flex-col flex-1">
-                  <span className={`text-3xl font-bold ${isNight ? 'text-white' : 'text-black'}`}>
+                  <span className="text-[28px] font-extrabold leading-none" style={{ color: hp.price }}>
                     {formatPrice(effectivePrice)}
                   </span>
                   {hasDiscount && (
-                    <span className="text-gray-400 text-sm line-through mt-1">{formatPrice(originalPrice)}</span>
+                    <span className="text-sm line-through mt-1.5" style={{ color: hp.textMuted }}>{formatPrice(originalPrice)}</span>
                   )}
                   {hasDiscount && (
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
@@ -336,28 +350,28 @@ export default function ProductDetails({
               <div className={`p-3 rounded-xl text-sm text-center ${secondaryText}`}>Загрузка вариантов...</div>
             )}
             {!variantsLoading && variants.length > 0 && (
-              <div className={`p-4 rounded-xl ${cardBg} shadow-sm border border-gray-100 dark:border-gray-800 space-y-3`}>
+              <div className="p-4 rounded-2xl space-y-4" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}` }}>
                 {/* Color picker */}
                 {uniqueColors.length > 0 && (
                   <div>
-                    <p className={`text-sm font-semibold mb-2 ${textColor}`}>
-                      Цвет: <span className="text-purple-500">{selectedColor || 'не выбран'}</span>
+                    <p className="text-sm font-bold mb-2.5" style={{ color: hp.text }}>
+                      Цвет: <span style={{ color: hp.primary }}>{selectedColor || 'не выбран'}</span>
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {uniqueColors.map(color => {
                         const hasStock = variants.some(v => v.color === color && v.stockQuantity > 0);
+                        const sel = selectedColor === color;
                         return (
                           <button
                             key={color}
                             onClick={() => handleSelectColor(color)}
                             disabled={!hasStock}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all ${
-                              selectedColor === color
-                                ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                : hasStock
-                                  ? isNight ? 'border-gray-600 text-gray-200 hover:border-purple-400' : 'border-gray-300 text-gray-700 hover:border-purple-400'
-                                  : 'border-gray-200 text-gray-300 line-through cursor-not-allowed opacity-50'
-                            }`}
+                            className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${!hasStock ? 'line-through cursor-not-allowed opacity-40' : ''}`}
+                            style={{
+                              backgroundColor: hp.cardAlt,
+                              border: `${sel ? 2 : 1}px solid ${sel ? hp.primary : hp.border}`,
+                              color: hp.text,
+                            }}
                           >
                             {color}
                           </button>
@@ -370,25 +384,25 @@ export default function ProductDetails({
                 {/* Size picker */}
                 {sizesForColor.length > 0 && (
                   <div>
-                    <p className={`text-sm font-semibold mb-2 ${textColor}`}>
-                      Размер: <span className="text-purple-500">{selectedSize || 'не выбран'}</span>
+                    <p className="text-sm font-bold mb-2.5" style={{ color: hp.text }}>
+                      Размер: <span style={{ color: hp.primary }}>{selectedSize || 'не выбран'}</span>
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {sizesForColor.map(size => {
                         const v = variants.find(x => x.color === selectedColor && x.size === size);
                         const hasStock = v ? v.stockQuantity > 0 : false;
+                        const sel = selectedSize === size;
                         return (
                           <button
                             key={size}
                             onClick={() => hasStock && handleSelectSize(size)}
                             disabled={!hasStock}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium border-2 transition-all min-w-[42px] text-center ${
-                              selectedSize === size
-                                ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                : hasStock
-                                  ? isNight ? 'border-gray-600 text-gray-200 hover:border-purple-400' : 'border-gray-300 text-gray-700 hover:border-purple-400'
-                                  : 'border-gray-200 text-gray-300 line-through cursor-not-allowed opacity-50'
-                            }`}
+                            className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all min-w-[44px] text-center ${!hasStock ? 'line-through cursor-not-allowed opacity-40' : ''}`}
+                            style={{
+                              backgroundColor: hp.cardAlt,
+                              border: `${sel ? 2 : 1}px solid ${sel ? hp.primary : hp.border}`,
+                              color: hp.text,
+                            }}
                           >
                             {size}
                             {v && v.stockQuantity > 0 && v.stockQuantity <= 3 && (
@@ -525,17 +539,19 @@ export default function ProductDetails({
         </div>
       </div>
 
-      {/* Footer Actions */}
-      <div className="fixed bottom-[50px] left-0 right-0 z-40 pt-4 px-4 pb-4 rounded-t-[2.5rem] shadow-[0_-4px_20px_rgba(0,0,0,0.05)]"
-        style={{ backgroundColor: '#C0BCBC' }}>
-        <div className="flex gap-4 max-w-md mx-auto">
+      {/* Footer Actions — как в Homepage: цена слева, акцентные кнопки */}
+      <div className="fixed bottom-[50px] left-0 right-0 z-40 pt-4 px-4 pb-4 rounded-t-[2rem]"
+        style={{ backgroundColor: hp.bg, borderTop: `1px solid ${hp.border}`, boxShadow: '0 -8px 24px rgba(0,0,0,0.18)' }}>
+        <div className="flex items-center gap-3 max-w-md mx-auto">
           <button onClick={() => onAddToCart(product)} disabled={effectiveStock === 0}
-            className={`flex-1 active:scale-95 text-black font-medium text-lg py-4 rounded-2xl transition-all shadow-sm flex items-center justify-center gap-2 ${effectiveStock === 0 ? 'bg-gray-300 cursor-not-allowed opacity-60' : 'bg-[#E2E2E2]'}`}>
-            {cartQuantity > 0 && <span className="bg-black text-white text-xs px-2 py-0.5 rounded-full">{cartQuantity}</span>}
+            className="flex-1 active:scale-[0.98] font-semibold text-[15px] py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: hp.cardAlt, color: hp.text, border: `1px solid ${hp.border}` }}>
+            {cartQuantity > 0 && <span className="text-white text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: hp.primary }}>{cartQuantity}</span>}
             {effectiveStock === 0 ? 'Нет в наличии' : cartQuantity > 0 ? 'В корзине' : 'В корзину'}
           </button>
           <button onClick={() => onBuyNow(product)} disabled={effectiveStock === 0}
-            className={`flex-1 active:scale-95 text-black font-medium text-lg py-4 rounded-2xl transition-all shadow-sm ${effectiveStock === 0 ? 'bg-gray-300 cursor-not-allowed opacity-60' : 'bg-[#E2E2E2]'}`}>
+            className="flex-1 active:scale-[0.98] text-white font-bold text-[15px] py-3.5 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ backgroundColor: hp.primary }}>
             Купить
           </button>
         </div>
