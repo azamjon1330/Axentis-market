@@ -128,6 +128,15 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			broadcast.GET("/bans", middleware.RequireAdmin(cfg), handlers.ListBroadcastBans(db))
 		}
 
+		// Регионы доставки: список — публичный; создание/изменение — только админ.
+		regions := api.Group("/regions")
+		{
+			regions.GET("", handlers.ListRegions(db))
+			regions.POST("", middleware.RequireAdmin(cfg), handlers.CreateRegion(db))
+			regions.PUT("/:id", middleware.RequireAdmin(cfg), handlers.UpdateRegion(db))
+			regions.DELETE("/:id", middleware.RequireAdmin(cfg), handlers.DeleteRegion(db))
+		}
+
 		// Companies routes
 		companies := api.Group("/companies")
 		{
@@ -147,6 +156,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.POST("/:id/upload-logo", middleware.RequireCompany(cfg), handlers.UploadCompanyLogo(db))
 			companies.POST("/:id/upload-cover", middleware.RequireCompany(cfg), handlers.UploadCompanyCover(db)) // 🖼️ Фоновое фото магазина
 			companies.PUT("/:id/privacy", middleware.RequireCompany(cfg), handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
+			companies.PUT("/:id/region", middleware.RequireCompany(cfg), handlers.SetCompanyRegion(db)) // 🗺️ Компания выбирает регион доставки
 			companies.PUT("/:id/delivery", middleware.RequireCompany(cfg), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
