@@ -1750,60 +1750,43 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         <div className="fixed inset-0 bg-black bg-opacity-50 z-[60]" onClick={handleCloseCart}>
           <div
             className={`absolute right-0 top-0 h-full w-full shadow-xl transition-colors duration-500 ${
-              isNight ? 'bg-slate-800' : 'bg-white'
+              isNight ? 'bg-[#08090D]' : 'bg-white'
             }`}
             onClick={(e) => e.stopPropagation()}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
           >
             <div className="flex flex-col h-full">
-              {/* Cart Header */}
-              <div className={`p-4 border-b flex items-center justify-between ${
-                isNight ? 'border-slate-700' : 'border-gray-200'
-              }`}>
-                <h2 className={`text-xl font-bold flex items-center gap-2 ${
-                  isNight ? 'text-white' : 'text-gray-900'
+              {/* Cart Header — как в Homepage */}
+              <div className="px-4 pt-3 pb-3 flex items-center justify-between">
+                <h2 className={`text-2xl font-extrabold tracking-tight ${
+                  isNight ? 'text-white' : 'text-[#0B0E16]'
                 }`}>
-                  <ShoppingCart className="w-5 h-5" />
                   Корзина
                 </h2>
-                <button 
+                <button
                   onClick={handleCloseCart}
-                  className={`p-2 rounded-full hover:bg-gray-200/20 ${
-                    isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
-                  }`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center"
+                  style={{ backgroundColor: isNight ? '#171C2A' : '#F2F3F6', color: isNight ? '#FFFFFF' : '#0B0E16' }}
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Tabs */}
-              <div className={`flex border-b ${isNight ? 'border-slate-700' : 'border-gray-200'}`}>
-                <button
-                  onClick={() => setCartTab('cart')}
-                  className={`flex-1 py-3 text-sm font-bold transition-colors relative ${
-                    cartTab === 'cart'
-                      ? 'text-blue-600'
-                      : isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  Текущий заказ
-                  {cartTab === 'cart' && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setCartTab('orders')}
-                  className={`flex-1 py-3 text-sm font-bold transition-colors relative ${
-                    cartTab === 'orders'
-                      ? 'text-blue-600'
-                      : isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  Мои заказы ({myOrders.length})
-                  {cartTab === 'orders' && (
-                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600" />
-                  )}
-                </button>
+              <div className={`flex px-4 gap-6 border-b ${isNight ? 'border-white/[0.06]' : 'border-black/[0.06]'}`}>
+                {([['cart', 'Текущий заказ'], ['orders', `Мои заказы (${myOrders.length})`]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setCartTab(key)}
+                    className="py-3 text-sm font-semibold transition-colors relative"
+                    style={{ color: cartTab === key ? '#6D5DFB' : (isNight ? '#6B7280' : '#9AA1AE') }}
+                  >
+                    {label}
+                    {cartTab === key && (
+                      <div className="absolute bottom-0 left-0 w-full rounded-full" style={{ height: 2.5, backgroundColor: '#6D5DFB' }} />
+                    )}
+                  </button>
+                ))}
               </div>
 
               {/* Cart Content */}
@@ -2096,44 +2079,47 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                           if (!product) return null;
                           
                           return (
-                            <div key={productId} className={`p-3 rounded-xl flex gap-3 ${
-                              isNight ? 'bg-slate-700' : 'bg-gray-50'
+                            <div key={productId} className={`p-3 rounded-2xl flex gap-3 border ${
+                              isNight ? 'bg-[#171C2A] border-white/[0.06]' : 'bg-[#F6F7F9] border-black/[0.06]'
                             }`}>
                               {/* Image Thumbnail (auto-rotates through photos every 3s) */}
-                              <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                              <div className="w-[72px] h-[72px] rounded-xl overflow-hidden flex-shrink-0" style={{ backgroundColor: isNight ? '#1E2130' : '#EBEDF1' }}>
                                 <CartItemImage images={product.images} name={product.name} />
                               </div>
-                              
-                              <div className="flex-1">
-                                <h3 className={`text-sm font-medium line-clamp-1 ${isNight ? 'text-white' : 'text-gray-900'}`}>
+
+                              <div className="flex-1 min-w-0">
+                                <h3 className={`text-sm font-semibold line-clamp-2 ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
                                   {product.name}
                                 </h3>
                                 {/* Show selected variant (color + size) */}
                                 {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').length > 0 && (
-                                  <p className="text-xs mt-0.5" style={{ color: '#A78BFA' }}>
+                                  <p className="text-xs mt-0.5" style={{ color: isNight ? '#9CA3AF' : '#5B6472' }}>
                                     {[selectedColors[product.id], selectedSizes[product.id]].filter(v => v && v !== 'юбй').join(' · ')}
                                   </p>
                                 )}
-                                <div className={`text-sm font-bold mt-1 ${isNight ? 'text-blue-400' : 'text-blue-600'}`}>
+                                <div className="text-[15px] font-extrabold mt-1 text-[#E8472A]">
                                   {formatPrice(getPriceWithMarkup(product) * quantity)}
                                 </div>
 
-                                <div className="flex items-center gap-3 mt-2">
+                                {/* Quantity stepper — пилюля как в Homepage */}
+                                <div className="flex items-center gap-2.5 mt-2">
                                   <button
                                     onClick={() => removeFromCart(product.id)}
-                                    className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+                                    style={{ backgroundColor: isNight ? '#1B2233' : '#EBEDF1' }}
                                   >
-                                    <Minus className="w-4 h-4 text-gray-700" />
+                                    <Minus className="w-4 h-4" style={{ color: isNight ? '#FFFFFF' : '#0B0E16' }} />
                                   </button>
-                                  <span className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                                  <span className={`text-sm font-bold w-5 text-center ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
                                     {quantity}
                                   </span>
                                   <button
                                     onClick={() => addToCart(product.id)}
-                                    className="p-1 bg-gray-200 rounded-md hover:bg-gray-300"
+                                    className="w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-40"
+                                    style={{ backgroundColor: '#6D5DFB' }}
                                     disabled={quantity >= (variantStocks[product.id] !== undefined ? variantStocks[product.id] : product.quantity)}
                                   >
-                                    <Plus className="w-4 h-4 text-gray-700" />
+                                    <Plus className="w-4 h-4 text-white" />
                                   </button>
                                 </div>
                               </div>
@@ -2146,16 +2132,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
                   {/* Checkout Footer */}
                   {Object.keys(cart).length > 0 && (
-                    <div className={`p-4 border-t mb-20 ${isNight ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                    <div className={`p-4 border-t mb-20 ${isNight ? 'border-white/[0.06] bg-[#08090D]' : 'border-black/[0.06] bg-white'}`}>
                       <div className="flex justify-between items-center mb-4">
-                        <span className={isNight ? 'text-gray-400' : 'text-gray-600'}>Итого:</span>
-                        <span className={`text-xl font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                        <span className={isNight ? 'text-[#9CA3AF]' : 'text-[#5B6472]'}>Итого:</span>
+                        <span className={`text-2xl font-extrabold ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
                           {formatPrice(getTotalCart())}
                         </span>
                       </div>
                       <button
                         onClick={handleCheckout}
-                        className="w-full bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors flex justify-center items-center"
+                        className="w-full text-white py-3.5 rounded-2xl font-bold transition-transform active:scale-[0.98] flex justify-center items-center"
+                        style={{ backgroundColor: '#6D5DFB' }}
                       >
                         Оформить заказ
                       </button>
