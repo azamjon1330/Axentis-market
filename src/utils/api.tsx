@@ -1654,9 +1654,33 @@ export const loyalty = {
     apiCall('/loyalty/redeem', { method: 'POST', body: JSON.stringify(data), requiresAuth: false }),
 };
 
+// ============================================================================
+// BROADCAST CHAT API (общий канал: админ — владелец, компании — участники)
+// ============================================================================
+export const broadcast = {
+  list: (limit = 100) => apiCall(`/broadcast/messages?limit=${limit}`),
+  send: (data: { type: string; content?: string; mediaUrl?: string }) =>
+    apiCall('/broadcast/messages', { method: 'POST', body: JSON.stringify(data) }),
+  edit: (id: number, content: string) =>
+    apiCall(`/broadcast/messages/${id}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+  remove: (id: number) =>
+    apiCall(`/broadcast/messages/${id}`, { method: 'DELETE' }),
+  upload: (file: File | Blob, filename = 'file') => {
+    const form = new FormData();
+    form.append('file', file, filename);
+    return apiCall('/broadcast/upload', { method: 'POST', body: form });
+  },
+  ban: (companyId: number, minutes: number, reason = '') =>
+    apiCall('/broadcast/ban', { method: 'POST', body: JSON.stringify({ companyId, minutes, reason }) }),
+  unban: (companyId: number) =>
+    apiCall(`/broadcast/ban/${companyId}`, { method: 'DELETE' }),
+  bans: () => apiCall('/broadcast/bans'),
+};
+
 export default {
   baseURL: API_BASE.replace('/api', ''), // 🔗 Base URL для прямых fetch запросов
   auth,
+  broadcast, // 💬 Общий чат-канал
   products,
   sales,
   cashSales,

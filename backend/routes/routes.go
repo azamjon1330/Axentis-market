@@ -114,6 +114,20 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			reviews.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteReview(db)) // 🗑 Продавец удаляет отзыв
 		}
 
+		// Broadcast chat — общий канал (админ = владелец, компании = участники).
+		// RequireCompany здесь = «нужен валидный токен»; роль проверяется внутри.
+		broadcast := api.Group("/broadcast", middleware.RequireCompany(cfg))
+		{
+			broadcast.GET("/messages", handlers.GetBroadcastMessages(db))
+			broadcast.POST("/messages", handlers.SendBroadcastMessage(db))
+			broadcast.PUT("/messages/:id", handlers.EditBroadcastMessage(db))
+			broadcast.DELETE("/messages/:id", handlers.DeleteBroadcastMessage(db))
+			broadcast.POST("/upload", handlers.UploadBroadcastMedia(db))
+			broadcast.POST("/ban", middleware.RequireAdmin(cfg), handlers.BanBroadcastCompany(db))
+			broadcast.DELETE("/ban/:companyId", middleware.RequireAdmin(cfg), handlers.UnbanBroadcastCompany(db))
+			broadcast.GET("/bans", middleware.RequireAdmin(cfg), handlers.ListBroadcastBans(db))
+		}
+
 		// Companies routes
 		companies := api.Group("/companies")
 		{

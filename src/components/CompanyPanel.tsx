@@ -5,6 +5,7 @@ import CompanyQuestionsPanel from './CompanyQuestionsPanel';
 import { DigitalWarehouse } from './DigitalWarehouse';
 import SalesPanel from './SalesPanel';
 import CompanyOrdersPanel from './CompanyOrdersPanel';
+import BroadcastChatPanel from './BroadcastChatPanel';
 import AnalyticsPanel from './AnalyticsPanel';
 import BarcodeSearchPanel from './BarcodeSearchPanel';
 import CompanySMMPanel from './CompanySMMPanel';
@@ -32,7 +33,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     }
   }, [companyId, companyName]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions' | 'couriers' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'warehouse' | 'sales' | 'orders' | 'analytics' | 'barcode' | 'smm' | 'discounts' | 'returns' | 'questions' | 'couriers' | 'chat' | 'settings'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showInbox, setShowInbox] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -93,7 +94,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions', 'couriers', 'settings'];
+    const validTabs: Array<typeof activeTab> = ['dashboard', 'warehouse', 'sales', 'orders', 'analytics', 'barcode', 'smm', 'discounts', 'returns', 'questions', 'couriers', 'chat', 'settings'];
     const initialTab = validTabs.includes(hash as any) ? (hash as typeof activeTab) : 'dashboard';
 
     const currentState = window.history.state || {};
@@ -137,6 +138,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
     { key: 'returns' as const,    icon: RotateCcw,    label: language === 'uz' ? 'Qaytarishlar' : 'Возвраты' },
     { key: 'questions' as const,  icon: MessageCircleQuestion, label: language === 'uz' ? 'Savollar' : 'Вопросы' },
     { key: 'couriers' as const,   icon: Truck,                label: language === 'uz' ? 'Kuryerlar' : 'Курьеры' },
+    { key: 'chat' as const,       icon: MessageSquare,        label: language === 'uz' ? 'Chat' : 'Чат' },
     { key: 'settings' as const,   icon: Settings,             label: language === 'uz' ? 'Sozlamalar' : 'Настройки' },
   ];
 
@@ -384,6 +386,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
                 {activeTab === 'returns' && (language === 'uz' ? 'Qaytarishlar' : 'Возвраты')}
                 {activeTab === 'questions' && (language === 'uz' ? 'Savollar' : 'Вопросы')}
                 {activeTab === 'couriers' && (language === 'uz' ? 'Kuryerlar' : 'Курьеры')}
+                {activeTab === 'chat' && (language === 'uz' ? 'Umumiy chat' : 'Общий чат')}
                 {activeTab === 'settings' && (language === 'uz' ? 'Sozlamalar' : 'Настройки')}
               </h1>
             </div>
@@ -433,6 +436,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'returns' && <CompanyReturnsPanel companyId={companyId} />}
           {activeTab === 'questions' && <CompanyQuestionsPanel companyId={companyId} companyName={companyName} />}
           {activeTab === 'couriers' && <CouriersManagementPanel companyId={companyId} />}
+          {activeTab === 'chat' && <BroadcastChatPanel companyId={companyId} />}
           {activeTab === 'settings' && <CompanySettingsPanel companyId={companyId} companyName={companyName} />}
         </div>
       </main>
