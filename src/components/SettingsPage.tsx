@@ -222,11 +222,23 @@ export default function SettingsPage({
   };
 
   // Colors from the design
-  const headerColor = '#C4A484'; // Light Brown / Beige
-  const darkCardColor = '#A68A76'; // Darker Brown
-  const lightCardColor = '#C4A484'; // Light Brown / Beige
-  const textColor = displayMode === 'night' ? 'text-white' : 'text-black';
-  const bgColor = displayMode === 'night' ? 'bg-[#1a0b16]' : 'bg-white';
+  // 🎨 Палитра Homepage (Luxury Dark Minimalism)
+  const isNight = displayMode === 'night';
+  const hp = {
+    bg: isNight ? '#08090D' : '#FFFFFF',
+    surface: isNight ? '#10131F' : '#F6F7F9',
+    card: isNight ? '#171C2A' : '#FFFFFF',
+    text: isNight ? '#FFFFFF' : '#0B0E16',
+    textSec: isNight ? '#9CA3AF' : '#5B6472',
+    border: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(11,14,22,0.08)',
+    primary: '#6D5DFB',
+    error: '#EF4444',
+  };
+  const headerColor = hp.bg;        // совместимость со старыми ссылками (модалки)
+  const darkCardColor = hp.surface;
+  const lightCardColor = hp.card;
+  const textColor = isNight ? 'text-white' : 'text-black';
+  const bgColor = isNight ? 'bg-[#08090D]' : 'bg-white';
 
   const filteredUsers = allUsers.filter(u => 
     `${u.first_name} ${u.last_name} ${u.phone_number}`.toLowerCase().includes(searchQuery.toLowerCase())
@@ -234,145 +246,86 @@ export default function SettingsPage({
 
   return (
     <div className={`min-h-screen relative pb-24 transition-colors duration-500 ${bgColor}`}>
-      {/* Header */}
-      <header 
-        className="px-4 py-4 flex items-center justify-between shadow-sm sticky top-0 z-10"
-        style={{ backgroundColor: headerColor, paddingTop: 'calc(1rem + env(safe-area-inset-top))' }}
+      {/* Header — как в Homepage (ProfileScreen) */}
+      <header
+        className="px-4 pb-3 flex items-center justify-between sticky top-0 z-10"
+        style={{ backgroundColor: hp.bg, paddingTop: 'calc(12px + env(safe-area-inset-top))' }}
       >
-        <button onClick={onBackToHome} className="p-2 -ml-2 rounded-full hover:bg-black/10 transition-colors">
-          <ArrowLeft className="w-6 h-6 text-black" />
+        <button onClick={onBackToHome} className="p-2 -ml-2 rounded-full transition-colors" style={{ color: hp.text }}>
+          <ArrowLeft className="w-6 h-6" />
         </button>
-        <h1 className="text-lg font-bold text-black">Account</h1>
-        <button onClick={onLogout} className="p-2 -mr-2 rounded-full hover:bg-black/10 transition-colors">
-          <LogOut className="w-6 h-6 text-black" />
+        <h1 className="text-xl font-extrabold tracking-tight" style={{ color: hp.text }}>Профиль</h1>
+        <button onClick={onLogout} className="p-2 -mr-2 rounded-full transition-colors" style={{ color: hp.error }}>
+          <LogOut className="w-6 h-6" />
         </button>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        
-        {/* Profile Card Section */}
-        <div className="relative mt-8 mb-4">
-          {/* Profile Photo - Absolute positioned to overlap */}
-          <div className="absolute -top-12 left-8 z-20">
-            <div 
-              onClick={handlePhotoClick}
-              className="w-24 h-24 rounded-full bg-gray-300 border-4 border-white overflow-hidden shadow-md flex items-center justify-center cursor-pointer relative group"
-            >
+      <div className="container mx-auto px-4 py-3">
+
+        {/* User card: аватар + имя + телефон */}
+        <div className="rounded-2xl p-4 mb-4 flex items-center gap-4" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}` }}>
+          <div onClick={handlePhotoClick} className="relative cursor-pointer flex-shrink-0">
+            <div className="w-[72px] h-[72px] rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: hp.primary }}>
               {profilePhoto ? (
                 <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
               ) : (
-                <User className="w-12 h-12 text-gray-500" />
+                <span className="text-2xl font-extrabold text-white">
+                  {(userName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)}
+                </span>
               )}
-              
-              {/* Overlay on hover/active to indicate edit */}
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-8 h-8 text-white" />
-              </div>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*"
-              onChange={handleFileChange}
-            />
+            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full flex items-center justify-center border-2" style={{ backgroundColor: hp.primary, borderColor: hp.surface }}>
+              <Camera className="w-3 h-3 text-white" />
+            </div>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
           </div>
-
-          {/* Main Dark Card */}
-          <div 
-            className="rounded-[2rem] p-6 pt-16 shadow-md text-white relative z-10"
-            style={{ backgroundColor: darkCardColor }}
-          >
-            {/* Stats Row */}
-            <div className="flex justify-between mb-6 px-2">
-              <div className="text-center">
-                <div className="font-bold text-lg">{stats.following}</div>
-                <div className="text-xs opacity-80">podpiski</div>
-              </div>
-              <div className="text-center">
-                <div className="font-bold text-lg">{stats.followers}</div>
-                <div className="text-xs opacity-80">podpischiki</div>
-              </div>
-              <div className="text-center">
-                <div className="font-bold text-lg">{stats.views}</div>
-                <div className="text-xs opacity-80">prosmotr</div>
-              </div>
-            </div>
-
-            {/* Subscribe Button - Opens Search */}
-            <button 
-              onClick={handleOpenSearch}
-              className="w-full bg-white/30 backdrop-blur-sm hover:bg-white/40 active:scale-95 transition-all text-white font-medium py-2.5 rounded-xl mb-4 flex items-center justify-center gap-2"
-            >
-              <UserPlus className="w-5 h-5" />
-              <span>Podpisatsya na drugix</span>
-            </button>
-
-            {/* Action Buttons Row */}
-            <div className="flex gap-3">
-              <button 
-                onClick={handleOpenReviews}
-                className="flex-1 bg-white/30 backdrop-blur-sm hover:bg-white/40 active:scale-95 transition-all text-white text-sm font-medium py-2 rounded-xl flex items-center justify-center gap-2"
-              >
-                <span>Otzivi</span>
-              </button>
-              <button className="flex-1 bg-white/30 backdrop-blur-sm hover:bg-white/40 active:scale-95 transition-all text-white text-sm font-medium py-2 rounded-xl flex items-center justify-center gap-2">
-                <span>Spiski</span>
-              </button>
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-bold truncate" style={{ color: hp.text }}>{userName || 'Пользователь'}</div>
+            <div className="text-sm" style={{ color: hp.textSec }}>{userPhone ? `+${String(userPhone).replace(/^\+/, '')}` : ''}</div>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-xs" style={{ color: hp.textSec }}><b style={{ color: hp.text }}>{stats.followers}</b> подписчиков</span>
+              <span className="text-xs" style={{ color: hp.textSec }}><b style={{ color: hp.text }}>{stats.following}</b> подписки</span>
             </div>
           </div>
         </div>
 
         {/* ⭐ Loyalty / cashback balance */}
-        <div className="mb-3">
+        <div className="mb-4">
           <LoyaltyCard userPhone={userPhone} />
         </div>
 
-        {/* Info Cards */}
-        <div className="space-y-3">
-          {/* Name Card */}
-          <div 
-            className="w-full p-5 rounded-[1.5rem] flex items-center justify-center shadow-sm"
-            style={{ backgroundColor: lightCardColor }}
-          >
-            <span className="text-black font-medium text-lg">
-              {userName || 'Imya familiya'}
-            </span>
-          </div>
-
-          {/* Phone Card */}
-          <div 
-            className="w-full p-5 rounded-[1.5rem] flex items-center justify-center shadow-sm"
-            style={{ backgroundColor: lightCardColor }}
-          >
-             <span className="text-black font-medium text-lg">
-              {userPhone || 'Nomer telefona'}
-            </span>
-          </div>
-
-          {/* Day/Night Toggle Card */}
-          <div 
-            className="w-full p-5 rounded-[1.5rem] flex items-center justify-between shadow-sm"
-            style={{ backgroundColor: lightCardColor }}
-          >
-            <div className="max-w-[60%]">
-              <span className="text-black font-medium leading-tight block">
-                pereklyucheniye dnevnom i nochnom
-              </span>
-            </div>
-            
-            {/* Custom Toggle Switch */}
-            <button 
-              onClick={() => setDisplayMode(displayMode === 'day' ? 'night' : 'day')}
-              className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 relative ${
-                displayMode === 'night' ? 'bg-gray-300' : 'bg-gray-300'
-              }`}
+        {/* Menu list (как в Homepage) */}
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: hp.surface, border: `1px solid ${hp.border}` }}>
+          {[
+            { icon: UserPlus, label: 'Подписаться на других', onClick: handleOpenSearch },
+            { icon: Star, label: 'Мои отзывы', onClick: handleOpenReviews },
+          ].map((item, i) => (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className="w-full flex items-center gap-3 px-4 py-3.5 transition-colors active:opacity-70"
+              style={{ borderTop: i === 0 ? 'none' : `1px solid ${hp.border}` }}
             >
-              <div 
-                className={`w-6 h-6 rounded-full bg-black shadow-md transform transition-transform duration-300 ${
-                  displayMode === 'night' ? 'translate-x-6' : 'translate-x-0'
-                }`}
-              />
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: hp.primary + '22' }}>
+                <item.icon className="w-[18px] h-[18px]" style={{ color: hp.primary }} />
+              </div>
+              <span className="flex-1 text-left text-[15px] font-medium" style={{ color: hp.text }}>{item.label}</span>
+              <ArrowLeft className="w-4 h-4 rotate-180" style={{ color: hp.textSec }} />
+            </button>
+          ))}
+
+          {/* Day/Night toggle */}
+          <div className="w-full flex items-center gap-3 px-4 py-3.5" style={{ borderTop: `1px solid ${hp.border}` }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: hp.primary + '22' }}>
+              <span className="text-base">{isNight ? '🌙' : '☀️'}</span>
+            </div>
+            <span className="flex-1 text-left text-[15px] font-medium" style={{ color: hp.text }}>Тёмная тема</span>
+            <button
+              onClick={() => setDisplayMode(displayMode === 'day' ? 'night' : 'day')}
+              className="w-12 h-7 rounded-full p-0.5 transition-colors duration-300 relative"
+              style={{ backgroundColor: isNight ? hp.primary : 'rgba(120,120,128,0.32)' }}
+            >
+              <div className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${isNight ? 'translate-x-5' : 'translate-x-0'}`} />
             </button>
           </div>
         </div>
