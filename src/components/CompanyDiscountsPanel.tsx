@@ -35,8 +35,10 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [products, setProducts] = useState<any[]>(initialProducts);
+  const [variants, setVariants] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     productId: '',
+    variantId: '', // '' = весь товар (любой вариант), иначе конкретный SKU
     discountPercent: '',
     title: '',
     description: '',
@@ -75,6 +77,19 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
       setProducts(response || []);
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
+    }
+  };
+
+  // Загружаем SKU-варианты выбранного товара, чтобы скидку можно было
+  // навесить либо на весь товар, либо на конкретный вариант.
+  const fetchVariants = async (productId: string) => {
+    if (!productId) { setVariants([]); return; }
+    try {
+      const list = await api.products.getVariants(productId);
+      setVariants(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error('Ошибка загрузки вариантов:', error);
+      setVariants([]);
     }
   };
 
@@ -138,6 +153,7 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
       const payload: any = {
         companyId,
         productId: parseInt(formData.productId),
+        variantId: formData.variantId ? parseInt(formData.variantId) : null,
         discountPercent: parseFloat(formData.discountPercent),
         title: formData.title || undefined,
         description: formData.description || undefined
@@ -153,7 +169,8 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
       await api.discounts.create(payload);
 
       alert(t.discountCreated);
-      setFormData({ productId: '', discountPercent: '', title: '', description: '', startDate: '', endDate: '' });
+      setFormData({ productId: '', variantId: '', discountPercent: '', title: '', description: '', startDate: '', endDate: '' });
+      setVariants([]);
       setShowForm(false);
       fetchDiscounts();
     } catch (error: any) {
@@ -219,7 +236,10 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
             <select
               style={styles.select}
               value={formData.productId}
-              onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, productId: e.target.value, variantId: '' });
+                fetchVariants(e.target.value);
+              }}
               required
             >
               <option value="">{t.selectProduct}</option>
@@ -235,6 +255,26 @@ export default function CompanyDiscountsPanel({ companyId, products: initialProd
               </p>
             )}
           </div>
+
+          {/* Применить ко всему товару или к конкретному SKU-варианту */}
+          {formData.productId && variants.length > 0 && (
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t.applyToVariant}</label>
+              <select
+                style={styles.select}
+                value={formData.variantId}
+                onChange={(e) => setFormData({ ...formData, variantId: e.target.value })}
+              >
+                <option value="">{t.wholeProductAnyVariant}</option>
+                {variants.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {[v.color, v.size, v.sku].filter(Boolean).join(' / ') || `#${v.id}`}
+                    {typeof v.sellingPrice === 'number' ? ` — ${v.sellingPrice.toLocaleString()} ${t.currency}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={styles.formGroup}>
             <label style={styles.label}>{t.discountPercentLabel}</label>

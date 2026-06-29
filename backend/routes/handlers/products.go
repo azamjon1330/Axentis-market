@@ -61,7 +61,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name,
-					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating
+					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating,
+					       ` + productLevelDiscountSubqueries + `
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -87,7 +88,8 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					       p.markup_amount, p.barcode, p.barid, p.category, p.images,
 					       p.description, p.color, p.size, p.brand, p.has_color_options, p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
 					       c.name as company_name,
-					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating
+					       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) as company_rating,
+					       ` + productLevelDiscountSubqueries + `
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
@@ -158,16 +160,19 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 				CompanyName           sql.NullString
 				CompanyRating         sql.NullFloat64
 				InventoryCost         sql.NullFloat64
+				RegPct                sql.NullFloat64
+				AggPct                sql.NullFloat64
 			}
 
 			var err error
 			if companyID == "" {
-				// С company_name
+				// С company_name + проценты активных скидок
 				err = rows.Scan(&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
 					&p.MarkupPercent, &p.SellingPrice, &p.MarkupAmount, &p.Barcode, &p.Barid,
 					&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 					&p.HasColorOptions, &p.AvailableForCustomers,
-					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName, &p.CompanyRating)
+					&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName, &p.CompanyRating,
+					&p.RegPct, &p.AggPct)
 			} else {
 				// Без company_name, но с inventory_cost
 				err = rows.Scan(&p.ID, &p.CompanyID, &p.Name, &p.Quantity, &p.Price,
@@ -201,10 +206,17 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 			} else {
 				product["markupPercent"] = 0
 			}
+			baseSelling := p.Price
 			if p.SellingPrice.Valid {
-				product["sellingPrice"] = p.SellingPrice.Float64
-			} else {
-				product["sellingPrice"] = p.Price
+				baseSelling = p.SellingPrice.Float64
+			}
+			// 🏷️ Применяем активную скидку (обычную/жёсткую), если она есть.
+			finalSelling, discPct, discType := applyBestDiscount(p.Price, baseSelling, p.RegPct, p.AggPct)
+			product["sellingPrice"] = finalSelling
+			if discType != "" {
+				product["originalPrice"] = baseSelling
+				product["discountPercent"] = discPct
+				product["discountType"] = discType
 			}
 			if p.MarkupAmount.Valid {
 				product["markupAmount"] = p.MarkupAmount.Float64
@@ -305,6 +317,8 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			CreatedAt             string
 			UpdatedAt             string
 			CompanyName           sql.NullString
+			RegPct                sql.NullFloat64
+			AggPct                sql.NullFloat64
 		}
 
 		err = db.QueryRow(`
@@ -312,7 +326,8 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
 			       p.description, p.color, p.size, p.brand, p.has_color_options,
 			       p.available_for_customers, p.sold_count, p.created_at, p.updated_at,
-			       c.name as company_name
+			       c.name as company_name,
+			       `+productLevelDiscountSubqueries+`
 			FROM products p
 			LEFT JOIN companies c ON p.company_id = c.id
 			WHERE p.id = $1
@@ -322,6 +337,7 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 			&p.Category, &p.Images, &p.Description, &p.Color, &p.Size, &p.Brand,
 			&p.HasColorOptions, &p.AvailableForCustomers,
 			&p.SoldCount, &p.CreatedAt, &p.UpdatedAt, &p.CompanyName,
+			&p.RegPct, &p.AggPct,
 		)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
@@ -350,10 +366,17 @@ func GetProductByID(db *sql.DB) gin.HandlerFunc {
 		} else {
 			product["markupPercent"] = 0
 		}
+		detailBaseSelling := p.Price
 		if p.SellingPrice.Valid {
-			product["sellingPrice"] = p.SellingPrice.Float64
-		} else {
-			product["sellingPrice"] = p.Price
+			detailBaseSelling = p.SellingPrice.Float64
+		}
+		// 🏷️ Применяем активную скидку (обычную/жёсткую), если она есть.
+		detailFinal, detailPct, detailType := applyBestDiscount(p.Price, detailBaseSelling, p.RegPct, p.AggPct)
+		product["sellingPrice"] = detailFinal
+		if detailType != "" {
+			product["originalPrice"] = detailBaseSelling
+			product["discountPercent"] = detailPct
+			product["discountType"] = detailType
 		}
 		if p.MarkupAmount.Valid {
 			product["markupAmount"] = p.MarkupAmount.Float64

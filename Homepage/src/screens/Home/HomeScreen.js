@@ -70,9 +70,12 @@ export default function HomeScreen() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [search]);
 
-  // 🗺️ Регион покупателя (по геолокации). Передаём его в каталог, чтобы
-  // показывались только товары компаний, обслуживающих этот регион.
+  // 🗺️ Регион покупателя (по геолокации). Показываем товары СТРОГО его региона.
   const { region, status: locStatus, requestLocation } = useLocationRegion();
+  // В приватном режиме (закрытая компания) фильтрация по региону не нужна.
+  const isPrivateMode = user?.mode === 'private' && !!user?.privateCompanyId;
+  // Можно показывать товары, только когда регион определён (или приватный режим).
+  const regionReady = isPrivateMode || (locStatus === 'granted' && !!region);
 
   const getModeParams = useCallback(() => {
     const params = {};
@@ -86,22 +89,26 @@ export default function HomeScreen() {
 
   const loadInitial = useCallback(async () => {
     try {
+      // Пока регион не определён — товары не запрашиваем (строгая фильтрация).
+      const prodPromise = regionReady
+        ? getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() })
+        : Promise.resolve([]);
       const [prodRes, catRes, adsRes] = await Promise.allSettled([
-        getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() }),
+        prodPromise,
         getCategories(),
         getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
         setOffset(LIMIT);
-        setHasMore(prodRes.value.length === LIMIT);
+        setHasMore(regionReady && prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
       if (adsRes.status === 'fulfilled') setAds(adsRes.value);
     } finally {
       setIsLoading(false);
     }
-  }, [getModeParams]);
+  }, [getModeParams, regionReady]);
 
   useEffect(() => { loadInitial(); }, [loadInitial]);
 
@@ -125,25 +132,28 @@ export default function HomeScreen() {
     setHasMore(true);
     setActiveCategory(null);
     try {
+      const prodPromise = regionReady
+        ? getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() })
+        : Promise.resolve([]);
       const [prodRes, catRes, adsRes] = await Promise.allSettled([
-        getProducts({ limit: LIMIT, offset: 0, availableOnly: true, ...getModeParams() }),
+        prodPromise,
         getCategories(),
         getApprovedAds(),
       ]);
       if (prodRes.status === 'fulfilled') {
         setProducts(prodRes.value);
         setOffset(LIMIT);
-        setHasMore(prodRes.value.length === LIMIT);
+        setHasMore(regionReady && prodRes.value.length === LIMIT);
       }
       if (catRes.status === 'fulfilled') setCategories(catRes.value);
       if (adsRes.status === 'fulfilled') setAds(adsRes.value);
     } finally {
       setRefreshing(false);
     }
-  }, [getModeParams]);
+  }, [getModeParams, regionReady]);
 
   const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMore || debouncedSearch.trim() || activeCategory) return;
+    if (isLoadingMore || !hasMore || debouncedSearch.trim() || activeCategory || !regionReady) return;
     setIsLoadingMore(true);
     try {
       const more = await getProducts({ limit: LIMIT, offset, availableOnly: true, ...getModeParams() });
@@ -157,7 +167,7 @@ export default function HomeScreen() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMore, debouncedSearch, activeCategory, offset, getModeParams]);
+  }, [isLoadingMore, hasMore, debouncedSearch, activeCategory, offset, getModeParams, regionReady]);
 
   const displayProducts = useMemo(() => {
     let list = products;
@@ -193,6 +203,8 @@ export default function HomeScreen() {
   // Ad banner carousel — shown at the top of the feed (hidden while searching or
   // filtering by category, and when there are no approved ads).
   const ListHeader = useMemo(() => {
+    // Регион не определён → ничего, кроме сообщения (его рисует ListEmptyComponent).
+    if (!regionReady) return <View />;
     const showBanner = !debouncedSearch.trim() && !activeCategory && ads.length > 0;
     let sectionTitle = t('popularProducts');
     if (debouncedSearch.trim()) sectionTitle = t('searchResults');
@@ -248,7 +260,7 @@ export default function HomeScreen() {
         <SectionHeader title={sectionTitle} style={{ marginTop: showBanner ? Spacing.sm : Spacing.xs }} />
       </View>
     );
-  }, [ads, debouncedSearch, activeCategory, t, recentlyViewed, recommendations, colors, navigation, isFavorite, toggleFav, locStatus, requestLocation]);
+  }, [ads, debouncedSearch, activeCategory, t, recentlyViewed, recommendations, colors, navigation, isFavorite, toggleFav, locStatus, requestLocation, regionReady]);
 
   if (isLoading) {
     return (
@@ -347,12 +359,39 @@ export default function HomeScreen() {
         }
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
-            <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-              {debouncedSearch.trim() ? t('nothingFound') : t('noProductsAvailable')}
-            </Text>
-          </View>
+          !regionReady ? (
+            // Регион не определён → товары не показываем, объясняем почему.
+            <View style={styles.empty}>
+              <Ionicons
+                name={locStatus === 'requesting' || locStatus === 'idle' ? 'navigate-circle-outline' : 'location-outline'}
+                size={52}
+                color={colors.textMuted}
+              />
+              <Text style={[styles.emptyText, { color: colors.textMuted, textAlign: 'center', paddingHorizontal: 24 }]}>
+                {locStatus === 'requesting' || locStatus === 'idle'
+                  ? t('detectingRegion')
+                  : locStatus === 'granted'
+                    ? t('regionUndetected')
+                    : t('enableLocationForRegion')}
+              </Text>
+              {locStatus !== 'requesting' && locStatus !== 'idle' && (
+                <TouchableOpacity
+                  onPress={requestLocation}
+                  style={[styles.retryLocationBtn, { backgroundColor: colors.primary }]}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.retryLocationBtnText}>{t('enableLocationBtn')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Ionicons name="cube-outline" size={52} color={colors.textMuted} />
+              <Text style={[styles.emptyText, { color: colors.textMuted, textAlign: 'center', paddingHorizontal: 24 }]}>
+                {debouncedSearch.trim() ? t('nothingFound') : t('noPartnersInRegion')}
+              </Text>
+            </View>
+          )
         }
         ListFooterComponent={
           isLoadingMore ? (
@@ -543,6 +582,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyText: { fontSize: 15 },
+  retryLocationBtn: { marginTop: 14, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 12 },
+  retryLocationBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   loadMore: { paddingVertical: 20, alignItems: 'center' },
 
   overlay: {

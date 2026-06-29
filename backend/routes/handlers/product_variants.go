@@ -26,11 +26,19 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 		}
 
 		rows, err := db.Query(`
-			SELECT id, product_id, color, size, price, markup_percent,
-			       selling_price, stock_quantity, barcode, sku, barid, description, created_at, updated_at
-			FROM product_variants
-			WHERE product_id = $1`+stockFilter+`
-			ORDER BY id ASC
+			SELECT pv.id, pv.product_id, pv.color, pv.size, pv.price, pv.markup_percent,
+			       pv.selling_price, pv.stock_quantity, pv.barcode, pv.sku, pv.barid, pv.description, pv.created_at, pv.updated_at,
+			       COALESCE(
+			         (SELECT dd.discount_percent FROM discounts dd WHERE dd.product_id = $1 AND dd.variant_id = pv.id AND dd.status = 'approved' AND (dd.start_date IS NULL OR dd.start_date <= NOW()) AND (dd.end_date IS NULL OR dd.end_date >= NOW()) ORDER BY dd.updated_at DESC LIMIT 1),
+			         (SELECT dd.discount_percent FROM discounts dd WHERE dd.product_id = $1 AND dd.variant_id IS NULL AND dd.status = 'approved' AND (dd.start_date IS NULL OR dd.start_date <= NOW()) AND (dd.end_date IS NULL OR dd.end_date >= NOW()) ORDER BY dd.updated_at DESC LIMIT 1)
+			       ) AS reg_pct,
+			       COALESCE(
+			         (SELECT ad.discount_percent FROM aggressive_discounts ad WHERE ad.product_id = $1 AND ad.variant_id = pv.id AND ad.status = 'approved' AND (ad.start_date IS NULL OR ad.start_date <= NOW()) AND (ad.end_date IS NULL OR ad.end_date >= NOW()) ORDER BY ad.updated_at DESC LIMIT 1),
+			         (SELECT ad.discount_percent FROM aggressive_discounts ad WHERE ad.product_id = $1 AND ad.variant_id IS NULL AND ad.status = 'approved' AND (ad.start_date IS NULL OR ad.start_date <= NOW()) AND (ad.end_date IS NULL OR ad.end_date >= NOW()) ORDER BY ad.updated_at DESC LIMIT 1)
+			       ) AS agg_pct
+			FROM product_variants pv
+			WHERE pv.product_id = $1`+stockFilter+`
+			ORDER BY pv.id ASC
 		`, productID)
 		if err != nil {
 			log.Printf("❌ GetProductVariants error: %v", err)
@@ -56,11 +64,14 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 				Description   sql.NullString
 				CreatedAt     string
 				UpdatedAt     string
+				RegPct        sql.NullFloat64
+				AggPct        sql.NullFloat64
 			}
 			if err := rows.Scan(
 				&v.ID, &v.ProductID, &v.Color, &v.Size, &v.Price, &v.MarkupPercent,
 				&v.SellingPrice, &v.StockQuantity, &v.Barcode, &v.SKU, &v.Barid,
 				&v.Description, &v.CreatedAt, &v.UpdatedAt,
+				&v.RegPct, &v.AggPct,
 			); err != nil {
 				log.Printf("⚠️ Error scanning variant: %v", err)
 				continue
@@ -85,10 +96,17 @@ func GetProductVariants(db *sql.DB) gin.HandlerFunc {
 			} else {
 				variant["markupPercent"] = 0
 			}
+			variantBaseSelling := v.Price
 			if v.SellingPrice.Valid {
-				variant["sellingPrice"] = v.SellingPrice.Float64
-			} else {
-				variant["sellingPrice"] = v.Price
+				variantBaseSelling = v.SellingPrice.Float64
+			}
+			// 🏷️ Скидка на этот SKU-вариант (или общая на товар, если вариантной нет).
+			vFinal, vPct, vType := applyBestDiscount(v.Price, variantBaseSelling, v.RegPct, v.AggPct)
+			variant["sellingPrice"] = vFinal
+			if vType != "" {
+				variant["originalPrice"] = variantBaseSelling
+				variant["discountPercent"] = vPct
+				variant["discountType"] = vType
 			}
 			if v.Barcode.Valid {
 				variant["barcode"] = v.Barcode.String

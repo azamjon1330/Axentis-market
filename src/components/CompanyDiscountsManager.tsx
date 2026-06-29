@@ -14,9 +14,16 @@ export default function CompanyDiscountsManager({ companyId, products = [] }: Co
   const t = useTranslation(language);
 
   useEffect(() => {
+    // Язык меняется через кастомное событие 'languageChange' (а не 'storage'),
+    // поэтому слушаем именно его — иначе вкладки скидок не переводятся.
+    const handleLanguageChange = (e: CustomEvent<Language>) => setLanguage(e.detail);
     const handleStorage = () => setLanguage(getCurrentLanguage());
+    window.addEventListener('languageChange', handleLanguageChange as EventListener);
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('languageChange', handleLanguageChange as EventListener);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   return (

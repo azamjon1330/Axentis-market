@@ -99,6 +99,7 @@ type Discount struct {
 	ID              int64      `json:"id"`
 	CompanyID       int64      `json:"companyId"`
 	ProductID       int64      `json:"productId"`
+	VariantID       *int64     `json:"variantId,omitempty"` // NULL = весь товар, иначе конкретный SKU
 	DiscountPercent float64    `json:"discountPercent"`
 	Title           *string    `json:"title,omitempty"`
 	Description     *string    `json:"description,omitempty"`
@@ -144,6 +145,7 @@ type AggressiveDiscount struct {
 	ID              int64      `json:"id"`
 	CompanyID       int64      `json:"companyId"`
 	ProductID       int64      `json:"productId"`
+	VariantID       *int64     `json:"variantId,omitempty"` // NULL = весь товар, иначе конкретный SKU
 	DiscountPercent float64    `json:"discountPercent"`
 	Title           *string    `json:"title,omitempty"`
 	Description     *string    `json:"description,omitempty"`

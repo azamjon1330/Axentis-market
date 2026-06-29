@@ -187,6 +187,8 @@ export interface Translations {
   // Управление скидками (CompanyDiscountsPanel)
   regularDiscounts: string;
   aggressiveDiscounts: string;
+  applyToVariant: string;
+  wholeProductAnyVariant: string;
   discountOnMarkupOnly: string;
   discountOnFullAmount: string;
   noActiveDiscounts: string;
@@ -1168,6 +1170,8 @@ export const translations: Record<Language, Translations> = {
     // Управление скидками (CompanyDiscountsPanel)
     regularDiscounts: 'Обычные скидки',
     aggressiveDiscounts: 'Жёсткие скидки',
+    applyToVariant: 'Применить к варианту',
+    wholeProductAnyVariant: 'Весь товар (любой вариант)',
     discountOnMarkupOnly: 'Скидка только на наценку. Цена не опускается ниже себестоимости.',
     discountOnFullAmount: 'Скидка на всю сумму (цена + наценка). Может быть ниже себестоимости.',
     noActiveDiscounts: 'У вас пока нет активных скидок',
@@ -2144,6 +2148,8 @@ export const translations: Record<Language, Translations> = {
     // Управление скидками (CompanyDiscountsPanel)
     regularDiscounts: 'Oddiy chegirmalar',
     aggressiveDiscounts: 'Qattiq chegirmalar',
+    applyToVariant: 'Variantga qoʻllash',
+    wholeProductAnyVariant: 'Butun mahsulot (har qanday variant)',
     discountOnMarkupOnly: 'Faqat ustamaga chegirma. Narx tan narxdan past bo\'lmaydi.',
     discountOnFullAmount: 'Butun summaga chegirma (narx + ustama). Tan narxdan past bo\'lishi mumkin.',
     noActiveDiscounts: 'Sizda hali faol chegirmalar yo\'q',

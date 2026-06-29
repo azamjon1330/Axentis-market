@@ -35,8 +35,10 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [products, setProducts] = useState<any[]>(initialProducts);
+  const [variants, setVariants] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     productId: '',
+    variantId: '', // '' = весь товар, иначе конкретный SKU
     discountPercent: '',
     title: '',
     description: '',
@@ -75,6 +77,17 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
       setProducts(response || []);
     } catch (error) {
       console.error('Ошибка загрузки товаров:', error);
+    }
+  };
+
+  const fetchVariants = async (productId: string) => {
+    if (!productId) { setVariants([]); return; }
+    try {
+      const list = await api.products.getVariants(productId);
+      setVariants(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error('Ошибка загрузки вариантов:', error);
+      setVariants([]);
     }
   };
 
@@ -135,41 +148,30 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
     }
 
     try {
-      const payload: any = {
+      // Используем авторизованный API-вызов (эндпоинт требует токен компании,
+      // раньше сырой fetch без токена возвращал 401 и скидка не создавалась).
+      await api.aggressiveDiscounts.create({
         companyId,
         productId: parseInt(formData.productId),
+        variantId: formData.variantId ? parseInt(formData.variantId) : null,
         discountPercent: parseFloat(formData.discountPercent),
         title: formData.title || undefined,
-        description: formData.description || undefined
-      };
-
-      if (formData.startDate) {
-        payload.startDate = new Date(formData.startDate).toISOString();
-      }
-      if (formData.endDate) {
-        payload.endDate = new Date(formData.endDate).toISOString();
-      }
-
-      const response = await fetch(`${API_BASE}/aggressive-discounts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        description: formData.description || undefined,
+        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : undefined,
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || t.discountCreationError);
-      }
-
       alert(t.discountCreated);
-      setFormData({ 
-        productId: '', 
-        discountPercent: '', 
-        title: '', 
+      setFormData({
+        productId: '',
+        variantId: '',
+        discountPercent: '',
+        title: '',
         description: '',
         startDate: '',
         endDate: ''
       });
+      setVariants([]);
       setShowForm(false);
       fetchDiscounts();
     } catch (error: any) {
@@ -181,12 +183,7 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
     if (!confirm(t.deleteDiscountConfirm)) return;
 
     try {
-      const response = await fetch(`${API_BASE}/aggressive-discounts/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error(t.errorDeletingDiscount);
-      
+      await api.aggressiveDiscounts.delete(id);
       fetchDiscounts();
     } catch (error) {
       alert(t.errorDeletingDiscount);
@@ -240,7 +237,10 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
             <select
               style={styles.select}
               value={formData.productId}
-              onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, productId: e.target.value, variantId: '' });
+                fetchVariants(e.target.value);
+              }}
               required
             >
               <option value="">{t.selectProduct}</option>
@@ -256,6 +256,26 @@ export default function CompanyAggressiveDiscountsPanel({ companyId, products: i
               </p>
             )}
           </div>
+
+          {/* Применить ко всему товару или к конкретному SKU-варианту */}
+          {formData.productId && variants.length > 0 && (
+            <div style={styles.formGroup}>
+              <label style={styles.label}>{t.applyToVariant}</label>
+              <select
+                style={styles.select}
+                value={formData.variantId}
+                onChange={(e) => setFormData({ ...formData, variantId: e.target.value })}
+              >
+                <option value="">{t.wholeProductAnyVariant}</option>
+                {variants.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {[v.color, v.size, v.sku].filter(Boolean).join(' / ') || `#${v.id}`}
+                    {typeof v.sellingPrice === 'number' ? ` — ${v.sellingPrice.toLocaleString()} ${t.currency}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={styles.formGroup}>
             <label style={styles.label}>{t.discountPercentLabel}</label>

@@ -1402,18 +1402,24 @@ export const discounts = {
   create: async (data: {
     companyId: number;
     productId: number;
+    variantId?: number | null; // null = весь товар, иначе конкретный SKU
     discountPercent: number;
     title?: string;
     description?: string;
+    startDate?: string;
+    endDate?: string;
   }) => {
     return apiCall('/discounts', {
       method: 'POST',
       body: JSON.stringify({
         companyId: data.companyId,
         productId: data.productId,
+        variantId: data.variantId ?? null,
         discountPercent: data.discountPercent,
         title: data.title || null,
-        description: data.description || null
+        description: data.description || null,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined
       }),
     });
   },
@@ -1458,6 +1464,40 @@ export const aggressiveDiscounts = {
   listApproved: async () => {
     return apiCall('/aggressive-discounts/approved', { requiresAuth: false });
   },
+
+  // Create aggressive discount (company) — требует токен (RequireCompany)
+  create: async (data: {
+    companyId: number;
+    productId: number;
+    variantId?: number | null;
+    discountPercent: number;
+    title?: string;
+    description?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    return apiCall('/aggressive-discounts', {
+      method: 'POST',
+      body: JSON.stringify({
+        companyId: data.companyId,
+        productId: data.productId,
+        variantId: data.variantId ?? null,
+        discountPercent: data.discountPercent,
+        title: data.title || null,
+        description: data.description || null,
+        startDate: data.startDate || undefined,
+        endDate: data.endDate || undefined,
+      }),
+    });
+  },
+
+  // Company aggressive discounts
+  listByCompany: async (companyId: number | string) =>
+    apiCall(`/aggressive-discounts/company/${companyId}`, { requiresAuth: false }),
+
+  // Delete aggressive discount (company) — требует токен
+  delete: async (id: number) =>
+    apiCall(`/aggressive-discounts/${id}`, { method: 'DELETE' }),
 };
 
 // ============================================================================

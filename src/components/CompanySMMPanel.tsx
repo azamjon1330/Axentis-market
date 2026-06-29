@@ -77,6 +77,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
   // 🎬 Декоративные видео, загруженные админом (доступны всем компаниям)
   const [decorationVideos, setDecorationVideos] = useState<Array<{ id: number; title: string; url: string }>>([]);
   const [savingVideo, setSavingVideo] = useState(false);
+  const [videoPickerOpen, setVideoPickerOpen] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [deliveryRadius, setDeliveryRadius] = useState({ km: 0, lat: 0, lng: 0 });
   const [savingRadius, setSavingRadius] = useState(false);
@@ -393,7 +394,17 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                 className="relative block w-full rounded-2xl overflow-hidden border cursor-pointer group"
                 style={{ aspectRatio: '3 / 1', background: 'linear-gradient(135deg, #1b2440, #0f1730)', borderColor: 'rgba(255,255,255,0.07)' }}
               >
-                {coverImage ? (
+                {formData.coverVideoUrl ? (
+                  // 🎬 Выбранная видео-декорация показывается как зацикленный фон магазина
+                  <video
+                    src={getImageUrl(formData.coverVideoUrl) || formData.coverVideoUrl}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
+                ) : coverImage ? (
                   <img src={coverImage} alt="Обложка магазина" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ color: '#8B8BAA' }}>
@@ -442,7 +453,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
               </p>
             </div>
 
-            {/* 🎬 Видео-декорация: ролики загружает админ, компания выбирает один как анимированный фон страницы магазина */}
+            {/* 🎬 Видео-декорация: одна кнопка открывает галерею роликов админа,
+                компания выбирает ОДИН — он зацикленно играет фоном магазина. */}
             {decorationVideos.length > 0 && (
               <div className="mb-6">
                 <label className="block text-sm mb-2" style={{ color: '#8B8BAA' }}>
@@ -450,53 +462,34 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                 </label>
                 <p className="text-xs mb-3" style={{ color: '#5A5A78' }}>
                   {language === 'uz'
-                    ? 'Administrator yuklagan qisqa videoni magazin sahifasiga fon sifatida tanlang.'
-                    : 'Выберите короткое видео (загружено администратором) как фон страницы магазина.'}
+                    ? 'Tayyor animatsiyalardan birini tanlang — u magazin sahifasida fonda aylanib turadi.'
+                    : 'Выберите одну из готовых анимаций — она будет зациклено проигрываться фоном страницы магазина.'}
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {decorationVideos.map(v => {
-                    const selected = formData.coverVideoUrl === v.url;
-                    return (
-                      <button
-                        key={v.id}
-                        type="button"
-                        disabled={savingVideo}
-                        onClick={() => handleSelectDecorationVideo(v.url)}
-                        className="relative rounded-lg overflow-hidden transition-all disabled:opacity-50"
-                        style={{ aspectRatio: '16 / 9', border: selected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)' }}
-                      >
-                        <video
-                          src={getImageUrl(v.url) || v.url}
-                          muted
-                          loop
-                          playsInline
-                          className="w-full h-full object-cover"
-                        />
-                        {selected && (
-                          <span className="absolute top-1 right-1 text-xs px-2 py-0.5 rounded-full" style={{ background: '#7C5CF0', color: '#FFF' }}>
-                            ✓
-                          </span>
-                        )}
-                        {v.title && (
-                          <span className="absolute bottom-0 left-0 right-0 text-[10px] px-1 py-0.5 truncate" style={{ background: 'rgba(0,0,0,0.55)', color: '#FFF' }}>
-                            {v.title}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                {formData.coverVideoUrl && (
+                <div className="flex items-center gap-3 flex-wrap">
                   <button
                     type="button"
                     disabled={savingVideo}
-                    onClick={() => handleSelectDecorationVideo(formData.coverVideoUrl)}
-                    className="mt-2 text-xs font-medium"
-                    style={{ color: '#F87171' }}
+                    onClick={() => setVideoPickerOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 disabled:opacity-50"
+                    style={{ background: 'linear-gradient(135deg, #7C5CF0, #5B3DD4)', color: '#FFFFFF', borderRadius: 10, border: 'none' }}
                   >
-                    {language === 'uz' ? 'Video-bezakni olib tashlash' : 'Убрать видео-декорацию'}
+                    <Video className="w-4 h-4" />
+                    {formData.coverVideoUrl
+                      ? (language === 'uz' ? 'Animatsiyani almashtirish' : 'Сменить анимацию')
+                      : (language === 'uz' ? 'Animatsiyani tanlash' : 'Выбрать анимацию')}
                   </button>
-                )}
+                  {formData.coverVideoUrl && (
+                    <button
+                      type="button"
+                      disabled={savingVideo}
+                      onClick={() => handleSelectDecorationVideo(formData.coverVideoUrl)}
+                      className="text-xs font-medium"
+                      style={{ color: '#F87171' }}
+                    >
+                      {language === 'uz' ? 'Video-bezakni olib tashlash' : 'Убрать видео-декорацию'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -896,6 +889,54 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
           onUpload={handleMediaUpload}
           companyId={companyId}
         />
+      )}
+
+      {/* 🎬 Галерея видео-декораций: выбор одной анимации */}
+      {videoPickerOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setVideoPickerOpen(false)}>
+          <div className="rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 sm:p-6 sticky top-0 z-10" style={{ background: 'var(--ax-card)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+              <h3 className="text-base sm:text-lg font-semibold" style={{ color: '#FFFFFF' }}>
+                {language === 'uz' ? 'Animatsiyani tanlang' : 'Выберите анимацию'}
+              </h3>
+              <button onClick={() => setVideoPickerOpen(false)} style={{ color: '#8B8BAA' }}>
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {decorationVideos.map(v => {
+                const selected = formData.coverVideoUrl === v.url;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    disabled={savingVideo}
+                    onClick={async () => { await handleSelectDecorationVideo(v.url); setVideoPickerOpen(false); }}
+                    className="relative rounded-lg overflow-hidden transition-all disabled:opacity-50"
+                    style={{ aspectRatio: '16 / 9', border: selected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)' }}
+                  >
+                    <video
+                      src={getImageUrl(v.url) || v.url}
+                      muted
+                      loop
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                    {selected && (
+                      <span className="absolute top-1 right-1 text-xs px-2 py-0.5 rounded-full" style={{ background: '#7C5CF0', color: '#FFF' }}>✓</span>
+                    )}
+                    {v.title && (
+                      <span className="absolute bottom-0 left-0 right-0 text-[10px] px-1 py-0.5 truncate" style={{ background: 'rgba(0,0,0,0.55)', color: '#FFF' }}>
+                        {v.title}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Модальное окно выбора локации */}

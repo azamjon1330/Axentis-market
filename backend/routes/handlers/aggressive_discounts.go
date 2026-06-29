@@ -41,10 +41,10 @@ func CreateAggressiveDiscount(db *sql.DB) gin.HandlerFunc {
 		discount.UpdatedAt = time.Now()
 
 		query := `
-			INSERT INTO aggressive_discounts (company_id, product_id, discount_percent, title, description, status, admin_reviewed, start_date, end_date, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-			ON CONFLICT (company_id, product_id) 
-			DO UPDATE SET 
+			INSERT INTO aggressive_discounts (company_id, product_id, variant_id, discount_percent, title, description, status, admin_reviewed, start_date, end_date, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			ON CONFLICT (company_id, product_id, COALESCE(variant_id, 0))
+			DO UPDATE SET
 				discount_percent = EXCLUDED.discount_percent,
 				title = EXCLUDED.title,
 				description = EXCLUDED.description,
@@ -56,9 +56,10 @@ func CreateAggressiveDiscount(db *sql.DB) gin.HandlerFunc {
 			RETURNING id
 		`
 
-		err = db.QueryRow(query, 
-			discount.CompanyID, 
-			discount.ProductID, 
+		err = db.QueryRow(query,
+			discount.CompanyID,
+			discount.ProductID,
+			discount.VariantID,
 			discount.DiscountPercent,
 			discount.Title,
 			discount.Description,
