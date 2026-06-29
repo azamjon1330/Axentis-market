@@ -227,22 +227,80 @@ func GetProductsByCategory(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		category := r.URL.Query().Get("category")
+		q := r.URL.Query()
+		category := q.Get("category")
 		if category == "" {
 			http.Error(w, `{"error": "Category parameter is required"}`, http.StatusBadRequest)
 			return
 		}
 
-		rows, err := db.Query(`
+		// Сортировка/фильтры выполняются на стороне БД (по всему набору, а не по
+		// одной странице) и опираются на индексы из миграции 220 — каталог остаётся
+		// быстрым даже при десятках тысяч товаров.
+		// Цена для фильтра/сортировки берётся на уровне товара (индексируемое
+		// выражение); вариативная минимальная цена используется только для показа.
+		priceSort := "COALESCE(NULLIF(p.selling_price,0), p.price * (1.0 + COALESCE(p.markup_percent,0)/100.0))"
+
+		conds := []string{"p.category = $1", "p.available_for_customers = true"}
+		args := []interface{}{category}
+		add := func(cond string, val interface{}) {
+			args = append(args, val)
+			conds = append(conds, fmt.Sprintf(cond, len(args)))
+		}
+		if br := strings.TrimSpace(q.Get("brand")); br != "" {
+			add("lower(p.brand) = lower($%d)", br)
+		}
+		if v, err := strconv.ParseFloat(q.Get("minPrice"), 64); err == nil && v >= 0 {
+			add(priceSort+" >= $%d", v)
+		}
+		if v, err := strconv.ParseFloat(q.Get("maxPrice"), 64); err == nil && v > 0 {
+			add(priceSort+" <= $%d", v)
+		}
+		if q.Get("inStock") == "true" {
+			conds = append(conds, "(p.quantity > 0 OR EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id = p.id AND pv.stock_quantity > 0))")
+		}
+
+		orderBy := "p.created_at DESC"
+		switch q.Get("sort") {
+		case "price_asc":
+			orderBy = priceSort + " ASC, p.id DESC"
+		case "price_desc":
+			orderBy = priceSort + " DESC, p.id DESC"
+		case "new":
+			orderBy = "p.created_at DESC"
+		case "popular":
+			orderBy = "COALESCE(p.sold_count,0) DESC, p.created_at DESC"
+		}
+
+		limit, offset := 40, 0
+		if v, err := strconv.Atoi(q.Get("limit")); err == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+		if v, err := strconv.Atoi(q.Get("offset")); err == nil && v >= 0 {
+			offset = v
+		}
+		args = append(args, limit, offset)
+
+		query := fmt.Sprintf(`
 			SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
-			       p.selling_price, p.markup_amount, p.barcode, p.barid, p.category, p.images,
-			       p.description, p.has_color_options, p.available_for_customers,
-			       p.created_at, p.updated_at, c.name as company_name
+			       COALESCE(
+			           NULLIF((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), 0),
+			           NULLIF(p.selling_price, 0),
+			           p.price * (1.0 + COALESCE(p.markup_percent, 0) / 100.0)
+			       ) AS selling_price,
+			       p.markup_amount, p.barcode, p.barid, p.category, p.images,
+			       p.description, p.brand, p.has_color_options, p.available_for_customers,
+			       COALESCE(p.sold_count, 0) AS sold_count, p.created_at, p.updated_at,
+			       c.name AS company_name,
+			       COALESCE((SELECT AVG(cr.rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS company_rating
 			FROM products p
 			LEFT JOIN companies c ON p.company_id = c.id
-			WHERE p.category = $1 AND p.available_for_customers = true
-			ORDER BY p.created_at DESC
-		`, category)
+			WHERE %s
+			ORDER BY %s
+			LIMIT $%d OFFSET $%d
+		`, strings.Join(conds, " AND "), orderBy, len(args)-1, len(args))
+
+		rows, err := db.Query(query, args...)
 
 		if err != nil {
 			log.Printf("Error getting products by category: %v", err)
@@ -254,19 +312,21 @@ func GetProductsByCategory(db *sql.DB) http.HandlerFunc {
 		var products []map[string]interface{}
 		for rows.Next() {
 			var (
-				id, companyID                                  int64
-				name, companyName                              string
-				quantity                                       int
-				price, markupPercent, sellingPrice, markupAmt  float64
-				barcode, barid, cat, images, desc              sql.NullString
-				hasColorOptions, availableForCustomers         bool
-				createdAt, updatedAt                           time.Time
+				id, companyID                                 int64
+				name, companyName                             string
+				quantity                                      int
+				soldCount                                     int64
+				price, markupPercent, sellingPrice, markupAmt float64
+				companyRating                                 float64
+				barcode, barid, cat, images, desc, brand      sql.NullString
+				hasColorOptions, availableForCustomers        bool
+				createdAt, updatedAt                          time.Time
 			)
 
 			err := rows.Scan(&id, &companyID, &name, &quantity, &price, &markupPercent,
 				&sellingPrice, &markupAmt, &barcode, &barid, &cat, &images,
-				&desc, &hasColorOptions, &availableForCustomers,
-				&createdAt, &updatedAt, &companyName)
+				&desc, &brand, &hasColorOptions, &availableForCustomers,
+				&soldCount, &createdAt, &updatedAt, &companyName, &companyRating)
 			if err != nil {
 				log.Printf("Error scanning product: %v", err)
 				continue
@@ -284,10 +344,15 @@ func GetProductsByCategory(db *sql.DB) http.HandlerFunc {
 				"markupAmount":          markupAmt,
 				"hasColorOptions":       hasColorOptions,
 				"availableForCustomers": availableForCustomers,
+				"soldCount":             soldCount,
+				"companyRating":         companyRating,
 				"createdAt":             createdAt,
 				"updatedAt":             updatedAt,
 			}
 
+			if brand.Valid {
+				product["brand"] = brand.String
+			}
 			if barcode.Valid {
 				product["barcode"] = barcode.String
 			}

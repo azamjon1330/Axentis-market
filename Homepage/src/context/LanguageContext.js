@@ -382,6 +382,14 @@ const translations = {
     selectedPoint: 'Выбранная точка',
     moveMapHint: 'Передвигайте карту или маркер, чтобы выбрать точное место',
     selectThisPlace: 'Выбрать это место',
+
+    // ─── Catalog filters ─────────────────────────────────────
+    filters: 'Фильтры',
+    priceFromLabel: 'Цена от',
+    priceToLabel: 'Цена до',
+    onlyInStock: 'Только в наличии',
+    applyBtn: 'Применить',
+    resetBtn: 'Сбросить',
   },
   uz: {
     home: 'Bosh sahifa',
@@ -760,6 +768,14 @@ const translations = {
     selectedPoint: 'Tanlangan nuqta',
     moveMapHint: "Aniq joyni tanlash uchun xarita yoki markerni suring",
     selectThisPlace: 'Shu joyni tanlash',
+
+    // ─── Catalog filters ─────────────────────────────────────
+    filters: 'Filtrlar',
+    priceFromLabel: 'Narx (dan)',
+    priceToLabel: 'Narx (gacha)',
+    onlyInStock: 'Faqat mavjud',
+    applyBtn: "Qo'llash",
+    resetBtn: 'Tozalash',
   },
 };
 
