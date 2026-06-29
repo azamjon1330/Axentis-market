@@ -161,51 +161,41 @@ export default function LikesPage({
 
   return (
     <div className={`min-h-screen pb-20 relative transition-colors duration-500 ${
-      isNight ? 'bg-[#1a0b16]' : 'bg-[#F5F5F5]'
+      isNight ? 'bg-[#08090D]' : 'bg-white'
     }`}>
-      {/* Header */}
-      <header className={`sticky top-0 z-20 transition-colors duration-500 shadow-sm ${
-        isNight ? 'bg-[#1a0b16] border-b border-[#2d1222]' : 'bg-transparent'
+      {/* Header — как в Homepage (FavoritesScreen) */}
+      <header className={`sticky top-0 z-20 transition-colors duration-500 ${
+        isNight ? 'bg-[#08090D]' : 'bg-white'
       }`}
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
       >
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-             <div className={`p-2 rounded-lg ${
-               isNight ? 'bg-[#C0BCBC] text-[#1a0b16]' : 'bg-[#C0BCBC] text-black'
-             }`}>
-               <Heart className="w-6 h-6 fill-current" />
-             </div>
-             <h1 className={`text-xl font-bold ${isNight ? 'text-white' : 'text-black'}`}>
-               Избранное
-             </h1>
-          </div>
-          
+        <div className="px-4 pb-3 flex items-end justify-between">
+          <h1 className={`text-2xl font-extrabold tracking-tight ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
+            Избранное
+          </h1>
           {likedProducts.length > 0 && (
-            <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-               isNight ? 'bg-[#C0BCBC]/20 text-[#C0BCBC]' : 'bg-[#C0BCBC]/20 text-gray-600'
-            }`}>
-              {likedProducts.length}
-            </div>
+            <span className={`text-sm font-medium ${isNight ? 'text-[#9CA3AF]' : 'text-[#5B6472]'}`}>
+              {likedProducts.length} товаров
+            </span>
           )}
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-4 relative z-10">
+      <div className="container mx-auto px-4 py-3 relative z-10">
         {/* Search Bar */}
         {likedProductIds.length > 0 && (
-          <div className="mb-6">
-            <div className={`flex items-center px-4 py-2.5 rounded-xl transition-colors ${
-              isNight ? 'bg-[#C0BCBC]' : 'bg-[#C0BCBC]'
+          <div className="mb-5">
+            <div className={`flex items-center gap-2 px-3.5 h-12 rounded-2xl border transition-colors ${
+              isNight ? 'bg-[#171C2A] border-white/[0.06]' : 'bg-[#F2F3F6] border-black/[0.06]'
             }`}>
-              <Search className={`w-5 h-5 ${isNight ? 'text-[#1a0b16]' : 'text-black'}`} />
-              <input 
-                type="text" 
-                placeholder="Поиск в избранном..." 
+              <Search className={`w-[18px] h-[18px] ${isNight ? 'text-[#6B7280]' : 'text-[#9AA1AE]'}`} />
+              <input
+                type="text"
+                placeholder="Поиск в избранном..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full ml-3 bg-transparent outline-none ${
-                  isNight ? 'text-[#1a0b16] placeholder-[#1a0b16]/60' : 'text-black placeholder-black/60'
+                className={`w-full bg-transparent outline-none text-[15px] ${
+                  isNight ? 'text-white placeholder-[#6B7280]' : 'text-[#0B0E16] placeholder-[#9AA1AE]'
                 }`}
               />
             </div>
@@ -218,13 +208,26 @@ export default function LikesPage({
             <p className={isNight ? 'text-gray-400' : 'text-gray-500'}>Загрузка...</p>
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <Heart className={`w-16 h-16 mx-auto mb-4 ${
-              isNight ? 'text-gray-600' : 'text-gray-300'
-            }`} />
-            <p className={`mb-2 ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>
-              {searchQuery ? 'Товары не найдены' : 'Нет избранных товаров'}
+          <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
+            <div className="w-24 h-24 rounded-full flex items-center justify-center mb-5" style={{ background: 'rgba(239,68,68,0.12)' }}>
+              <Heart className="w-12 h-12 text-[#EF4444]" />
+            </div>
+            <h3 className={`text-lg font-bold mb-1.5 ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
+              {searchQuery ? 'Товары не найдены' : 'Список пуст'}
+            </h3>
+            <p className={`text-sm mb-6 ${isNight ? 'text-[#9CA3AF]' : 'text-[#5B6472]'}`}>
+              {searchQuery ? 'Попробуйте изменить запрос' : 'Добавляйте товары в избранное, нажимая на сердечко'}
             </p>
+            {!searchQuery && (
+              <button
+                onClick={onBackToHome}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold"
+                style={{ background: '#6D5DFB' }}
+              >
+                <Search className="w-[18px] h-[18px]" />
+                На главную
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-2 sm:gap-4 md:gap-6">

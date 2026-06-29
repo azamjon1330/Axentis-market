@@ -15,11 +15,19 @@ interface Product {
   markupPercent?: number;
   images?: ProductImage[];
   company_name?: string;
+  companyName?: string;
   company_id?: number;
   sold_count?: number;
   soldCount?: number;
   created_at?: string;
   createdAt?: string;
+  // 🏷️ Скидки/рейтинг — приходят с бэкенда, нужны для оформления как в Homepage
+  discountPercent?: number;
+  originalPrice?: number;
+  sellingPrice?: number;
+  companyRating?: number;
+  company_rating?: number;
+  hasColorOptions?: boolean;
 }
 
 interface ProductCardProps {
@@ -227,6 +235,16 @@ export default function ProductCard({
 
   const isNight = displayMode === 'night';
 
+  // 🎨 Данные для оформления карточки как в Homepage
+  const companyName = product.company_name || product.companyName;
+  const companyRating = Number(product.companyRating ?? product.company_rating ?? 0);
+  const companyVerified = companyRating >= 4.5;
+  const hasVariants = !!product.hasColorOptions;
+  const displayPrice = getPriceWithMarkup(product);
+  const discountPercent = Number(product.discountPercent ?? 0);
+  const hasDiscount = discountPercent > 0;
+  const oldPrice = hasDiscount ? Number(product.originalPrice ?? product.sellingPrice ?? 0) : 0;
+
   // 🏷️ Auto badges derived from existing product data (max 2 to avoid clutter).
   const productBadges: Array<{ label: string; cls: string }> = [];
   const soldCount = product.sold_count ?? product.soldCount ?? 0;
@@ -368,9 +386,14 @@ export default function ProductCard({
           <Heart className={`w-4 h-4 transition-colors ${isLiked ? 'text-red-500 fill-current' : isNight ? 'text-gray-300' : 'text-gray-400'}`} />
         </button>
 
-        {/* Top-left badge stack: status badges (🔥 Хит / Новинка / Осталось N) + cart quantity */}
-        {(visibleBadges.length > 0 || cartQuantity) && (
+        {/* Top-left badge stack: discount (-X%) + status badges + cart quantity */}
+        {(hasDiscount || visibleBadges.length > 0 || cartQuantity) && (
           <div className="absolute top-2 left-2 z-20 flex flex-col gap-1 items-start">
+            {hasDiscount && (
+              <span className="rounded-lg px-2 py-0.5 text-[10px] font-extrabold shadow-sm bg-[#EF4444] text-white">
+                -{discountPercent}%
+              </span>
+            )}
             {visibleBadges.map((b) => (
               <span key={b.label} className={`rounded-lg px-2 py-0.5 text-[10px] font-semibold shadow-sm ${b.cls}`}>
                 {b.label}
@@ -395,17 +418,36 @@ export default function ProductCard({
         )}
       </div>
 
-      {/* Product info — OUTSIDE the card, on the transparent page background */}
+      {/* Product info — OUTSIDE the card, on the transparent page background (как в Homepage) */}
       <div className="pt-2 px-0.5 pb-1">
-        <h3 className={`text-[12px] leading-snug line-clamp-2 mb-1.5 font-medium ${isNight ? 'text-gray-200' : 'text-gray-800'}`}>
+        {companyName ? (
+          <div className="flex items-center gap-1 mb-0.5">
+            <span className={`text-[10px] font-bold uppercase tracking-wide truncate ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>
+              {companyName}
+            </span>
+            {companyVerified && (
+              <svg className="w-3 h-3 flex-shrink-0 text-[#3B82F6]" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            )}
+          </div>
+        ) : null}
+        <h3 className={`text-[12px] leading-snug line-clamp-2 mb-1 font-medium ${isNight ? 'text-gray-200' : 'text-gray-800'}`}>
           {product.name}
         </h3>
-        <div className={`text-[14px] font-bold tracking-tight ${isNight ? 'text-white' : 'text-gray-900'}`}>
-          {formatPrice(getPriceWithMarkup(product))}
+        <div className="flex items-baseline gap-1.5 flex-wrap">
+          <span className="text-[15px] font-extrabold tracking-tight text-[#E8472A]">
+            {hasVariants ? `от ${formatPrice(displayPrice)}` : formatPrice(displayPrice)}
+          </span>
+          {soldCount > 0 && (
+            <span className={`text-[10px] font-medium ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+              {soldCount >= 1000 ? `${(soldCount / 1000).toFixed(1)}k` : soldCount} sotildi
+            </span>
+          )}
         </div>
-        {soldCount > 0 && (
-          <div className={`text-[10px] mt-0.5 font-medium ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
-            {soldCount} sotildi
+        {hasDiscount && oldPrice > displayPrice && (
+          <div className={`text-[11px] mt-0.5 line-through ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
+            {formatPrice(oldPrice)}
           </div>
         )}
       </div>
