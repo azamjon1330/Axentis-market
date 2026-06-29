@@ -71,8 +71,13 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					LIMIT $2 OFFSET $3
 				`, privateCompanyID, limit, offset)
 			} else {
-				log.Printf("🌐 GetProducts: Public mode, limit=%d offset=%d", limit, offset)
-				rows, err = db.Query(`
+				// 🗺️ Региональная фильтрация: если передан region, показываем только
+				// товары компаний, которые обслуживают этот регион (основной регион
+				// компании ИЛИ регион из списка доставки service_regions). Если ни одна
+				// компания не выбрала регион покупателя — товаров не будет (как и задумано).
+				region := strings.TrimSpace(c.Query("region"))
+				log.Printf("🌐 GetProducts: Public mode, limit=%d offset=%d region=%q", limit, offset, region)
+				query := `
 					SELECT p.id, p.company_id, p.name, p.quantity, p.price, p.markup_percent,
 					       COALESCE(
 					           NULLIF((SELECT MIN(pv.selling_price) FROM product_variants pv WHERE pv.product_id = p.id AND pv.selling_price > 0), 0),
@@ -86,10 +91,15 @@ func GetProducts(db *sql.DB) gin.HandlerFunc {
 					FROM products p
 					LEFT JOIN companies c ON p.company_id = c.id
 					WHERE p.available_for_customers = true
-					  AND (c.mode = 'public' OR c.mode IS NULL)
-					ORDER BY p.created_at DESC
-					LIMIT $1 OFFSET $2
-				`, limit, offset)
+					  AND (c.mode = 'public' OR c.mode IS NULL)`
+				args := []interface{}{}
+				if region != "" {
+					args = append(args, region)
+					query += " AND (c.region = $1 OR c.service_regions @> to_jsonb($1::text))"
+				}
+				query += fmt.Sprintf(" ORDER BY p.created_at DESC LIMIT $%d OFFSET $%d", len(args)+1, len(args)+2)
+				args = append(args, limit, offset)
+				rows, err = db.Query(query, args...)
 			}
 		} else {
 			// Товары конкретной компании (для админ-панели компании)

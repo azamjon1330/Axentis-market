@@ -137,6 +137,14 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			regions.DELETE("/:id", middleware.RequireAdmin(cfg), handlers.DeleteRegion(db))
 		}
 
+		// 🎬 Декоративные видео: список — публичный; загрузка/удаление — только админ.
+		decorationVideos := api.Group("/decoration-videos")
+		{
+			decorationVideos.GET("", handlers.ListDecorationVideos(db))
+			decorationVideos.POST("", middleware.RequireAdmin(cfg), handlers.UploadDecorationVideo(db))
+			decorationVideos.DELETE("/:id", middleware.RequireAdmin(cfg), handlers.DeleteDecorationVideo(db))
+		}
+
 		// Companies routes
 		companies := api.Group("/companies")
 		{

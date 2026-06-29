@@ -10,6 +10,7 @@ import { AuthProvider } from './src/context/AuthContext';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { LocationProvider } from './src/context/LocationContext';
 import NotificationsManager from './src/context/NotificationsManager';
 import Navigation from './src/navigation';
 
@@ -44,8 +45,10 @@ export default function App() {
           <AuthProvider>
             <CartProvider>
               <FavoritesProvider>
-                <NotificationsManager />
-                <Navigation />
+                <LocationProvider>
+                  <NotificationsManager />
+                  <Navigation />
+                </LocationProvider>
               </FavoritesProvider>
             </CartProvider>
           </AuthProvider>

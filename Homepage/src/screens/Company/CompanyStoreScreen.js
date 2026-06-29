@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -139,6 +140,7 @@ export default function CompanyStoreScreen() {
 
   const logoUri = getImageUrl(company?.logoUrl);
   const coverUri = getImageUrl(company?.coverUrl);
+  const coverVideoUri = getImageUrl(company?.coverVideoUrl); // 🎬 видео-декорация (если выбрана)
   const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
   const productsCount = companyStats?.total_products ?? products.length;
   const subsCount = Number(companyStats?.subscribers ?? 0);
@@ -166,35 +168,29 @@ export default function CompanyStoreScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            <View style={[styles.topBar, { backgroundColor: colors.background }]}>
-              <TouchableOpacity
-                style={[styles.backBtn, { backgroundColor: colors.surface }]}
-                onPress={() => navigation.goBack()}
-              >
-                <Ionicons name="chevron-back" size={22} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={[styles.topTitle, { color: colors.text }]} numberOfLines={1}>
-                {company?.name || t('storeWord')}
-              </Text>
-              <TouchableOpacity
-                style={[styles.backBtn, { backgroundColor: colors.surface }]}
-                onPress={handleShareStore}
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Обложка-баннер: нижняя часть растворяется в фоне (фейд) ── */}
+            {/* ── Обложка-баннер: тянется до самого верха экрана, ЗА прозрачной
+                 шапкой (кнопка назад / название / меню рисуются поверх фото). ── */}
             <View style={styles.cover}>
-              {coverUri ? (
+              {coverVideoUri ? (
+                <Video
+                  source={{ uri: coverVideoUri }}
+                  style={styles.coverImg}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay
+                  isLooping
+                  isMuted
+                  useNativeControls={false}
+                />
+              ) : coverUri ? (
                 <Image source={{ uri: coverUri }} style={styles.coverImg} resizeMode="cover" />
               ) : (
                 <View style={[styles.coverAccent, { backgroundColor: colors.primary + '22' }]} />
               )}
-              {/* Лёгкое затемнение сверху — приглушает обложку и держит шапку читаемой */}
+              {/* Затемнение сверху — приглушает обложку под шапкой и держит
+                  иконки/название читаемыми поверх любого фото. */}
               <LinearGradient
-                colors={[colors.background + 'B3', 'transparent']}
-                locations={[0, 0.55]}
+                colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.15)', 'transparent']}
+                locations={[0, 0.45, 1]}
                 style={styles.coverTopTint}
                 pointerEvents="none"
               />
@@ -458,6 +454,27 @@ export default function CompanyStoreScreen() {
           </View>
         )}
       />
+
+      {/* ── Прозрачная шапка поверх обложки: фон отсутствует, фото видно насквозь ── */}
+      <View style={styles.topBarOverlay} pointerEvents="box-none">
+        <TouchableOpacity
+          style={styles.overlayBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+        <Text style={styles.overlayTitle} numberOfLines={1}>
+          {company?.name || t('storeWord')}
+        </Text>
+        <TouchableOpacity
+          style={styles.overlayBtn}
+          onPress={handleShareStore}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -465,17 +482,48 @@ export default function CompanyStoreScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 12 },
-  backBtn: { width: 40, height: 40, borderRadius: Radius.button, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { fontSize: 17, fontWeight: '700', flex: 1, textAlign: 'center', marginHorizontal: 8 },
+  // Прозрачная шапка-оверлей поверх обложки
+  topBarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 52,
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    zIndex: 20,
+  },
+  overlayBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: Radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.32)',
+  },
+  overlayTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 8,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  // Обложка тянется до верха экрана и заходит под прозрачную шапку
   cover: {
-    height: 234,
+    height: 320,
     overflow: 'hidden',
   },
   coverAccent: { flex: 1 },
   coverImg: { width: '100%', height: '100%' },
-  // Верхнее затемнение — приглушает яркость обложки
-  coverTopTint: { position: 'absolute', left: 0, right: 0, top: 0, height: 110 },
+  // Верхнее затемнение — держит иконки/название читаемыми поверх фото
+  coverTopTint: { position: 'absolute', left: 0, right: 0, top: 0, height: 150 },
   // Нижняя часть обложки плавно и долго растворяется в фоне приложения
   coverFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 180 },
   // Карточка 1 — логотип/имя/рейтинг (frosted, наезжает на растворяющийся низ обложки)

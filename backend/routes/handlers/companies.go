@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -192,17 +193,23 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			DeliveryCostPerKm   sql.NullFloat64
 			ReturnEnabled       sql.NullBool
 			ReturnWindowHours   sql.NullInt64
+			Region              sql.NullString
+			District            sql.NullString
+			ServiceRegions      sql.NullString
+			CoverVideoURL       sql.NullString
 		}
 
 		err := db.QueryRow(`
 			SELECT id, name, phone, mode, status, logo_url, cover_url, address, description, products_description, latitude, longitude, delivery_enabled,
 			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng,
-			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24)
+			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24),
+			       region, district, COALESCE(service_regions::text, '[]'), cover_video_url
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
 			&company.LogoURL, &company.CoverURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
 			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng,
-			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours)
+			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours,
+			&company.Region, &company.District, &company.ServiceRegions, &company.CoverVideoURL)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
@@ -249,6 +256,26 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 		result["deliveryCostPerKm"] = company.DeliveryCostPerKm.Float64
 		result["returnEnabled"] = company.ReturnEnabled.Bool
 		result["returnWindowHours"] = company.ReturnWindowHours.Int64
+		if company.Region.Valid {
+			result["region"] = company.Region.String
+		}
+		if company.District.Valid {
+			result["district"] = company.District.String
+		}
+		// service_regions хранится как JSONB-массив — отдаём как массив, а не строку.
+		if company.ServiceRegions.Valid && company.ServiceRegions.String != "" {
+			var regions []string
+			if err := json.Unmarshal([]byte(company.ServiceRegions.String), &regions); err == nil {
+				result["serviceRegions"] = regions
+			} else {
+				result["serviceRegions"] = []string{}
+			}
+		} else {
+			result["serviceRegions"] = []string{}
+		}
+		if company.CoverVideoURL.Valid {
+			result["coverVideoUrl"] = company.CoverVideoURL.String
+		}
 
 		// Получаем средний рейтинг компании
 		var avgRating float64
@@ -321,6 +348,10 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 			DeliveryCostPerKm   *float64 `json:"deliveryCostPerKm"`
 			ReturnEnabled       *bool    `json:"returnEnabled"`
 			ReturnWindowHours   *int     `json:"returnWindowHours"`
+			Region              *string  `json:"region"`              // основной регион (область) компании
+			District            *string  `json:"district"`            // район
+			ServiceRegions      *[]string `json:"serviceRegions"`     // 🗺️ регионы доставки (мультивыбор)
+			CoverVideoUrl       *string  `json:"coverVideoUrl"`       // 🎬 видео-декорация для страницы магазина
 		}
 
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -416,6 +447,31 @@ func UpdateCompany(db *sql.DB) gin.HandlerFunc {
 		if req.ReturnWindowHours != nil {
 			query += fmt.Sprintf(", return_window_hours = $%d", argCount)
 			args = append(args, *req.ReturnWindowHours)
+			argCount++
+		}
+		if req.Region != nil {
+			query += fmt.Sprintf(", region = $%d", argCount)
+			args = append(args, *req.Region)
+			argCount++
+		}
+		if req.District != nil {
+			query += fmt.Sprintf(", district = $%d", argCount)
+			args = append(args, *req.District)
+			argCount++
+		}
+		if req.ServiceRegions != nil {
+			// Сохраняем как JSONB-массив названий регионов.
+			regionsJSON, mErr := json.Marshal(*req.ServiceRegions)
+			if mErr != nil {
+				regionsJSON = []byte("[]")
+			}
+			query += fmt.Sprintf(", service_regions = $%d::jsonb", argCount)
+			args = append(args, string(regionsJSON))
+			argCount++
+		}
+		if req.CoverVideoUrl != nil {
+			query += fmt.Sprintf(", cover_video_url = $%d", argCount)
+			args = append(args, *req.CoverVideoUrl)
 			argCount++
 		}
 

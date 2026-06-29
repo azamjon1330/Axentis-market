@@ -23,6 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getProducts, getCategories, getApprovedAds, getRecentlyViewed, getRecommendations } from '../../api';
+import { useLocationRegion } from '../../context/LocationContext';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
 import CategoryIcon from '../../components/common/CategoryIcon';
@@ -69,12 +70,19 @@ export default function HomeScreen() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [search]);
 
+  // 🗺️ Регион покупателя (по геолокации). Передаём его в каталог, чтобы
+  // показывались только товары компаний, обслуживающих этот регион.
+  const { region, status: locStatus, requestLocation } = useLocationRegion();
+
   const getModeParams = useCallback(() => {
+    const params = {};
     if (user?.mode === 'private' && user.privateCompanyId) {
-      return { mode: 'private', privateCompanyId: user.privateCompanyId };
+      params.mode = 'private';
+      params.privateCompanyId = user.privateCompanyId;
     }
-    return {};
-  }, [user?.mode, user?.privateCompanyId]);
+    if (region) params.region = region;
+    return params;
+  }, [user?.mode, user?.privateCompanyId, region]);
 
   const loadInitial = useCallback(async () => {
     try {
@@ -215,6 +223,21 @@ export default function HomeScreen() {
     );
     return (
       <View>
+        {/* 🗺️ Просим включить геолокацию, чтобы показывать товары в регионе покупателя */}
+        {(locStatus === 'denied' || locStatus === 'unavailable') && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={requestLocation}
+            style={[styles.locationBanner, { backgroundColor: colors.primary + '14', borderColor: colors.primary + '40' }]}
+          >
+            <Text style={[styles.locationBannerText, { color: colors.text }]}>
+              {t('enableLocationForRegion')}
+            </Text>
+            <Text style={[styles.locationBannerAction, { color: colors.primary }]}>
+              {t('enableLocationBtn')}
+            </Text>
+          </TouchableOpacity>
+        )}
         {showBanner && (
           <View style={styles.bannerWrap}>
             <BannerCarousel ads={ads} />
@@ -225,7 +248,7 @@ export default function HomeScreen() {
         <SectionHeader title={sectionTitle} style={{ marginTop: showBanner ? Spacing.sm : Spacing.xs }} />
       </View>
     );
-  }, [ads, debouncedSearch, activeCategory, t, recentlyViewed, recommendations, colors, navigation, isFavorite, toggleFav]);
+  }, [ads, debouncedSearch, activeCategory, t, recentlyViewed, recommendations, colors, navigation, isFavorite, toggleFav, locStatus, requestLocation]);
 
   if (isLoading) {
     return (
@@ -488,6 +511,20 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 4,
   },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  locationBannerText: { flex: 1, fontSize: 13, fontWeight: '600', marginRight: 10 },
+  locationBannerAction: { fontSize: 13, fontWeight: '800' },
   feedSection: { marginTop: 8, marginBottom: 4 },
   feedTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.3, paddingHorizontal: 16, marginBottom: 10 },
   feedRow: { gap: 12, paddingHorizontal: 16 },

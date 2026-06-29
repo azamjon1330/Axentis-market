@@ -19,6 +19,7 @@ import MobileOptimization from './components/MobileOptimization'; // 📱 МОБ
 import CompanyMobileOptimization from './components/CompanyMobileOptimization'; // 🌐 Для компании как веб-сайт
 import UserAuthPage from './components/UserAuthPage'; // 🆕 НОВЫЙ: Объединенная страница входа/регистрации
 import PWAInstallPrompt from './components/PWAInstallPrompt'; // 🚀 PWA: Install Prompt
+import { Toaster } from './components/ui/sonner'; // 🔔 Контейнер для всплывающих сообщений (toast)
 import api, { getUserCart, saveUserCart } from './utils/api';
 import { subscribeToReload } from './utils/reloadBroadcast';
 
@@ -891,6 +892,10 @@ function AppContent() {
 
         </>
       )}
+
+      {/* 🔔 Глобальный контейнер toast-сообщений. Без него toast.success/error
+          из любого компонента (загрузка рекламы в SMM-панели и т.д.) не отображались. */}
+      <Toaster position="top-center" richColors closeButton />
     </div>
   );
 }

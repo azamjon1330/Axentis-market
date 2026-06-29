@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck, MessageSquare, Globe } from 'lucide-react';
+import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck, MessageSquare, Globe, Film } from 'lucide-react';
 import api from '../utils/api';
 // TODO: Main company management not yet in new API
 import CompanyManagement from './CompanyManagement';
@@ -11,6 +11,7 @@ import AdminNotificationsPanel from './AdminNotificationsPanel';
 import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
 import BroadcastChatPanel from './BroadcastChatPanel';
 import AdminRegionsPanel from './AdminRegionsPanel';
+import AdminDecorationVideosPanel from './AdminDecorationVideosPanel'; // 🎬 Видео-декорации
 import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 import AdminDiscountsPanel from './AdminDiscountsPanel';
 import AdminPromoCodesPanel from './AdminPromoCodesPanel';
@@ -24,7 +25,7 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onLogout }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers' | 'chat' | 'regions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'companies' | 'payment' | 'history' | 'ads' | 'categories' | 'notifications' | 'companyMessages' | 'discounts' | 'referrals' | 'promo' | 'couriers' | 'chat' | 'regions' | 'decorationVideos'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // 📱 Для мобильной версии
   
   // 🌍 Система локализации для админа (заблокирована на русском)
@@ -453,6 +454,18 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             </button>
 
             <button
+              onClick={() => handleNavigate('decorationVideos')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
+                activeTab === 'decorationVideos'
+                  ? 'bg-white text-red-600 shadow-lg'
+                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+              }`}
+            >
+              <Film className="w-5 h-5" />
+              <span className="font-medium">{language === 'uz' ? 'Video-bezaklar' : 'Видео-декорации'}</span>
+            </button>
+
+            <button
               onClick={() => handleNavigate('discounts')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'discounts'
@@ -538,6 +551,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               {activeTab === 'companyMessages' && 'Сообщения компаниям'}
               {activeTab === 'chat' && (language === 'uz' ? 'Umumiy chat' : 'Общий чат')}
               {activeTab === 'regions' && (language === 'uz' ? 'Yetkazib berish regionlari' : 'Регионы доставки')}
+              {activeTab === 'decorationVideos' && (language === 'uz' ? 'Video-bezaklar' : 'Видео-декорации')}
               {activeTab === 'discounts' && 'Модерация скидок'}
               {activeTab === 'promo' && (language === 'uz' ? 'Promokodlar' : 'Промокоды')}
               {activeTab === 'referrals' && 'Реферальные агенты'}
@@ -827,6 +841,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
             <BroadcastChatPanel isAdmin />
           ) : activeTab === 'regions' ? (
             <AdminRegionsPanel />
+          ) : activeTab === 'decorationVideos' ? (
+            <AdminDecorationVideosPanel />
           ) : (
             <AdminAdsPanel />
           )}

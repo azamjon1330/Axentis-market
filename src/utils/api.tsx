@@ -1691,11 +1691,27 @@ export const regions = {
     apiCall(`/companies/${companyId}/region`, { method: 'PUT', body: JSON.stringify({ regionId }) }),
 };
 
+// ============================================================================
+// DECORATION VIDEOS API (админ загружает короткие ролики, компании их используют
+// как анимированный фон страницы магазина)
+// ============================================================================
+export const decorationVideos = {
+  list: () => apiCall('/decoration-videos', { requiresAuth: false }),
+  upload: (file: File, title = '') => {
+    const form = new FormData();
+    form.append('file', file);
+    if (title) form.append('title', title);
+    return apiCall('/decoration-videos', { method: 'POST', body: form });
+  },
+  remove: (id: number) => apiCall(`/decoration-videos/${id}`, { method: 'DELETE' }),
+};
+
 export default {
   baseURL: API_BASE.replace('/api', ''), // 🔗 Base URL для прямых fetch запросов
   auth,
   broadcast, // 💬 Общий чат-канал
   regions, // 🗺️ Регионы доставки
+  decorationVideos, // 🎬 Декоративные видео (фон страницы магазина)
   products,
   sales,
   cashSales,

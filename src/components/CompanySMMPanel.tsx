@@ -69,8 +69,14 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     description: '',
     logo_image: '',
     region: '',
-    district: ''
+    district: '',
+    serviceRegions: [] as string[], // 🗺️ регионы доставки (мультивыбор)
+    coverVideoUrl: '' // 🎬 видео-декорация
   });
+
+  // 🎬 Декоративные видео, загруженные админом (доступны всем компаниям)
+  const [decorationVideos, setDecorationVideos] = useState<Array<{ id: number; title: string; url: string }>>([]);
+  const [savingVideo, setSavingVideo] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [deliveryRadius, setDeliveryRadius] = useState({ km: 0, lat: 0, lng: 0 });
   const [savingRadius, setSavingRadius] = useState(false);
@@ -79,6 +85,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     loadCompanyProfile();
     loadMediaItems();
     loadSubscriberStats();
+    loadDecorationVideos();
     
     // ⚠️ Realtime подписки отключены - Supabase удален
     // TODO: Реализовать через WebSocket или polling если нужно
@@ -104,6 +111,35 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     } catch (error) {
       console.error('Ошибка загрузки статистики:', error);
       setSubscribersCount(0);
+    }
+  };
+
+  // 🎬 Загрузка списка декоративных видео
+  const loadDecorationVideos = async () => {
+    try {
+      const list = await api.decorationVideos.list();
+      setDecorationVideos(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error('Ошибка загрузки декоративных видео:', error);
+      setDecorationVideos([]);
+    }
+  };
+
+  // 🎬 Компания выбирает (или убирает) видео-декорацию для страницы магазина
+  const handleSelectDecorationVideo = async (url: string) => {
+    const next = formData.coverVideoUrl === url ? '' : url;
+    setSavingVideo(true);
+    try {
+      await api.companies.update(companyId.toString(), { coverVideoUrl: next });
+      setFormData(prev => ({ ...prev, coverVideoUrl: next }));
+      toast.success(next
+        ? (language === 'uz' ? 'Video-bezak tanlandi' : 'Видео-декорация выбрана')
+        : (language === 'uz' ? 'Video-bezak olib tashlandi' : 'Видео-декорация убрана'));
+    } catch (error) {
+      console.error('Ошибка сохранения видео-декорации:', error);
+      toast.error(language === 'uz' ? 'Saqlashda xatolik' : 'Ошибка сохранения');
+    } finally {
+      setSavingVideo(false);
     }
   };
 
@@ -150,7 +186,9 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         description: data.description || '',
         logo_image: fullLogoUrl,
         region: data.region || '',
-        district: data.district || ''
+        district: data.district || '',
+        serviceRegions: Array.isArray(data.serviceRegions) ? data.serviceRegions : [],
+        coverVideoUrl: data.coverVideoUrl || ''
       });
       setDeliveryRadius({
         km: data.deliveryRadiusKm || 0,
@@ -181,7 +219,11 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         latitude: 41.2995,
         longitude: 69.2401,
         description: '',
-        logo_image: ''
+        logo_image: '',
+        region: '',
+        district: '',
+        serviceRegions: [],
+        coverVideoUrl: ''
       });
       setLoading(false);
     }
@@ -230,6 +272,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
         longitude: formData.longitude,
         region: formData.region,
         district: formData.district,
+        serviceRegions: formData.serviceRegions, // 🗺️ регионы доставки (мультивыбор)
         locationAddress: formData.location
       });
       
@@ -399,6 +442,64 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
               </p>
             </div>
 
+            {/* 🎬 Видео-декорация: ролики загружает админ, компания выбирает один как анимированный фон страницы магазина */}
+            {decorationVideos.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm mb-2" style={{ color: '#8B8BAA' }}>
+                  🎬 {language === 'uz' ? 'Video-bezak (ixtiyoriy)' : 'Видео-декорация (необязательно)'}
+                </label>
+                <p className="text-xs mb-3" style={{ color: '#5A5A78' }}>
+                  {language === 'uz'
+                    ? 'Administrator yuklagan qisqa videoni magazin sahifasiga fon sifatida tanlang.'
+                    : 'Выберите короткое видео (загружено администратором) как фон страницы магазина.'}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {decorationVideos.map(v => {
+                    const selected = formData.coverVideoUrl === v.url;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        disabled={savingVideo}
+                        onClick={() => handleSelectDecorationVideo(v.url)}
+                        className="relative rounded-lg overflow-hidden transition-all disabled:opacity-50"
+                        style={{ aspectRatio: '16 / 9', border: selected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)' }}
+                      >
+                        <video
+                          src={getImageUrl(v.url) || v.url}
+                          muted
+                          loop
+                          playsInline
+                          className="w-full h-full object-cover"
+                        />
+                        {selected && (
+                          <span className="absolute top-1 right-1 text-xs px-2 py-0.5 rounded-full" style={{ background: '#7C5CF0', color: '#FFF' }}>
+                            ✓
+                          </span>
+                        )}
+                        {v.title && (
+                          <span className="absolute bottom-0 left-0 right-0 text-[10px] px-1 py-0.5 truncate" style={{ background: 'rgba(0,0,0,0.55)', color: '#FFF' }}>
+                            {v.title}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {formData.coverVideoUrl && (
+                  <button
+                    type="button"
+                    disabled={savingVideo}
+                    onClick={() => handleSelectDecorationVideo(formData.coverVideoUrl)}
+                    className="mt-2 text-xs font-medium"
+                    style={{ color: '#F87171' }}
+                  >
+                    {language === 'uz' ? 'Video-bezakni olib tashlash' : 'Убрать видео-декорацию'}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Логотип и основная информация */}
             <div className={`flex ${isMobile ? 'flex-col' : 'items-start'} ${responsive.gapLarge} mb-6`}>
               <div className={`relative ${isMobile ? 'mx-auto' : ''}`}>
@@ -551,6 +652,57 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                     <p style={{ color: '#FFFFFF' }}>{formData.district || t.notSpecified}</p>
                   )}
                 </div>
+              </div>
+
+              {/* 🗺️ Регионы доставки — мультивыбор (можно выбрать сколько угодно).
+                  Товары компании увидят только покупатели из выбранных регионов. */}
+              <div>
+                <label className="block text-sm mb-2" style={{ color: '#8B8BAA' }}>
+                  🚚 {language === 'uz' ? 'Yetkazib berish hududlari (bir nechta)' : 'Регионы доставки (можно несколько)'}
+                </label>
+                <p className="text-xs mb-3" style={{ color: '#5A5A78' }}>
+                  {language === 'uz'
+                    ? 'Tanlangan hududlardagi xaridorlargina sizning mahsulotlaringizni koʻradi.'
+                    : 'Ваши товары будут видны только покупателям из выбранных регионов.'}
+                </p>
+                {editMode ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {UZBEKISTAN_REGIONS.map(r => {
+                      const checked = formData.serviceRegions.includes(r.name);
+                      return (
+                        <button
+                          key={r.name}
+                          type="button"
+                          onClick={() => setFormData(prev => ({
+                            ...prev,
+                            serviceRegions: checked
+                              ? prev.serviceRegions.filter(x => x !== r.name)
+                              : [...prev.serviceRegions, r.name]
+                          }))}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-all"
+                          style={checked
+                            ? { background: 'rgba(124,92,240,0.15)', border: '1px solid #7C5CF0', color: '#FFFFFF' }
+                            : { background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', color: '#8B8BAA' }}
+                        >
+                          <span style={{ color: checked ? '#7C5CF0' : '#5A5A78' }}>{checked ? '☑' : '☐'}</span>
+                          <span className="truncate">{language === 'uz' ? r.nameUz : r.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {formData.serviceRegions.length > 0 ? (
+                      formData.serviceRegions.map(rn => (
+                        <span key={rn} className="px-3 py-1 rounded-full text-xs" style={{ background: 'rgba(124,92,240,0.15)', color: '#7C5CF0' }}>
+                          {rn}
+                        </span>
+                      ))
+                    ) : (
+                      <p style={{ color: '#FFFFFF' }}>{t.notSpecified}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
