@@ -4,6 +4,7 @@ import {
   FlatList, Dimensions, ActivityIndicator, Alert, Share, TextInput, Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
@@ -15,7 +16,7 @@ import {
   getProductDetail, getProductReviews, getProductReviewStats,
   getSimilarProducts, submitReview, voteReview, getProductVariants,
   getProductQuestions, askProductQuestion, getFrequentlyBoughtWith,
-  getCompanyDetail,
+  getCompanyDetail, uploadReviewImage, trackProductView,
 } from '../../api';
 import { getImageUrl } from '../../utils/imageUrl';
 import ProductCard from '../../components/common/ProductCard';
@@ -50,6 +51,9 @@ export default function ProductDetailScreen() {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewImages, setReviewImages] = useState([]);      // локальные URI выбранных фото
+  const [reviewFilter, setReviewFilter] = useState('all');   // 'all' | 'photo' | '5'..'1'
+  const [reviewPhotoZoom, setReviewPhotoZoom] = useState(null);
   // ❓ Вопросы о товаре
   const [questions, setQuestions] = useState([]);
   const [newQuestion, setNewQuestion] = useState('');
@@ -68,6 +72,11 @@ export default function ProductDetailScreen() {
   useEffect(() => {
     loadAll();
   }, [productId]);
+
+  // Фиксируем просмотр товара для «недавно смотрели» и персональных рекомендаций.
+  useEffect(() => {
+    if (user?.phone && productId) trackProductView(productId, user.phone);
+  }, [productId, user?.phone]);
 
   // Автопрокрутка фото товара каждые 6 сек, если фото больше одного
   useEffect(() => {
@@ -240,9 +249,29 @@ export default function ProductDetailScreen() {
     }
   };
 
+  const pickReviewImage = async () => {
+    if (reviewImages.length >= 5) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t('noGalleryAccess'), t('allowGallery'));
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
+    if (!res.canceled && res.assets?.[0]?.uri) {
+      setReviewImages(prev => [...prev, res.assets[0].uri].slice(0, 5));
+    }
+  };
+
+  const removeReviewImage = (uri) => {
+    setReviewImages(prev => prev.filter(u => u !== uri));
+  };
+
   const handleSubmitReview = async () => {
     if (!user || !product) return;
-    if (!newComment.trim()) {
+    if (!newComment.trim() && reviewImages.length === 0) {
       Alert.alert(t('error'), t('emptyReviewError'));
       return;
     }
@@ -253,16 +282,24 @@ export default function ProductDetailScreen() {
     }
     setIsSubmittingReview(true);
     try {
+      // Сначала грузим фотографии (если есть) и собираем их URL-ы.
+      let uploaded = [];
+      if (reviewImages.length > 0) {
+        const results = await Promise.all(reviewImages.map(uri => uploadReviewImage(uri).catch(() => null)));
+        uploaded = results.filter(Boolean);
+      }
       const review = await submitReview({
         product_id: productId,
         user_phone: user.phone,
         user_name: user.name,
         rating: newRating,
         comment: newComment.trim() || undefined,
+        images: uploaded,
       });
       setReviews(prev => [review, ...prev]);
       setNewComment('');
       setNewRating(5);
+      setReviewImages([]);
       Alert.alert(t('thanksWord'), t('reviewAdded'));
     } catch (err) {
       Alert.alert(t('error'), err?.response?.data?.error || t('reviewSendFail'));
@@ -327,6 +364,12 @@ export default function ProductDetailScreen() {
     : (hasVariants && minVariantPrice !== null ? minVariantPrice : basePrice);
   const hasReviews = (stats?.totalReviews ?? 0) > 0;
   const displayRating = hasReviews ? (stats?.averageRating ?? 5) : 5;
+  const reviewsWithPhotos = reviews.filter(r => (r.images?.length || 0) > 0).length;
+  const filteredReviews = reviews.filter(r => {
+    if (reviewFilter === 'all') return true;
+    if (reviewFilter === 'photo') return (r.images?.length || 0) > 0;
+    return String(r.rating) === reviewFilter;
+  });
 
   // Ширина карточки в блоках «Похожие» / «С этим покупают» — примерно на 30%
   // меньше карточки на главной (там 2 в ряд), но та же раскладка ProductCard.
@@ -694,6 +737,32 @@ export default function ProductDetailScreen() {
                 <Text style={[styles.charCounter, { color: colors.textMuted }]}>{newComment.length}/500</Text>
               </View>
 
+              {/* Фото к отзыву */}
+              <View style={styles.reviewPhotosRow}>
+                {reviewImages.map((uri) => (
+                  <View key={uri} style={styles.reviewPhotoThumbWrap}>
+                    <Image source={{ uri }} style={styles.reviewPhotoThumb} />
+                    <TouchableOpacity
+                      style={styles.reviewPhotoRemove}
+                      onPress={() => removeReviewImage(uri)}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons name="close" size={12} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {reviewImages.length < 5 && (
+                  <TouchableOpacity
+                    style={[styles.addPhotoBtn, { borderColor: colors.border, backgroundColor: colors.inputBg }]}
+                    onPress={pickReviewImage}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                    <Text style={[styles.addPhotoText, { color: colors.textSecondary }]}>{t('addPhotoBtn')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Подсказки */}
               <View style={styles.tipsRow}>
                 {[
@@ -727,10 +796,39 @@ export default function ProductDetailScreen() {
             <Text style={[styles.sectionLabel, { color: colors.text }]}>
               {t('reviewsTitle')} {reviews.length > 0 ? `(${reviews.length})` : ''}
             </Text>
+            {reviews.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.reviewFilterRow}
+              >
+                {[
+                  { key: 'all', label: t('tabAll') },
+                  ...(reviewsWithPhotos > 0 ? [{ key: 'photo', label: `${t('withPhoto')} ${reviewsWithPhotos}` }] : []),
+                  { key: '5', label: '5 ★' },
+                  { key: '4', label: '4 ★' },
+                  { key: '3', label: '3 ★' },
+                  { key: '2', label: '2 ★' },
+                  { key: '1', label: '1 ★' },
+                ].map((f) => {
+                  const active = reviewFilter === f.key;
+                  return (
+                    <TouchableOpacity
+                      key={f.key}
+                      style={[styles.reviewFilterChip, { backgroundColor: active ? colors.primary : colors.inputBg, borderColor: active ? colors.primary : colors.border }]}
+                      onPress={() => setReviewFilter(f.key)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.reviewFilterText, { color: active ? '#FFF' : colors.textSecondary }]}>{f.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
             {reviews.length === 0 ? (
               <Text style={[styles.noReviews, { color: colors.textMuted }]}>{t('noReviewsBeFirst')}</Text>
             ) : (
-              reviews.map((review) => (
+              filteredReviews.map((review) => (
                 <View key={review.id} style={[styles.reviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                   <View style={styles.reviewHeader}>
                     <View style={[styles.reviewAvatar, { backgroundColor: colors.primary + '30' }]}>
@@ -761,6 +859,15 @@ export default function ProductDetailScreen() {
                   {review.comment ? (
                     <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>{review.comment}</Text>
                   ) : null}
+                  {review.images?.length > 0 && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reviewImagesRow}>
+                      {review.images.map((img, idx) => (
+                        <TouchableOpacity key={idx} onPress={() => setReviewPhotoZoom(getImageUrl(img))} activeOpacity={0.9}>
+                          <Image source={{ uri: getImageUrl(img) }} style={styles.reviewImageThumb} />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
                   <View style={styles.voteRow}>
                     <TouchableOpacity
                       style={[styles.voteBtn, { backgroundColor: votedReviews[review.id] === 'like' ? colors.primary + '20' : colors.inputBg }]}
@@ -981,6 +1088,27 @@ export default function ProductDetailScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Просмотр фото из отзыва */}
+      <Modal visible={!!reviewPhotoZoom} transparent animationType="fade" onRequestClose={() => setReviewPhotoZoom(null)}>
+        <View style={styles.zoomBackdrop}>
+          <TouchableOpacity style={styles.zoomClose} onPress={() => setReviewPhotoZoom(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="close" size={28} color="#FFF" />
+          </TouchableOpacity>
+          <ScrollView
+            style={{ width, height: '100%' }}
+            contentContainerStyle={styles.zoomPage}
+            maximumZoomScale={3}
+            minimumZoomScale={1}
+            showsVerticalScrollIndicator={false}
+            centerContent
+          >
+            {reviewPhotoZoom ? (
+              <Image source={{ uri: reviewPhotoZoom }} style={{ width, height: width }} resizeMode="contain" />
+            ) : null}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1106,6 +1234,17 @@ const styles = StyleSheet.create({
   reviewStars: { flexDirection: 'row', gap: 2, marginTop: 2 },
   reviewDate: { fontSize: 12 },
   reviewComment: { fontSize: 14, lineHeight: 20, marginBottom: 10 },
+  reviewPhotosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4, marginBottom: 4 },
+  reviewPhotoThumbWrap: { position: 'relative' },
+  reviewPhotoThumb: { width: 64, height: 64, borderRadius: 10 },
+  reviewPhotoRemove: { position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
+  addPhotoBtn: { width: 64, height: 64, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  addPhotoText: { fontSize: 9, fontWeight: '600', textAlign: 'center' },
+  reviewFilterRow: { gap: 8, paddingVertical: 10 },
+  reviewFilterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1 },
+  reviewFilterText: { fontSize: 12.5, fontWeight: '600' },
+  reviewImagesRow: { gap: 8, marginBottom: 10 },
+  reviewImageThumb: { width: 72, height: 72, borderRadius: 10 },
   voteRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 },
   voteBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   voteCount: { fontSize: 12, fontWeight: '600' },

@@ -109,6 +109,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		reviews := api.Group("/reviews")
 		{
 			reviews.POST("", handlers.CreateReview(db))
+			reviews.POST("/upload-image", handlers.UploadReviewImage(db)) // 📷 Загрузка фото для отзыва
 			reviews.POST("/:id/vote", handlers.VoteReview(db)) // 👍 Лайк/дизлайк отзыва
 			reviews.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteReview(db)) // 🗑 Продавец удаляет отзыв
 		}
@@ -188,6 +189,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.DELETE("/:phone/avatar", handlers.DeleteUserAvatar(db))
 			users.GET("/:phone/profile", handlers.GetUserProfile(db))
 			users.GET("/:phone/reviews", handlers.GetUserReviews(db))
+			users.GET("/:phone/recently-viewed", handlers.GetRecentlyViewed(db)) // 👁 Недавно смотрели
+			users.GET("/:phone/recommendations", handlers.GetRecommendations(db)) // ✨ Рекомендуем вам
 			users.GET("/:phone/stats", handlers.GetUserStats(db))
 			users.POST("/:phone/subscribe", handlers.ToggleSubscription(db))
 			users.GET("/:phone/subscription-status/:targetPhone", handlers.CheckSubscriptionStatus(db))

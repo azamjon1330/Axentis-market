@@ -60,6 +60,7 @@ const mapReview = (r) => ({
   dislikes: r.dislikes ?? 0,
   createdAt: r.createdAt ?? r.created_at,
   userVote: r.user_vote ?? null,
+  images: Array.isArray(r.images) ? r.images : [],
 });
 
 export const getProductReviews = async (id, userPhone) => {
@@ -88,9 +89,39 @@ export const getSimilarProducts = async (id) => {
   return Array.isArray(res.data) ? res.data : (res.data?.products || []);
 };
 
+// Отметить просмотр товара (для «недавно смотрели» и рекомендаций). Fire-and-forget.
+export const trackProductView = async (id, phone) => {
+  if (!phone) return;
+  try { await api.post(ENDPOINTS.productView(id), { phone }); } catch { /* ignore */ }
+};
+
+export const getRecentlyViewed = async (phone, limit = 12) => {
+  const res = await api.get(ENDPOINTS.recentlyViewed(phone), { params: { limit } });
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+export const getRecommendations = async (phone, limit = 12) => {
+  const res = await api.get(ENDPOINTS.recommendations(phone), { params: { limit } });
+  return Array.isArray(res.data) ? res.data : [];
+};
+
 export const submitReview = async (data) => {
   const res = await api.post(ENDPOINTS.reviews, data);
   return mapReview(res.data);
+};
+
+// Загрузка одного фото отзыва (multipart) → возвращает URL на сервере.
+export const uploadReviewImage = async (uri) => {
+  const name = uri.split('/').pop() || `review_${Date.now()}.jpg`;
+  const ext = (name.split('.').pop() || 'jpg').toLowerCase();
+  const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const form = new FormData();
+  form.append('image', { uri, name, type });
+  const res = await api.post(ENDPOINTS.reviewUploadImage, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000,
+  });
+  return res.data?.url;
 };
 
 export const voteReview = async (reviewId, phone, voteType) => {
