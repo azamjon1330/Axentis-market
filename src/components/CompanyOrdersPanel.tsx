@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Check, X, Clock, Package, Phone, User, Receipt, DollarSign, RefreshCw, Calendar, MapPin, Navigation, Truck } from 'lucide-react';
 import api from '../utils/api';
 import { formatUzbekistanFullDateTime } from '../utils/uzbekTime';
@@ -7,7 +7,6 @@ import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 import CompactPeriodSelector from './CompactPeriodSelector';
 
-const DeliveryMap = lazy(() => import('./DeliveryMap'));
 
 interface OrderItem {
   name: string;
@@ -65,13 +64,6 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const [periodEndDate, setPeriodEndDate] = useState<Date | null>(null);
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
-  const [companyCoords, setCompanyCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [companyAddress, setCompanyAddress] = useState<string>('');
-
-  // Selected delivery coords for map (right panel)
-  const [mapDeliveryCoords, setMapDeliveryCoords] = useState<{lat: number, lng: number} | null>(null);
-  const [mapOrderCode, setMapOrderCode] = useState<string | null>(null);
-  const [mapDeliveryAddress, setMapDeliveryAddress] = useState<string | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   const { isMobile } = useResponsive();
@@ -79,27 +71,12 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
 
   useEffect(() => {
     loadOrders();
-    loadCompanyData();
 
     const interval = setInterval(() => {
       loadOrders();
     }, 3000);
     return () => clearInterval(interval);
   }, [companyId]);
-
-  const loadCompanyData = async () => {
-    try {
-      const data = await api.companies.get(companyId.toString());
-      if (data.latitude && data.longitude) {
-        setCompanyCoords({ lat: data.latitude, lng: data.longitude });
-      }
-      if (data.address) {
-        setCompanyAddress(data.address);
-      }
-    } catch (error) {
-      console.error('Error loading company data:', error);
-    }
-  };
 
   const loadOrders = async () => {
     try {
@@ -212,43 +189,8 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     }
   };
 
-  const parseDeliveryCoords = (coords: string): { lat: number; lng: number } | null => {
-    try {
-      const parts = coords.split(',').map(c => parseFloat(c.trim()));
-      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        return { lat: parts[0], lng: parts[1] };
-      }
-    } catch {}
-    return null;
-  };
-
   const toggleExpand = (order: Order) => {
-    const newId = expandedOrderId === order.id ? null : order.id;
-    setExpandedOrderId(newId);
-
-    if (newId && order.delivery_type === 'delivery') {
-      if (order.delivery_coordinates) {
-        const coords = parseDeliveryCoords(order.delivery_coordinates);
-        if (coords) {
-          setMapDeliveryCoords(coords);
-          setMapDeliveryAddress(order.delivery_address || null);
-          setMapOrderCode(order.order_code);
-          return;
-        }
-      }
-      // No coords but has text address — let DeliveryMap geocode it
-      if (order.delivery_address) {
-        setMapDeliveryCoords(null);
-        setMapDeliveryAddress(order.delivery_address);
-        setMapOrderCode(order.order_code);
-        return;
-      }
-    }
-    if (!newId) {
-      setMapDeliveryCoords(null);
-      setMapDeliveryAddress(null);
-      setMapOrderCode(null);
-    }
+    setExpandedOrderId(expandedOrderId === order.id ? null : order.id);
   };
 
   const formatPrice = (price: number) => {
@@ -739,110 +681,11 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
     </div>
   );
 
-  // ── MAP PANEL ─────────────────────────────────────────────────────────────
-  const mapPanel = (
-    <div
-      className="rounded-xl overflow-hidden flex flex-col"
-      style={{
-        background: 'var(--ax-card)',
-        border: '1px solid rgba(255,255,255,0.07)',
-        height: isMobile ? 280 : '100%',
-        minHeight: isMobile ? 280 : 500,
-        position: isMobile ? undefined : 'sticky',
-        top: isMobile ? undefined : 16,
-      }}
-    >
-      {/* Map header */}
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4" style={{ color: '#7C5CF0' }} />
-          <span className="text-sm font-semibold" style={{ color: 'var(--ax-text)' }}>
-            {mapDeliveryCoords
-              ? `${language === 'uz' ? 'Yo\'nalish' : 'Маршрут'} #${mapOrderCode}`
-              : language === 'uz' ? 'Kompaniya joylashuvi' : 'Местоположение компании'}
-          </span>
-        </div>
-        {mapDeliveryCoords && (
-          <button
-            onClick={() => { setMapDeliveryCoords(null); setMapOrderCode(null); }}
-            className="text-xs px-2 py-1 rounded"
-            style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--ax-text-2)' }}
-          >
-            ✕ {language === 'uz' ? 'Yopish' : 'Сбросить'}
-          </button>
-        )}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-blue-600 border-2 border-white shadow" />
-          <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Kompaniya' : 'Компания'}</span>
-        </div>
-        {mapDeliveryCoords && (
-          <>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-600 border-2 border-white shadow" />
-              <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Yetkazish' : 'Доставка'}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="h-0.5 w-5 rounded" style={{ background: '#7C5CF0' }} />
-              <span className="text-xs" style={{ color: 'var(--ax-text-2)' }}>OSRM</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Hint when no order selected */}
-      {!mapDeliveryCoords && !mapDeliveryAddress && (
-        <div className="px-4 py-2 text-xs" style={{ color: 'var(--ax-text-2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          {language === 'uz'
-            ? '💡 Yetkazib berish buyurtmasini bosing — OSRM yo\'nalish chiziladi'
-            : '💡 Нажмите на заказ с доставкой — маршрут будет нарисован автоматически'}
-        </div>
-      )}
-      {!mapDeliveryCoords && mapDeliveryAddress && (
-        <div className="px-4 py-2 text-xs" style={{ color: '#F59E0B', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          🔍 {language === 'uz' ? 'Manzil boyicha qidirilmoqda...' : `Геокодирование адреса: ${mapDeliveryAddress}`}
-        </div>
-      )}
-
-      {/* Map */}
-      <div className="flex-1" style={{ minHeight: 200 }}>
-        <Suspense fallback={
-          <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--ax-text-2)' }}>
-            Загрузка карты...
-          </div>
-        }>
-          <DeliveryMap
-            companyCoords={companyCoords}
-            deliveryCoords={mapDeliveryCoords}
-            companyAddress={companyAddress}
-            deliveryAddress={mapDeliveryAddress || undefined}
-          />
-        </Suspense>
-      </div>
-    </div>
-  );
 
   // ── ROOT LAYOUT ───────────────────────────────────────────────────────────
   return (
     <div className={responsive.spacing} style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
-      {isMobile ? (
-        // Mobile: orders first, map below
-        <>
-          {orderListPanel}
-          <div className="mt-2">{mapPanel}</div>
-        </>
-      ) : (
-        // Desktop: side-by-side (orders left, map right) — карта пропорционально сжимается
-        <div className="flex gap-4 items-start">
-          <div className="flex-1 min-w-0">{orderListPanel}</div>
-          <div style={{ width: 'min(42%, 520px)', minWidth: 320, flexShrink: 0, alignSelf: 'stretch' }}>
-            {mapPanel}
-          </div>
-        </div>
-      )}
+      {orderListPanel}
     </div>
   );
 }
