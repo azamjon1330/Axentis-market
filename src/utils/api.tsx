@@ -1677,10 +1677,25 @@ export const broadcast = {
   bans: () => apiCall('/broadcast/bans'),
 };
 
+// ============================================================================
+// REGIONS API (границы рисует админ, компании выбирают свой регион)
+// ============================================================================
+export const regions = {
+  list: () => apiCall('/regions', { requiresAuth: false }),
+  create: (data: { name: string; nameUz?: string; parentId?: number | null; geojson: any }) =>
+    apiCall('/regions', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: { name: string; nameUz?: string; geojson: any }) =>
+    apiCall(`/regions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id: number) => apiCall(`/regions/${id}`, { method: 'DELETE' }),
+  setCompanyRegion: (companyId: number, regionId: number | null) =>
+    apiCall(`/companies/${companyId}/region`, { method: 'PUT', body: JSON.stringify({ regionId }) }),
+};
+
 export default {
   baseURL: API_BASE.replace('/api', ''), // 🔗 Base URL для прямых fetch запросов
   auth,
   broadcast, // 💬 Общий чат-канал
+  regions, // 🗺️ Регионы доставки
   products,
   sales,
   cashSales,

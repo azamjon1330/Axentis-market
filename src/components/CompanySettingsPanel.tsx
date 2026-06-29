@@ -25,6 +25,11 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
   const [returnWindowHours, setReturnWindowHours] = useState('24');
   const [savingDelivery, setSavingDelivery] = useState(false);
 
+  // 🗺️ Регион доставки
+  const [regions, setRegions] = useState<Array<{ id: number; name: string; nameUz?: string }>>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  const [savingRegion, setSavingRegion] = useState(false);
+
   useEffect(() => {
     loadCompanyData();
   }, [companyId]);
@@ -48,13 +53,32 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
           if (full.deliveryCostPerKm != null) setCostPerKm(String(full.deliveryCostPerKm));
           if (full.returnEnabled != null) setReturnEnabled(!!full.returnEnabled);
           if (full.returnWindowHours != null) setReturnWindowHours(String(full.returnWindowHours));
+          const rid = full.regionId ?? full.region_id;
+          if (rid != null) setSelectedRegionId(rid);
         }
+      } catch { /* ignore */ }
+
+      try {
+        const regs = await api.regions.list();
+        setRegions(Array.isArray(regs) ? regs : []);
       } catch { /* ignore */ }
     } catch (error) {
       console.error('Error loading company data:', error);
       alert(t.errorLoadingCompanyData);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveRegion = async (regionId: number | null) => {
+    setSelectedRegionId(regionId);
+    try {
+      setSavingRegion(true);
+      await api.regions.setCompanyRegion(companyId, regionId);
+    } catch (error) {
+      console.error('Error saving region:', error);
+    } finally {
+      setSavingRegion(false);
     }
   };
 
@@ -154,6 +178,48 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
             ? 'Har bir doʻkon uchun yetkazib berish tarifi va qaytarish qoidalari'
             : 'Тариф доставки и правила возврата для вашего магазина'}
         </p>
+      </div>
+
+      {/* 🗺️ Регион доставки */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Globe className="w-6 h-6 text-emerald-600" />
+          <div>
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              {language === 'uz' ? 'Yetkazib berish regioni' : 'Регион доставки'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {language === 'uz'
+                ? 'Doʻkoningiz qaysi regionga xizmat qiladi (regionlarni admin yaratadi)'
+                : 'В каком регионе работает ваш магазин (регионы создаёт администратор)'}
+            </p>
+          </div>
+        </div>
+        {regions.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {language === 'uz' ? 'Hali regionlar qoʻshilmagan' : 'Регионы ещё не добавлены администратором'}
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {regions.map((r) => {
+              const active = selectedRegionId === r.id;
+              return (
+                <button
+                  key={r.id}
+                  disabled={savingRegion}
+                  onClick={() => handleSaveRegion(active ? null : r.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition disabled:opacity-60 ${
+                    active
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-emerald-400'
+                  }`}
+                >
+                  {language === 'uz' && r.nameUz ? r.nameUz : r.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 🚚 Доставка */}
