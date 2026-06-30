@@ -1,20 +1,15 @@
-import {
-  Home,
-  ShoppingCart,
-  User,
-  Heart,
-} from "lucide-react";
+import { Home, ShoppingCart, User, Heart } from "lucide-react";
 
 interface BottomNavigationProps {
   currentPage: "home" | "cart" | "likes" | "settings";
-  onNavigate: (
-    page: "home" | "cart" | "likes" | "settings",
-  ) => void;
+  onNavigate: (page: "home" | "cart" | "likes" | "settings") => void;
   cartItemsCount?: number;
   likesCount?: number;
   displayMode?: "day" | "night";
 }
 
+// Нижняя навигация — как таб-бар в приложении Homepage:
+// тёмный/светлый фон, акцентный индиго у активной вкладки, подписи под иконками.
 export default function BottomNavigation({
   currentPage,
   onNavigate,
@@ -23,81 +18,62 @@ export default function BottomNavigation({
   displayMode = "day",
 }: BottomNavigationProps) {
   const isNight = displayMode === "night";
-  
+  const hp = {
+    tabBar: isNight ? "#0B1020" : "#FFFFFF",
+    border: isNight ? "rgba(255,255,255,0.06)" : "rgba(11,14,22,0.08)",
+    active: "#6D5DFB",
+    inactive: isNight ? "#6B7280" : "#9AA1AE",
+  };
+
+  // Порядок как в Homepage: Главная · Корзина · Избранное · Профиль
+  const tabs: Array<{
+    key: BottomNavigationProps["currentPage"];
+    label: string;
+    Icon: typeof Home;
+    badge?: number;
+  }> = [
+    { key: "home", label: "Главная", Icon: Home },
+    { key: "cart", label: "Корзина", Icon: ShoppingCart, badge: cartItemsCount },
+    { key: "likes", label: "Избранное", Icon: Heart, badge: likesCount },
+    { key: "settings", label: "Профиль", Icon: User },
+  ];
+
   return (
-    <div className={`fixed bottom-0 left-0 right-0 z-[70] transition-colors duration-500 ${
-      isNight ? "bg-[#C0BCBC]" : "bg-[#C0BCBC]"
-    }`} style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      <div className="flex items-center justify-around w-full">
-        {/* Home Button */}
-        <button
-          onClick={() => onNavigate("home")}
-          className={`flex-1 flex flex-col items-center justify-center py-4 transition-all duration-300 ${
-            currentPage === "home"
-              ? isNight ? "text-[#1a0b16] font-bold" : "text-black font-bold scale-110"
-              : isNight ? "text-[#1a0b16]/70 hover:text-[#1a0b16]" : "text-black/60 hover:text-black"
-          }`}
-        >
-          <Home
-            className={`w-6 h-6 ${currentPage === "home" ? "fill-current" : ""}`}
-          />
-        </button>
-
-        {/* Likes Button */}
-        <button
-          onClick={() => onNavigate("likes")}
-          className={`flex-1 flex flex-col items-center justify-center py-4 transition-all duration-300 relative ${
-            currentPage === "likes"
-              ? isNight ? "text-[#1a0b16] font-bold" : "text-black font-bold scale-110"
-              : isNight ? "text-[#1a0b16]/70 hover:text-[#1a0b16]" : "text-black/60 hover:text-black"
-          }`}
-        >
-          <div className="relative">
-            <Heart
-              className={`w-6 h-6 ${currentPage === "likes" ? "fill-current" : ""}`}
-            />
-            {likesCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-pink-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {likesCount}
+    <div
+      className="fixed bottom-0 left-0 right-0 z-[70] transition-colors duration-300"
+      style={{
+        background: hp.tabBar,
+        borderTop: `1px solid ${hp.border}`,
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
+    >
+      <div className="flex items-stretch justify-around w-full max-w-2xl mx-auto">
+        {tabs.map(({ key, label, Icon, badge }) => {
+          const active = currentPage === key;
+          const color = active ? hp.active : hp.inactive;
+          return (
+            <button
+              key={key}
+              onClick={() => onNavigate(key)}
+              className="flex-1 flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-transform active:scale-95"
+            >
+              <div className="relative">
+                <Icon className="w-[23px] h-[23px]" style={{ color }} fill={active ? color : "transparent"} />
+                {badge && badge > 0 ? (
+                  <span
+                    className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center"
+                    style={{ background: "#EF4444" }}
+                  >
+                    {badge > 9 ? "9+" : badge}
+                  </span>
+                ) : null}
               </div>
-            )}
-          </div>
-        </button>
-
-        {/* Cart Button */}
-        <button
-          onClick={() => onNavigate("cart")}
-          className={`flex-1 flex flex-col items-center justify-center py-4 transition-all duration-300 relative ${
-            currentPage === "cart"
-              ? isNight ? "text-[#1a0b16] font-bold" : "text-black font-bold scale-110"
-              : isNight ? "text-[#1a0b16]/70 hover:text-[#1a0b16]" : "text-black/60 hover:text-black"
-          }`}
-        >
-          <div className="relative bg-transparent">
-            <ShoppingCart
-              className={`w-6 h-6 ${currentPage === "cart" ? "fill-current" : ""}`}
-            />
-            {cartItemsCount > 0 && (
-              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                {cartItemsCount}
-              </div>
-            )}
-          </div>
-        </button>
-
-        {/* Settings Button (acting as User Profile icon in mockup) */}
-        <button
-          onClick={() => onNavigate("settings")}
-          className={`flex-1 flex flex-col items-center justify-center py-4 transition-all duration-300 ${
-            currentPage === "settings"
-              ? isNight ? "text-[#1a0b16] font-bold" : "text-black font-bold scale-110"
-              : isNight ? "text-[#1a0b16]/70 hover:text-[#1a0b16]" : "text-black/60 hover:text-black"
-          }`}
-        >
-          <User
-            className={`w-6 h-6 ${currentPage === "settings" ? "fill-current" : ""}`}
-          />
-        </button>
+              <span className="text-[11px]" style={{ color, fontWeight: active ? 700 : 500 }}>
+                {label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

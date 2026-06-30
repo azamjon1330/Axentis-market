@@ -62,3 +62,44 @@ export default function CategoryIcon({ icon, className = 'w-6 h-6' }: Props) {
   const Icon = (icon && ICON_MAP[icon]) || Package;
   return <Icon className={className} />;
 }
+
+// Подбор ключа иконки по НАЗВАНИЮ категории (ru/uz/en) — как resolveCategoryIonicon
+// в приложении Homepage. Используется там, где есть только имя категории.
+const NAME_HINTS: [RegExp, string][] = [
+  [/телефон|phone|смартфон|smartfon/i, 'smartphone'],
+  [/ноут|компьютер|laptop|computer/i, 'laptop'],
+  [/телевизор|\btv\b|техник/i, 'tv'],
+  [/электрон|electronic|гаджет|gadget/i, 'smartphone'],
+  [/одежд|kiyim|clothes|cloth/i, 'shirt'],
+  [/обув|shoe|footwear|poyabzal/i, 'footprints'],
+  [/игр|game|toy|игрушк|oyin/i, 'gamepad'],
+  [/аудио|наушник|headphone|audio|quloqchin/i, 'headphones'],
+  [/книг|book|kitob/i, 'book'],
+  [/мебел|sofa|furniture|mebel/i, 'sofa'],
+  [/дом|home|uy|для дома/i, 'home'],
+  [/авто|car|mashina|транспорт/i, 'car'],
+  [/велосипед|bike|велик/i, 'bike'],
+  [/спорт|sport|фитнес|fitness/i, 'dumbbell'],
+  [/прод|food|еда|ovqat|grocery|пит/i, 'food'],
+  [/красот|beauty|косметик|go.zallik|parfum/i, 'beauty'],
+  [/час|watch|soat/i, 'watch'],
+  [/подар|gift|sovga/i, 'gift'],
+  [/инструмент|tool|asbob|ремонт/i, 'tools'],
+  [/аптек|pharm|медик|dori|здоров/i, 'pharmacy'],
+  [/дет|baby|bola|kids|child|для детей/i, 'baby'],
+  [/фото|camera|kamera/i, 'camera'],
+  [/аксессуар|accessor|сумк|bag|ryukzak/i, 'bag'],
+];
+
+export function categoryIconKeyByName(name?: string): string {
+  if (!name) return DEFAULT_CATEGORY_ICON;
+  for (const [re, key] of NAME_HINTS) {
+    if (re.test(name)) return key;
+  }
+  return DEFAULT_CATEGORY_ICON;
+}
+
+// Иконка категории по её названию (когда нет объекта с полем icon).
+export function CategoryNameIcon({ name, className = 'w-[18px] h-[18px]' }: { name?: string; className?: string }) {
+  return <CategoryIcon icon={categoryIconKeyByName(name)} className={className} />;
+}

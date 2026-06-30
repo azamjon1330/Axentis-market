@@ -1,7 +1,7 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DeliveryLocationPicker from './DeliveryLocationPicker';
-import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck, Bell } from 'lucide-react';
+import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck, Bell, Store } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import CartItemImage from './CartItemImage';
 import HitCompanies from './HitCompanies';
@@ -15,6 +15,7 @@ import ProductCard from './ProductCard'; // 🖼️ НОВОЕ: Карточка
 import ProductDetails from './ProductDetails'; // 📄 НОВОЕ: Страница деталей товара
 import CatalogPanel from './CatalogPanel'; // 📂 НОВОЕ: Панель каталога
 import NotificationsPage from './NotificationsPage'; // 🔔 Уведомления покупателя
+import { CategoryNameIcon } from './CategoryIcon'; // 📂 Векторные иконки категорий
 import AnimatedCartButton from './AnimatedCartButton'; // 🛒 Анимированная кнопка
 import { useProductUpdates } from '../utils/socket'; // 🔥 Socket.io Realtime
 
@@ -1646,23 +1647,28 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                         <>
                           <button
                             onClick={() => setActiveCategory(null)}
-                            className="flex items-center gap-1.5 px-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
+                            className="flex items-center gap-1.5 pl-3 pr-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
                             style={chipStyle(activeCategory === null)}
                           >
-                            <span className="text-base">🏪</span>
+                            <Store className="w-[17px] h-[17px]" style={{ color: activeCategory === null ? (isNight ? '#FFFFFF' : '#0B0E16') : (isNight ? '#9CA3AF' : '#5B6472') }} />
                             <span>Barchasi</span>
                           </button>
-                          {uniqueCategories.map(cat => (
-                            <button
-                              key={cat}
-                              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                              className="flex items-center gap-1.5 px-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
-                              style={chipStyle(activeCategory === cat)}
-                            >
-                              <span className="text-base">{getIcon(cat)}</span>
-                              <span className="max-w-[90px] truncate">{cat}</span>
-                            </button>
-                          ))}
+                          {uniqueCategories.map(cat => {
+                            const active = activeCategory === cat;
+                            return (
+                              <button
+                                key={cat}
+                                onClick={() => setActiveCategory(active ? null : cat)}
+                                className="flex items-center gap-1.5 pl-3 pr-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
+                                style={chipStyle(active)}
+                              >
+                                <span style={{ color: active ? (isNight ? '#FFFFFF' : '#0B0E16') : (isNight ? '#9CA3AF' : '#5B6472'), display: 'flex' }}>
+                                  <CategoryNameIcon name={cat} className="w-[17px] h-[17px]" />
+                                </span>
+                                <span className="max-w-[90px] truncate">{cat}</span>
+                              </button>
+                            );
+                          })}
                         </>
                       );
                     })()}
