@@ -1383,11 +1383,17 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             WebkitBackdropFilter: 'blur(12px)',
           }}
         >
-          {/* Location selector row */}
-          <div className="px-4 pt-2 pb-0 relative">
+          {/* Greeting + location selector row (как в Homepage) */}
+          <div className="px-4 pt-2.5 pb-0 relative">
+            <p className={`text-[13px] font-medium ${isNight ? 'text-gray-400' : 'text-gray-500'}`}>
+              Добро пожаловать
+            </p>
+            <h2 className={`text-[22px] font-extrabold tracking-tight leading-tight ${isNight ? 'text-white' : 'text-[#0B0E16]'}`}>
+              {userName ? userName.split(' ')[0] : 'Axentis Market'}
+            </h2>
             <button
               onClick={() => setShowRegionPicker(prev => !prev)}
-              className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 text-xs font-medium transition-colors mt-1 ${
                 isNight ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
               }`}
             >
@@ -1624,31 +1630,42 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               return (
                 <div className="-mx-4 px-4 overflow-x-auto scrollbar-none mb-4" style={{ scrollbarWidth: 'none' }}>
                   <div className="flex gap-2 pb-1" style={{ width: 'max-content' }}>
-                    <button
-                      onClick={() => setActiveCategory(null)}
-                      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
-                        activeCategory === null
-                          ? 'bg-gray-900 text-white shadow-sm'
-                          : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      <span className="text-base">🏪</span>
-                      <span>Barchasi</span>
-                    </button>
-                    {uniqueCategories.map(cat => (
-                      <button
-                        key={cat}
-                        onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium transition-all shrink-0 ${
-                          activeCategory === cat
-                            ? 'bg-gray-900 text-white shadow-sm'
-                            : isNight ? 'bg-white/10 text-gray-300 hover:bg-white/15' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        <span className="text-base">{getIcon(cat)}</span>
-                        <span className="max-w-[80px] truncate">{cat}</span>
-                      </button>
-                    ))}
+                    {(() => {
+                      const chipStyle = (active: boolean) => active
+                        ? {
+                            backgroundColor: isNight ? 'rgba(255,255,255,0.08)' : 'rgba(109,93,251,0.08)',
+                            border: `2px solid ${isNight ? '#FFFFFF' : '#6D5DFB'}`,
+                            color: isNight ? '#FFFFFF' : '#0B0E16',
+                          }
+                        : {
+                            backgroundColor: 'transparent',
+                            border: `1px solid ${isNight ? 'rgba(255,255,255,0.06)' : 'rgba(11,14,22,0.08)'}`,
+                            color: isNight ? '#9CA3AF' : '#5B6472',
+                          };
+                      return (
+                        <>
+                          <button
+                            onClick={() => setActiveCategory(null)}
+                            className="flex items-center gap-1.5 px-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
+                            style={chipStyle(activeCategory === null)}
+                          >
+                            <span className="text-base">🏪</span>
+                            <span>Barchasi</span>
+                          </button>
+                          {uniqueCategories.map(cat => (
+                            <button
+                              key={cat}
+                              onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                              className="flex items-center gap-1.5 px-3.5 h-[38px] rounded-full text-[13px] font-semibold transition-all shrink-0"
+                              style={chipStyle(activeCategory === cat)}
+                            >
+                              <span className="text-base">{getIcon(cat)}</span>
+                              <span className="max-w-[90px] truncate">{cat}</span>
+                            </button>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               );
