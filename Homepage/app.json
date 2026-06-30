@@ -3,6 +3,7 @@
     "name": "Axentis Market",
     "slug": "homepage",
     "version": "1.0.0",
+    "scheme": "axentis",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",

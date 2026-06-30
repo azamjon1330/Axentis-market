@@ -1,6 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+
+// 🔗 Глубокие ссылки: открывают товар/магазин прямо в приложении.
+//   axentis://product/123 · axentis://company/45
+//   https://axentis.uz/product/123 · https://axentis.uz/company/45
+const deepLinking = {
+  prefixes: ['axentis://', 'https://axentis.uz', 'http://axentis.uz'],
+  config: {
+    screens: {
+      ProductDetail: 'product/:productId',
+      CompanyStore: 'company/:companyId',
+    },
+  },
+};
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -134,6 +147,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer
+      linking={deepLinking}
       theme={{
         dark: isDark,
         colors: {

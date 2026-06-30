@@ -286,6 +286,26 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     }
   };
 
+  // 📱 Если ссылку на товар/магазин открыли на телефоне — пробуем открыть
+  // нативное приложение (axentis://…). Если приложение не установлено, ничего
+  // не происходит и пользователь остаётся на сайте (запасной вариант).
+  // Когда появится страница в Play Market — сюда добавим редирект на установку.
+  const tryOpenInApp = (appPath: string) => {
+    try {
+      const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (!isMobile) return;
+      // Пробуем один раз за сессию, чтобы не дёргать пользователя при каждой навигации
+      const flag = `ax_app_try_${appPath}`;
+      if (sessionStorage.getItem(flag)) return;
+      sessionStorage.setItem(flag, '1');
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = `axentis://${appPath}`;
+      document.body.appendChild(iframe);
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch { /* ignore */ } }, 1500);
+    } catch { /* ignore */ }
+  };
+
   // 🔔 Подгружаем число непрочитанных уведомлений (и обновляем при закрытии экрана)
   useEffect(() => {
     if (!userPhone) { setUnreadNotifs(0); return; }
@@ -308,9 +328,11 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
     const productMatch = initialHash.match(/^#product-(\d+)/);
     const companyMatch = initialHash.match(/^#company-(\d+)/);
     if (productMatch) {
+      tryOpenInApp(`product/${productMatch[1]}`);
       openProductById(Number(productMatch[1]));
     } else if (companyMatch) {
       const cid = Number(companyMatch[1]);
+      tryOpenInApp(`company/${cid}`);
       setViewingCompanyId(cid);
       window.history.replaceState({ view: 'company', id: cid, page: 'home' }, '', `#company-${cid}`);
     } else {

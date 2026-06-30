@@ -25,11 +25,11 @@ const STATUS_LABEL_UZ: Record<string, string> = {
   requested: 'Soʻralgan', approved: 'Tasdiqlangan', rejected: 'Rad etilgan', refunded: 'Pul qaytarilgan',
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  requested: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-blue-100 text-blue-700',
-  rejected: 'bg-red-100 text-red-700',
-  refunded: 'bg-green-100 text-green-700',
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  requested: { bg: 'rgba(245,158,11,0.16)', color: '#F59E0B' },
+  approved:  { bg: 'rgba(56,189,248,0.16)', color: '#38BDF8' },
+  rejected:  { bg: 'rgba(248,113,113,0.16)', color: '#F87171' },
+  refunded:  { bg: 'rgba(34,197,94,0.16)',  color: '#22C55E' },
 };
 
 /**
@@ -79,31 +79,51 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center gap-2 mb-4">
-        <RotateCcw className="w-6 h-6 text-orange-600" />
-        <h2 className="text-lg font-bold">{L.title}</h2>
+    <div className="max-w-3xl mx-auto" style={{ color: 'var(--ax-text)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <RotateCcw className="w-6 h-6" style={{ color: '#F59E0B' }} />
+          <h2 className="text-lg font-bold">{L.title}</h2>
+          {!loading && items.length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(124,92,240,0.16)', color: '#7C5CF0' }}>
+              {items.length}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={load}
+          className="w-9 h-9 flex items-center justify-center rounded-lg active:scale-95"
+          style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--ax-text-2)' }}
+          aria-label="refresh"
+        >
+          <RotateCcw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {loading ? (
-        <p className="text-gray-400">{L.loading}</p>
+        <p style={{ color: 'var(--ax-text-2)' }}>{L.loading}</p>
       ) : items.length === 0 ? (
-        <p className="text-gray-400">{L.empty}</p>
+        <div className="flex flex-col items-center justify-center py-16 gap-3" style={{ color: 'var(--ax-text-2)' }}>
+          <RotateCcw className="w-12 h-12 opacity-40" />
+          <p>{L.empty}</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {items.map((r) => (
-            <div key={r.id} className="bg-white rounded-xl p-4 shadow-sm">
+          {items.map((r) => {
+            const badge = STATUS_BADGE[r.status] || { bg: 'rgba(255,255,255,0.08)', color: 'var(--ax-text-2)' };
+            return (
+            <div key={r.id} className="rounded-xl p-4" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)' }}>
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold">{L.req} #{r.id}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[r.status] || ''}`}>
+                <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: badge.bg, color: badge.color }}>
                   {STATUS_LABEL[r.status] || r.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-600">📞 {r.customerPhone}</p>
-              {r.orderId && <p className="text-sm text-gray-600">{L.order} #{r.orderId}</p>}
-              {r.reason && <p className="text-sm text-gray-700 mt-1">{L.reason}: {r.reason}</p>}
-              <p className="text-sm font-medium mt-1">{L.toRefund}: {r.refundAmount} {L.sum}</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-sm" style={{ color: 'var(--ax-text-2)' }}>📞 {r.customerPhone}</p>
+              {r.orderId && <p className="text-sm" style={{ color: 'var(--ax-text-2)' }}>{L.order} #{r.orderId}</p>}
+              {r.reason && <p className="text-sm mt-1" style={{ color: 'var(--ax-text)' }}>{L.reason}: {r.reason}</p>}
+              <p className="text-sm font-semibold mt-1" style={{ color: '#22C55E' }}>{L.toRefund}: {Number(r.refundAmount).toLocaleString('uz-UZ')} {L.sum}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--ax-text-2)', opacity: 0.7 }}>
                 {r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}
               </p>
 
@@ -111,13 +131,15 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={() => setStatus(r.id, 'approved')}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm active:scale-95"
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-white text-sm font-medium active:scale-95"
+                    style={{ background: 'linear-gradient(135deg, #38BDF8, #0284C7)' }}
                   >
                     <Check className="w-4 h-4" /> {L.approve}
                   </button>
                   <button
                     onClick={() => setStatus(r.id, 'rejected')}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm active:scale-95"
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-white text-sm font-medium active:scale-95"
+                    style={{ background: 'linear-gradient(135deg, #F87171, #DC2626)' }}
                   >
                     <X className="w-4 h-4" /> {L.reject}
                   </button>
@@ -126,13 +148,15 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
               {r.status === 'approved' && (
                 <button
                   onClick={() => setStatus(r.id, 'refunded')}
-                  className="flex items-center gap-1 px-3 py-1.5 mt-3 rounded-lg bg-green-600 text-white text-sm active:scale-95"
+                  className="flex items-center gap-1 px-3 py-2 mt-3 rounded-lg text-white text-sm font-medium active:scale-95"
+                  style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}
                 >
                   <CreditCard className="w-4 h-4" /> {L.refunded}
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
