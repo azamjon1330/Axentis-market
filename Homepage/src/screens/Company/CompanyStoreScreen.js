@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, FlatList,
-  Image, ActivityIndicator, Alert, Share,
+  Image, ActivityIndicator, Alert, Share, RefreshControl,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -55,6 +55,7 @@ export default function CompanyStoreScreen() {
   const [newRating, setNewRating] = useState(5);
   const [newComment, setNewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadReviews = useCallback(async () => {
     try { setReviews(await getCompanyReviews(companyId)); } catch { /* ignore */ }
@@ -105,6 +106,25 @@ export default function CompanyStoreScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  // 🎬 Тихо подтягиваем свежий профиль компании (в т.ч. видео-декорацию)
+  // каждый раз, когда экран снова в фокусе — чтобы новая анимация появлялась
+  // без перезахода в приложение.
+  const refreshCompany = useCallback(() => {
+    getCompanyDetail(companyId).then(setCompany).catch(() => {});
+  }, [companyId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshCompany();
+    }, [refreshCompany])
+  );
+
+  // ⤵️ Pull-to-refresh — обновляет товары и профиль (видео) вручную
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
+  }, [load]);
+
   const handleSubscribe = async () => {
     if (!user) {
       Alert.alert(t('authRequired'), t('loginToSubscribe'));
@@ -140,7 +160,7 @@ export default function CompanyStoreScreen() {
 
   const logoUri = getImageUrl(company?.logoUrl);
   const coverUri = getImageUrl(company?.coverUrl);
-  const coverVideoUri = getImageUrl(company?.coverVideoUrl); // 🎬 видео-декорация (если выбрана)
+  const coverVideoUri = getImageUrl(company?.coverVideoUrl ?? company?.cover_video_url); // 🎬 видео-декорация (если выбрана)
   const companyRating = Number(company?.averageRating ?? company?.rating ?? companyStats?.rating ?? 0);
   const productsCount = companyStats?.total_products ?? products.length;
   const subsCount = Number(companyStats?.subscribers ?? 0);
@@ -166,6 +186,9 @@ export default function CompanyStoreScreen() {
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.row}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} />
+        }
         ListHeaderComponent={
           <View>
             {/* ── Обложка-баннер: тянется до самого верха экрана, ЗА прозрачной
@@ -173,6 +196,7 @@ export default function CompanyStoreScreen() {
             <View style={styles.cover}>
               {coverVideoUri ? (
                 <Video
+                  key={coverVideoUri}
                   source={{ uri: coverVideoUri }}
                   style={styles.coverImg}
                   resizeMode={ResizeMode.COVER}
