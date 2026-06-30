@@ -71,10 +71,12 @@ export default function AdvancedInsightsPanel({ products, customerOrders, salesH
         full_order: order
       });
 
-      // ✅ Учитываем только оплаченные и доставленные заказы
-      // ⚠️ 'completed' заказы НЕ учитываем - они уже создали запись в sales и учтены в salesHistory
-      if (order.status !== 'delivered' && order.status !== 'paid') {
-        console.log(`  ❌ Пропускаем: статус "${order.status}" (нужен "paid" или "delivered")`);
+      // ✅ Учитываем подтверждённые/оплаченные/отгруженные/доставленные онлайн-заказы.
+      // ⚠️ 'completed' НЕ учитываем — такие заказы зеркалятся в кассовые продажи (salesHistory)
+      //    и были бы посчитаны дважды.
+      const countedStatuses = ['confirmed', 'shipped', 'delivered', 'paid'];
+      if (!countedStatuses.includes(order.status)) {
+        console.log(`  ❌ Пропускаем: статус "${order.status}" (нужен ${countedStatuses.join('/')})`);
         return;
       }
 

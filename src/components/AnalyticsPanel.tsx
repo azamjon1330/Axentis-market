@@ -997,10 +997,13 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
             const offlineSales  = getOfflineSales(financialTimePeriod);
             const onlineCommission = Math.round(onlineSales * (commissionPercent / 100));
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, maxWidth: '80rem', margin: '0 auto 24px auto', background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
+              <div style={{ maxWidth: '80rem', margin: '0 auto 24px auto', background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* ── ВЕРХНИЙ РЯД: 3 основные карточки ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
 
                 {/* ── 1. ПРИБЫЛЬ (наценка онлайн + офлайн) ── */}
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                <div className="ax-anim-gradient" style={{ backgroundImage: 'linear-gradient(135deg, rgba(34,197,94,0.22), rgba(16,185,129,0.04), rgba(34,197,94,0.14))', border: '1px solid rgba(34,197,94,0.35)', borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <TrendingUp style={{ width: 24, height: 24, color: '#22C55E' }} />
                     <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1022,7 +1025,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                 </div>
 
                 {/* ── 2. ЗАТРАТЫ КОМПАНИИ (один итог + раскрытие деталей) ── */}
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                <div className="ax-anim-gradient" style={{ backgroundImage: 'linear-gradient(135deg, rgba(248,113,113,0.22), rgba(220,38,38,0.04), rgba(248,113,113,0.14))', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <Package style={{ width: 24, height: 24, color: '#F87171' }} />
                     <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1060,7 +1063,10 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                 </div>
 
                 {/* ── 3. ИТОГОВЫЙ БАЛАНС = Наценка − Затраты компании ── */}
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                <div className="ax-anim-gradient" style={{ backgroundImage: isPositive
+                    ? 'linear-gradient(135deg, rgba(124,92,240,0.26), rgba(91,61,212,0.05), rgba(124,92,240,0.16))'
+                    : 'linear-gradient(135deg, rgba(248,113,113,0.24), rgba(220,38,38,0.05), rgba(248,113,113,0.14))',
+                    border: `1px solid ${isPositive ? 'rgba(124,92,240,0.4)' : 'rgba(248,113,113,0.4)'}`, borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <CreditCard style={{ width: 24, height: 24, color: '#7C5CF0' }} />
                     <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1077,8 +1083,13 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </div>
                 </div>
 
+                </div>
+
+                {/* ── НИЖНИЙ РЯД: 2 карточки оборота (онлайн / офлайн) ── */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+
                 {/* ── 4. ОНЛАЙН ПРОДАЖИ (наблюдение, не влияет на баланс) ── */}
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                <div className="ax-anim-gradient" style={{ backgroundImage: 'linear-gradient(135deg, rgba(56,189,248,0.22), rgba(2,132,199,0.04), rgba(56,189,248,0.14))', border: '1px solid rgba(56,189,248,0.35)', borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <TrendingUp style={{ width: 24, height: 24, color: '#38BDF8' }} />
                     <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1100,7 +1111,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                 </div>
 
                 {/* ── 5. ОФЛАЙН ПРОДАЖИ (наблюдение, не влияет на баланс) ── */}
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                <div className="ax-anim-gradient" style={{ backgroundImage: 'linear-gradient(135deg, rgba(245,158,11,0.22), rgba(217,119,6,0.04), rgba(245,158,11,0.14))', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 14, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <Receipt style={{ width: 24, height: 24, color: '#F59E0B' }} />
                     <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1117,6 +1128,7 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </div>
                 </div>
 
+                </div>
               </div>
             );
           })()}

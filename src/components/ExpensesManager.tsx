@@ -1,6 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Receipt, Save, X, TrendingDown, Plus, Trash2, Calendar, Clock, DollarSign, Edit2, Percent, AlertCircle } from 'lucide-react';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
+import { getAuthToken } from '../utils/api';
+
+// Заголовки с токеном компании — create/update/delete расходов требуют авторизации
+const authHeaders = (): Record<string, string> => {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
 
 type ExpenseType = 'monthly' | 'percentage' | 'one_time';
 
@@ -124,7 +133,7 @@ export default function ExpensesManager({ companyId, onCustomExpensesUpdate }: E
     try {
       const res = await fetch('/api/custom-expenses', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(body),
       });
       if (res.ok) {
@@ -143,7 +152,7 @@ export default function ExpensesManager({ companyId, onCustomExpensesUpdate }: E
   const handleDelete = async (id: number) => {
     if (!confirm(t.deleteExpenseConfirm)) return;
     try {
-      const res = await fetch(`/api/custom-expenses/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/custom-expenses/${id}`, { method: 'DELETE', headers: authHeaders() });
       if (res.ok) { await loadExpenses(); }
     } catch { /* ignore */ }
   };
@@ -176,7 +185,7 @@ export default function ExpensesManager({ companyId, onCustomExpensesUpdate }: E
     try {
       const res = await fetch(`/api/custom-expenses/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders(),
         body: JSON.stringify(body),
       });
       if (res.ok) { setEditingId(null); await loadExpenses(); }
