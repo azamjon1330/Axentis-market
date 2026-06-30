@@ -197,19 +197,22 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			District            sql.NullString
 			ServiceRegions      sql.NullString
 			CoverVideoURL       sql.NullString
+			PlatformCommission  sql.NullFloat64
 		}
 
 		err := db.QueryRow(`
 			SELECT id, name, phone, mode, status, logo_url, cover_url, address, description, products_description, latitude, longitude, delivery_enabled,
 			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng,
 			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24),
-			       region, district, COALESCE(service_regions::text, '[]'), cover_video_url
+			       region, district, COALESCE(service_regions::text, '[]'), cover_video_url,
+			       COALESCE(platform_commission_percent, 3)
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
 			&company.LogoURL, &company.CoverURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
 			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng,
 			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours,
-			&company.Region, &company.District, &company.ServiceRegions, &company.CoverVideoURL)
+			&company.Region, &company.District, &company.ServiceRegions, &company.CoverVideoURL,
+			&company.PlatformCommission)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
@@ -275,6 +278,9 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 		}
 		if company.CoverVideoURL.Valid {
 			result["coverVideoUrl"] = company.CoverVideoURL.String
+		}
+		if company.PlatformCommission.Valid {
+			result["platformCommissionPercent"] = company.PlatformCommission.Float64
 		}
 
 		// Получаем средний рейтинг компании

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Package, AlertTriangle, CreditCard, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { TrendingUp, Package, AlertTriangle, CreditCard, ChevronDown, ChevronUp, Calendar, Receipt } from 'lucide-react';
 import api from '../utils/api';
 import ExpensesManager from './ExpensesManager';
 import PaymentHistoryForCompany from './PaymentHistoryForCompany';
@@ -65,7 +65,12 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   const [purchaseCosts, setPurchaseCosts] = useState(0);
   const [customExpenses, setCustomExpenses] = useState(0);
   const [inventoryCost, setInventoryCost] = useState(0); // Себестоимость склада из вариантов
-  
+
+  // 🔻 Раскрытие детализации в карточке «Затраты компании»
+  const [expensesExpanded, setExpensesExpanded] = useState(false);
+  // 💳 Комиссия платформы (%) за онлайн-продажи — берём из профиля компании
+  const [commissionPercent, setCommissionPercent] = useState(3);
+
   // 💰 НОВОЕ: Количество продаж из financial_stats
   const [salesCount, setSalesCount] = useState(0);
   
@@ -82,6 +87,14 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   
   useEffect(() => {
     loadData();
+    // 💳 Подтягиваем процент комиссии платформы за онлайн-продажи
+    api.companies.get(companyId.toString())
+      .then((c: any) => {
+        if (c && typeof c.platformCommissionPercent === 'number') {
+          setCommissionPercent(c.platformCommissionPercent);
+        }
+      })
+      .catch(() => { /* оставляем дефолт 3% */ });
   }, [companyId]);
 
   // 🔄 НОВОЕ: Автообновление данных каждые 30 секунд для решения AFK проблемы
@@ -332,10 +345,29 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
   //   markup_profit = selling_price - purchase_price (per item × qty)
   // ═══════════════════════════════════════════════════════════
   const getPeriodProfit = (period: PeriodType = 'day') => {
-    const ordersProfit = getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
-    const salesProfit = getFilteredSales(period).reduce((sum, s) => sum + (parseFloat(s.markupProfit) || parseFloat(s.markup_profit) || 0), 0);
-    return ordersProfit + salesProfit;
+    return getOnlineMarkup(period) + getOfflineMarkup(period);
   };
+
+  // ═══════════════════════════════════════════════════════════
+  // НАЦЕНКА ОТДЕЛЬНО: онлайн-заказы (приложение) и офлайн-касса
+  // ═══════════════════════════════════════════════════════════
+  const getOnlineMarkup = (period: PeriodType = 'day') =>
+    getFilteredOrders(period).reduce((sum, o) => sum + (parseFloat(o.markup_profit) || 0), 0);
+
+  const getOfflineMarkup = (period: PeriodType = 'day') =>
+    getFilteredSales(period).reduce((sum, s) => sum + (parseFloat(s.markupProfit) || parseFloat(s.markup_profit) || 0), 0);
+
+  // ═══════════════════════════════════════════════════════════
+  // ПРОДАЖИ (вся проданная сумма, без вычета себестоимости)
+  //   онлайн = сумма заказов из приложения
+  //   офлайн = сумма продаж через кассу
+  // Эти карточки только для наблюдения и НЕ влияют на итоговый баланс.
+  // ═══════════════════════════════════════════════════════════
+  const getOnlineSales = (period: PeriodType = 'day') =>
+    getFilteredOrders(period).reduce((s, o) => s + (parseFloat(o.total_amount) || 0), 0);
+
+  const getOfflineSales = (period: PeriodType = 'day') =>
+    getFilteredSales(period).reduce((s, x) => s + (parseFloat(x.total_amount || x.totalAmount) || 0), 0);
 
   // ═══════════════════════════════════════════════════════════
   // ВЫРУЧКА ЗА ПЕРИОД
@@ -387,6 +419,34 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
       }
       return total;
     }, 0);
+  };
+
+  // Детализация операционных расходов за период: [{ name, amount }]
+  const getOperatingExpensesBreakdown = (period: PeriodType = 'day', periodRevenue: number = 0) => {
+    const { start, end } = getPeriodRange(period);
+    let multiplier = 1;
+    if (period === 'day') multiplier = 1 / 30;
+    else if (period === 'week') multiplier = 7 / 30;
+    else if (period === 'month') multiplier = 1;
+    else if (period === 'year') multiplier = 12;
+    else if (period === 'custom' && financialStartDate && financialEndDate) {
+      const days = Math.ceil((financialEndDate.getTime() - financialStartDate.getTime()) / 86400000) + 1;
+      multiplier = days / 30;
+    }
+    const items: Array<{ name: string; amount: number }> = [];
+    operatingExpensesList.forEach((exp) => {
+      const type: string = exp.expense_type || 'monthly';
+      const name = exp.expense_name || exp.description || (language === 'uz' ? 'Xarajat' : 'Расход');
+      let amount = 0;
+      if (type === 'monthly') amount = (exp.monthly_amount || 0) * multiplier;
+      else if (type === 'percentage') amount = periodRevenue * ((exp.percentage_value || 0) / 100);
+      else if (type === 'one_time') {
+        const d = new Date(exp.expense_date || exp.created_at);
+        if (!isNaN(d.getTime()) && d >= start && d <= end) amount = exp.amount || 0;
+      }
+      if (amount > 0) items.push({ name, amount });
+    });
+    return items;
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -918,19 +978,28 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
           )}
 
           {/* ═══════════════════════════════════════════════════════
-               3 ПАНЕЛИ: ПРИБЫЛЬ / ЗАТРАТЫ / ИТОГОВЫЙ БАЛАНС
+               ПАНЕЛИ: ПРИБЫЛЬ / ЗАТРАТЫ / БАЛАНС / ОНЛАЙН / ОФЛАЙН
           ═══════════════════════════════════════════════════════ */}
           {(() => {
-            const profit   = getPeriodProfit(financialTimePeriod);
-            const revenue  = getPeriodRevenue(financialTimePeriod);
-            const cogs     = getPeriodCOGS(financialTimePeriod);
-            const opEx     = getPeriodOperatingExpenses(financialTimePeriod, revenue);
-            const balance  = profit - opEx;
-            const isPositive = balance >= 0;
+            const profit        = getPeriodProfit(financialTimePeriod);
+            const onlineMarkup  = getOnlineMarkup(financialTimePeriod);
+            const offlineMarkup = getOfflineMarkup(financialTimePeriod);
+            const revenue       = getPeriodRevenue(financialTimePeriod);
+            const opEx          = getPeriodOperatingExpenses(financialTimePeriod, revenue);
+            const opBreakdown   = getOperatingExpensesBreakdown(financialTimePeriod, revenue);
+            // Затраты компании = стоимость склада (ещё не продано → минус) + операционные расходы
+            const totalExpenses = inventoryCost + opEx;
+            // Итоговый баланс = наценка − затраты компании (наценка прибавляется к стоимости склада)
+            const balance       = profit - totalExpenses;
+            const isPositive    = balance >= 0;
+            // Онлайн/офлайн продажи — только для наблюдения, не влияют на баланс
+            const onlineSales   = getOnlineSales(financialTimePeriod);
+            const offlineSales  = getOfflineSales(financialTimePeriod);
+            const onlineCommission = Math.round(onlineSales * (commissionPercent / 100));
             return (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, maxWidth: '80rem', margin: '0 auto 24px auto', background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 20 }}>
 
-                {/* ── 1. ПРИБЫЛЬ (наценка с проданных товаров) ── */}
+                {/* ── 1. ПРИБЫЛЬ (наценка онлайн + офлайн) ── */}
                 <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <TrendingUp style={{ width: 24, height: 24, color: '#22C55E' }} />
@@ -943,16 +1012,16 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                   </div>
                   <div style={{ color: '#8B8BAA', fontSize: 12, lineHeight: 1.6 }}>
                     {language === 'uz'
-                      ? `Buyurtmalar: ${getFilteredOrders(financialTimePeriod).length} ta · Kassa: ${getFilteredSales(financialTimePeriod).length} ta`
-                      : `Заказы: ${getFilteredOrders(financialTimePeriod).length} · Касса: ${getFilteredSales(financialTimePeriod).length}`}
+                      ? `Onlayn ustama: ${formatPrice(onlineMarkup)}`
+                      : `Онлайн наценка: ${formatPrice(onlineMarkup)}`}
                     <br />
                     {language === 'uz'
-                      ? `Daromad: ${formatPrice(revenue)} · Tannarx: ${formatPrice(cogs)}`
-                      : `Выручка: ${formatPrice(revenue)} · Себест.: ${formatPrice(cogs)}`}
+                      ? `Oflayn ustama: ${formatPrice(offlineMarkup)}`
+                      : `Офлайн наценка: ${formatPrice(offlineMarkup)}`}
                   </div>
                 </div>
 
-                {/* ── 2. ЗАТРАТЫ КОМПАНИИ (себестоимость + операционные) ── */}
+                {/* ── 2. ЗАТРАТЫ КОМПАНИИ (один итог + раскрытие деталей) ── */}
                 <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <Package style={{ width: 24, height: 24, color: '#F87171' }} />
@@ -960,23 +1029,37 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                       {language === 'uz' ? 'Kompaniya xarajatlari' : 'Затраты компании'}
                     </span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4, color: '#F87171' }}>
-                    {language === 'uz' ? 'Tannarx' : 'Себестоимость'}: -{formatPrice(cogs)}
+                  <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8, color: '#F87171' }}>
+                    -{formatPrice(totalExpenses)}
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#F87171' }}>
-                    {language === 'uz' ? 'Operatsion' : 'Операционные'}: -{formatPrice(opEx)}
-                  </div>
-                  <div style={{ color: '#8B8BAA', fontSize: 12, lineHeight: 1.6 }}>
-                    {language === 'uz'
-                      ? `Ombor qiymati: ${formatPrice(inventoryCost)}`
-                      : `Стоимость склада: ${formatPrice(inventoryCost)}`}
-                    {operatingExpensesList.length > 0 && (
-                      <> · {operatingExpensesList.length} {language === 'uz' ? 'ta xarajat' : 'расходов'}</>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setExpensesExpanded(v => !v)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#7C5CF0', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                  >
+                    {expensesExpanded
+                      ? (language === 'uz' ? 'Yashirish ▲' : 'Свернуть ▲')
+                      : (language === 'uz' ? 'Batafsil ▼' : 'Подробнее ▼')}
+                  </button>
+                  {expensesExpanded && (
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)', color: '#8B8BAA', fontSize: 12, lineHeight: 1.8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{language === 'uz' ? 'Ombor qiymati' : 'Стоимость склада'}</span>
+                        <span style={{ color: '#F87171' }}>-{formatPrice(inventoryCost)}</span>
+                      </div>
+                      {opBreakdown.map((it, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</span>
+                          <span style={{ color: '#F87171', flexShrink: 0 }}>-{formatPrice(it.amount)}</span>
+                        </div>
+                      ))}
+                      {opBreakdown.length === 0 && (
+                        <div style={{ opacity: 0.7 }}>{language === 'uz' ? 'Operatsion xarajatlar yo\'q' : 'Операционных расходов нет'}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* ── 3. ИТОГОВЫЙ БАЛАНС = Прибыль − Операционные расходы ── */}
+                {/* ── 3. ИТОГОВЫЙ БАЛАНС = Наценка − Затраты компании ── */}
                 <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                     <CreditCard style={{ width: 24, height: 24, color: '#7C5CF0' }} />
@@ -984,13 +1067,53 @@ export default function AnalyticsPanel({ companyId }: AnalyticsPanelProps) {
                       {language === 'uz' ? 'Yakuniy balans' : 'Итоговый баланс'}
                     </span>
                   </div>
-                  <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8, color: '#7C5CF0' }}>
+                  <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 8, color: isPositive ? '#7C5CF0' : '#F87171' }}>
                     {isPositive ? '+' : ''}{formatPrice(balance)}
                   </div>
                   <div style={{ color: '#8B8BAA', fontSize: 12, lineHeight: 1.6 }}>
                     {language === 'uz'
-                      ? `Foyda (${formatPrice(profit)}) − Xarajatlar (${formatPrice(opEx)})`
-                      : `Прибыль (${formatPrice(profit)}) − Расходы (${formatPrice(opEx)})`}
+                      ? `Foyda (${formatPrice(profit)}) − Xarajatlar (${formatPrice(totalExpenses)})`
+                      : `Наценка (${formatPrice(profit)}) − Затраты (${formatPrice(totalExpenses)})`}
+                  </div>
+                </div>
+
+                {/* ── 4. ОНЛАЙН ПРОДАЖИ (наблюдение, не влияет на баланс) ── */}
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <TrendingUp style={{ width: 24, height: 24, color: '#38BDF8' }} />
+                    <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {language === 'uz' ? 'Onlayn savdo' : 'Онлайн продажи'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, color: '#38BDF8' }}>
+                    {formatPrice(onlineSales)}
+                  </div>
+                  <div style={{ color: '#8B8BAA', fontSize: 12, lineHeight: 1.6 }}>
+                    {language === 'uz'
+                      ? `Buyurtmalar: ${getFilteredOrders(financialTimePeriod).length} ta`
+                      : `Заказы: ${getFilteredOrders(financialTimePeriod).length}`}
+                    <br />
+                    {language === 'uz'
+                      ? `Platforma komissiyasi (${commissionPercent}%): ${formatPrice(onlineCommission)}`
+                      : `Комиссия платформы (${commissionPercent}%): ${formatPrice(onlineCommission)}`}
+                  </div>
+                </div>
+
+                {/* ── 5. ОФЛАЙН ПРОДАЖИ (наблюдение, не влияет на баланс) ── */}
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Receipt style={{ width: 24, height: 24, color: '#F59E0B' }} />
+                    <span style={{ color: '#8B8BAA', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {language === 'uz' ? 'Oflayn savdo' : 'Офлайн продажи'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, color: '#F59E0B' }}>
+                    {formatPrice(offlineSales)}
+                  </div>
+                  <div style={{ color: '#8B8BAA', fontSize: 12, lineHeight: 1.6 }}>
+                    {language === 'uz'
+                      ? `Kassa: ${getFilteredSales(financialTimePeriod).length} ta · Sotilgan narx`
+                      : `Касса: ${getFilteredSales(financialTimePeriod).length} · Проданная цена`}
                   </div>
                 </div>
 

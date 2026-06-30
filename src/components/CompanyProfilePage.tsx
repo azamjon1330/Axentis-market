@@ -163,7 +163,8 @@ export default function CompanyProfilePage({
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
 
-  const company = profileData?.company;
+  // API может вернуть профиль как { company: {...} } или плоским объектом — поддерживаем оба
+  const company = profileData?.company || profileData;
   const loading = profileLoading;
 
   const categories: string[] = ['Все', ...Array.from(new Set(cachedProducts.map((p: Product) => p.category).filter(Boolean))) as string[]];
@@ -391,7 +392,7 @@ export default function CompanyProfilePage({
           {/* ── Обложка ── */}
           <div className="relative" style={{ height: 300, overflow: 'hidden' }}>
             {coverVideoUrl ? (
-              <video src={coverVideoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+              <video key={coverVideoUrl} src={coverVideoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
             ) : coverUrl ? (
               <img src={coverUrl} alt="" className="w-full h-full object-cover" />
             ) : (

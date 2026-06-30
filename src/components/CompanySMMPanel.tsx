@@ -1,8 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Star, Upload, Video, Megaphone, MapPin, Package, TrendingUp, X, Navigation, Users, Trash2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import MapLocationPicker from './MapLocationPicker';
 import api, { getImageUrl } from '../utils/api';
+import { invalidateCompanyProfile } from '../utils/cache';
+
+// 🗺️ Карта границ регионов доставки (ленивая загрузка, открывается в модалке)
+const RegionsMap = lazy(() => import('./RegionsMap'));
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 import { UZBEKISTAN_REGIONS, getDistrictsByRegion } from '../utils/uzbekistanRegions';
@@ -78,6 +82,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
   const [decorationVideos, setDecorationVideos] = useState<Array<{ id: number; title: string; url: string }>>([]);
   const [savingVideo, setSavingVideo] = useState(false);
   const [videoPickerOpen, setVideoPickerOpen] = useState(false);
+  const [regionsMapOpen, setRegionsMapOpen] = useState(false); // 🗺️ карта границ регионов
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [deliveryRadius, setDeliveryRadius] = useState({ km: 0, lat: 0, lng: 0 });
   const [savingRadius, setSavingRadius] = useState(false);
@@ -133,6 +138,8 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
     try {
       await api.companies.update(companyId.toString(), { coverVideoUrl: next });
       setFormData(prev => ({ ...prev, coverVideoUrl: next }));
+      // 🧹 Сбрасываем кэш профиля, чтобы страница магазина сразу подхватила новую анимацию
+      invalidateCompanyProfile(companyId);
       toast.success(next
         ? (language === 'uz' ? 'Video-bezak tanlandi' : 'Видео-декорация выбрана')
         : (language === 'uz' ? 'Video-bezak olib tashlandi' : 'Видео-декорация убрана'));
@@ -396,7 +403,9 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
               >
                 {formData.coverVideoUrl ? (
                   // 🎬 Выбранная видео-декорация показывается как зацикленный фон магазина
+                  // key обязателен: без remount браузер не перезагружает <video> при смене src
                   <video
+                    key={formData.coverVideoUrl}
                     src={getImageUrl(formData.coverVideoUrl) || formData.coverVideoUrl}
                     className="w-full h-full object-cover"
                     autoPlay
@@ -658,6 +667,15 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                     ? 'Tanlangan hududlardagi xaridorlargina sizning mahsulotlaringizni koʻradi.'
                     : 'Ваши товары будут видны только покупателям из выбранных регионов.'}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setRegionsMapOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 mb-3 text-sm font-medium"
+                  style={{ background: 'rgba(124,92,240,0.12)', border: '1px solid rgba(124,92,240,0.35)', color: '#7C5CF0', borderRadius: 10 }}
+                >
+                  <MapPin className="w-4 h-4" />
+                  {language === 'uz' ? 'Hudud chegaralarini xaritada koʻrish' : 'Показать границы регионов на карте'}
+                </button>
                 {editMode ? (
                   <div className="grid grid-cols-2 gap-2">
                     {UZBEKISTAN_REGIONS.map(r => {
@@ -916,6 +934,7 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                     style={{ aspectRatio: '16 / 9', border: selected ? '2px solid #7C5CF0' : '1px solid rgba(255,255,255,0.07)' }}
                   >
                     <video
+                      key={v.url}
                       src={getImageUrl(v.url) || v.url}
                       muted
                       loop
@@ -934,6 +953,31 @@ export default function CompanySMMPanel({ companyId, companyName }: CompanySMMPa
                   </button>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🗺️ Карта границ регионов доставки */}
+      {regionsMapOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-6" onClick={() => setRegionsMapOpen(false)}>
+          <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden flex flex-col" style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <h3 className="text-base font-semibold" style={{ color: '#FFFFFF' }}>
+                {language === 'uz' ? 'Yetkazib berish hududlari chegaralari' : 'Границы регионов доставки'}
+              </h3>
+              <button onClick={() => setRegionsMapOpen(false)} style={{ color: '#8B8BAA' }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div style={{ height: isMobile ? '60vh' : 460, width: '100%' }}>
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center" style={{ color: '#8B8BAA' }}>{language === 'uz' ? 'Xarita yuklanmoqda…' : 'Загрузка карты…'}</div>}>
+                <RegionsMap selectedRegions={formData.serviceRegions} />
+              </Suspense>
+            </div>
+            <div className="p-3 text-xs flex items-center gap-4 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: '#8B8BAA' }}>
+              <span className="flex items-center gap-1.5"><span style={{ width: 12, height: 12, background: 'rgba(124,92,240,0.5)', border: '1px solid #7C5CF0', borderRadius: 3 }} /> {language === 'uz' ? 'Tanlangan' : 'Выбранные'}</span>
+              <span className="flex items-center gap-1.5"><span style={{ width: 12, height: 12, background: 'rgba(148,163,184,0.2)', border: '1px solid #94A3B8', borderRadius: 3 }} /> {language === 'uz' ? 'Boshqa hududlar' : 'Другие регионы'}</span>
             </div>
           </div>
         </div>

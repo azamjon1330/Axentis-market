@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Search, Check, X, Clock, Package, Phone, User, Receipt, DollarSign, RefreshCw, Calendar, MapPin, Navigation, Truck } from 'lucide-react';
 import api from '../utils/api';
 import { formatUzbekistanFullDateTime } from '../utils/uzbekTime';
@@ -6,6 +6,9 @@ import { toast } from 'sonner@2.0.3';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { getCurrentLanguage, useTranslation, type Language } from '../utils/translations';
 import CompactPeriodSelector from './CompactPeriodSelector';
+
+// 🗺️ Карта маршрута открывается во всплывающем окне (overlay), не занимает место в списке
+const DeliveryMap = lazy(() => import('./DeliveryMap'));
 
 
 interface OrderItem {
@@ -66,17 +69,46 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
+  // 🗺️ Координаты компании (точка отправления) и заказ, для которого открыта карта
+  const [companyCoords, setCompanyCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [companyAddress, setCompanyAddress] = useState<string>('');
+  const [mapOrder, setMapOrder] = useState<Order | null>(null);
+
   const { isMobile } = useResponsive();
   const responsive = useResponsiveClasses();
 
   useEffect(() => {
     loadOrders();
+    loadCompanyData();
 
     const interval = setInterval(() => {
       loadOrders();
     }, 3000);
     return () => clearInterval(interval);
   }, [companyId]);
+
+  const loadCompanyData = async () => {
+    try {
+      const data = await api.companies.get(companyId.toString());
+      if (data.latitude && data.longitude) {
+        setCompanyCoords({ lat: data.latitude, lng: data.longitude });
+      }
+      if (data.address) setCompanyAddress(data.address);
+    } catch (error) {
+      console.error('Error loading company data:', error);
+    }
+  };
+
+  const parseDeliveryCoords = (coords?: string): { lat: number; lng: number } | null => {
+    if (!coords) return null;
+    try {
+      const parts = coords.split(',').map(c => parseFloat(c.trim()));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return { lat: parts[0], lng: parts[1] };
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
 
   const loadOrders = async () => {
     try {
@@ -611,11 +643,15 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
                                   <span className="font-medium text-xs" style={{ color: 'var(--ax-text)' }}>{order.delivery_address}</span>
                                 </div>
                               )}
-                              {order.delivery_coordinates && (
-                                <div className={`flex items-center gap-1 text-xs mt-1`} style={{ color: '#7C5CF0' }}>
-                                  <Navigation className="w-3 h-3" />
-                                  {language === 'uz' ? 'Xaritada yo\'nalish ko\'rsatildi' : 'Маршрут отображён на карте →'}
-                                </div>
+                              {(order.delivery_coordinates || order.delivery_address) && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setMapOrder(order); }}
+                                  className="flex items-center gap-1.5 text-xs mt-2 px-3 py-2 rounded-lg font-medium transition-colors"
+                                  style={{ background: 'rgba(124,92,240,0.15)', border: '1px solid rgba(124,92,240,0.35)', color: '#7C5CF0' }}
+                                >
+                                  <Navigation className="w-3.5 h-3.5" />
+                                  {language === 'uz' ? 'Xaritada ko\'rsatish' : 'Показать на карте'}
+                                </button>
                               )}
                             </div>
                           </div>
@@ -682,10 +718,57 @@ export default function CompanyOrdersPanel({ companyId }: CompanyOrdersPanelProp
   );
 
 
+  // ── КАРТА ВО ВСПЛЫВАЮЩЕМ ОКНЕ ─────────────────────────────────────────────
+  const mapModal = mapOrder && (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6"
+      style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={() => setMapOrder(null)}
+    >
+      <div
+        className="relative w-full max-w-3xl rounded-2xl overflow-hidden flex flex-col"
+        style={{ background: 'var(--ax-card)', border: '1px solid rgba(255,255,255,0.1)', maxHeight: '90vh' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" style={{ color: '#7C5CF0' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--ax-text)' }}>
+              {language === 'uz' ? 'Yo\'nalish' : 'Маршрут'} #{mapOrder.order_code}
+            </span>
+          </div>
+          <button
+            onClick={() => setMapOrder(null)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg"
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--ax-text-2)' }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div style={{ height: isMobile ? '60vh' : 460, width: '100%' }}>
+          <Suspense fallback={<div className="w-full h-full flex items-center justify-center" style={{ color: 'var(--ax-text-2)' }}>{language === 'uz' ? 'Xarita yuklanmoqda…' : 'Загрузка карты…'}</div>}>
+            <DeliveryMap
+              companyCoords={companyCoords}
+              deliveryCoords={parseDeliveryCoords(mapOrder.delivery_coordinates)}
+              companyAddress={companyAddress}
+              deliveryAddress={mapOrder.delivery_address}
+            />
+          </Suspense>
+        </div>
+        {mapOrder.delivery_address && (
+          <div className="px-4 py-3 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', color: 'var(--ax-text-2)' }}>
+            <span style={{ color: '#7C5CF0' }}>{t.deliveryAddress}:</span> {mapOrder.delivery_address}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   // ── ROOT LAYOUT ───────────────────────────────────────────────────────────
   return (
     <div className={responsive.spacing} style={{ background: 'var(--ax-bg)', color: 'var(--ax-text)' }}>
       {orderListPanel}
+      {mapModal}
     </div>
   );
 }
