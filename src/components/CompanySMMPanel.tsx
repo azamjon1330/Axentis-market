@@ -1148,7 +1148,9 @@ function UploadModal({
     try {
       setLoadingProducts(true);
       const result = await api.products.list({ companyId: companyId.toString() });
-      setProducts(result.products || []);
+      // Бэкенд может вернуть массив напрямую или { products: [...] } — поддерживаем оба
+      const list = Array.isArray(result) ? result : (result?.products || []);
+      setProducts(list);
     } catch (error) {
       console.error('❌ Error loading products:', error);
       toast.error(t.productsLoadError);
@@ -1211,7 +1213,9 @@ function UploadModal({
       toast.error(t.selectProductForAd);
       return;
     }
-    onUpload(uploadMode === 'url' ? imageUrl : '', title, description, adType, selectedProductId, uploadMode === 'file' ? file || undefined : undefined, linkUrl || undefined);
+    // Для рекламы товара ссылку не передаём — клик ведёт на товар внутри приложения
+    const finalLink = adType === 'company' ? (linkUrl || undefined) : undefined;
+    onUpload(uploadMode === 'url' ? imageUrl : '', title, description, adType, selectedProductId, uploadMode === 'file' ? file || undefined : undefined, finalLink);
   };
 
   return (
@@ -1315,18 +1319,22 @@ function UploadModal({
             />
           </div>
 
-          <div>
-            <label className="block text-sm mb-1" style={{ color: '#8B8BAA' }}>🔗 URL-ссылка (необязательно)</label>
-            <p className="text-xs mb-2" style={{ color: '#5A5A78' }}>{language === 'uz' ? 'Reklama bosilganda shu manzil ochiladi (YouTube, Telegram, Uzum va h.k.)' : 'При нажатии на рекламу откроется этот адрес (YouTube, Telegram, Uzum и т.д.)'}</p>
-            <input
-              type="url"
-              value={linkUrl}
-              onChange={(e) => setLinkUrl(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 text-sm rounded-lg"
-              style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--ax-text)', borderRadius: 10 }}
-              placeholder="https://t.me/yourcompany или https://youtube.com/..."
-            />
-          </div>
+          {/* 🔗 URL — только для рекламы компании (внешней). Для рекламы товара
+              ссылка не нужна: клик ведёт на сам товар внутри приложения. */}
+          {adType === 'company' && (
+            <div>
+              <label className="block text-sm mb-1" style={{ color: '#8B8BAA' }}>🔗 URL-ссылка (необязательно)</label>
+              <p className="text-xs mb-2" style={{ color: '#5A5A78' }}>{language === 'uz' ? 'Reklama bosilganda shu manzil ochiladi (YouTube, Telegram, Uzum va h.k.)' : 'При нажатии на рекламу откроется этот адрес (YouTube, Telegram, Uzum и т.д.)'}</p>
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="w-full px-3 sm:px-4 py-2 text-sm rounded-lg"
+                style={{ background: 'var(--ax-input)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--ax-text)', borderRadius: 10 }}
+                placeholder="https://t.me/yourcompany или https://youtube.com/..."
+              />
+            </div>
+          )}
 
           {/* Переключатель режимов */}
           <div>
