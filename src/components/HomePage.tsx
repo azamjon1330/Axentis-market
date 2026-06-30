@@ -1803,12 +1803,12 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       </div>
                       {/* Steps indicator */}
                       <div className="flex items-center gap-2 mb-6">
-                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
+                        <div className="flex-1 h-1 rounded-full bg-[#6D5DFB]" />
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                       </div>
                       {/* Доставка — единственный способ получения заказа (самовывоз отключён) */}
-                      <div className={`flex items-center gap-2 mb-5 py-3 px-4 rounded-xl border-2 border-purple-500 bg-purple-50 text-purple-700 font-medium text-sm`}>
+                      <div className={`flex items-center gap-2 mb-5 py-3 px-4 rounded-xl border-2 border-[#6D5DFB] bg-[#6D5DFB]/10 text-[#6D5DFB] font-medium text-sm`}>
                         <Truck className="w-4 h-4" />
                         <span>Доставка курьером</span>
                       </div>
@@ -1850,7 +1850,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       <button
                         onClick={() => { setCheckoutStep('payment'); loadSavedCards(); }}
                         disabled={checkoutDeliveryType === 'delivery' && !checkoutDeliveryAddress.trim()}
-                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-3 rounded-xl bg-[#6D5DFB] text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Далее
                       </button>
@@ -1868,8 +1868,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       </div>
                       {/* Steps indicator */}
                       <div className="flex items-center gap-2 mb-6">
-                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
-                        <div className="flex-1 h-1 rounded-full bg-purple-500" />
+                        <div className="flex-1 h-1 rounded-full bg-[#6D5DFB]" />
+                        <div className="flex-1 h-1 rounded-full bg-[#6D5DFB]" />
                         <div className="flex-1 h-1 rounded-full bg-gray-300" />
                       </div>
 
@@ -1879,13 +1879,13 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                           <button key={method} onClick={() => setCheckoutPaymentMethod(method)}
                             className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 transition-all ${
                               checkoutPaymentMethod === method
-                                ? 'border-purple-500 bg-purple-50'
+                                ? 'border-[#6D5DFB] bg-[#6D5DFB]/10'
                                 : isNight ? 'border-slate-600' : 'border-gray-200'
                             }`}>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                              checkoutPaymentMethod === method ? 'border-purple-600' : 'border-gray-300'
+                              checkoutPaymentMethod === method ? 'border-[#6D5DFB]' : 'border-gray-300'
                             }`}>
-                              {checkoutPaymentMethod === method && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                              {checkoutPaymentMethod === method && <div className="w-2.5 h-2.5 rounded-full bg-[#6D5DFB]" />}
                             </div>
                             <span className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-800'}`}>
                               {method === 'card' ? 'Банковская карта' : 'Наличными при получении'}
@@ -1903,10 +1903,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                               {savedPaymentCards.map(card => (
                                 <button key={card.id} onClick={() => setSelectedCardId(card.id)}
                                   className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl border-2 mb-2 transition-all ${
-                                    selectedCardId === card.id ? 'border-purple-500 bg-purple-50' : isNight ? 'border-slate-600' : 'border-gray-200'
+                                    selectedCardId === card.id ? 'border-[#6D5DFB] bg-[#6D5DFB]/10' : isNight ? 'border-slate-600' : 'border-gray-200'
                                   }`}>
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCardId === card.id ? 'border-purple-600' : 'border-gray-300'}`}>
-                                    {selectedCardId === card.id && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedCardId === card.id ? 'border-[#6D5DFB]' : 'border-gray-300'}`}>
+                                    {selectedCardId === card.id && <div className="w-2.5 h-2.5 rounded-full bg-[#6D5DFB]" />}
                                   </div>
                                   <div className="flex-1 text-left">
                                     <div className={`text-sm font-medium ${isNight ? 'text-white' : 'text-gray-800'}`}>
@@ -1917,7 +1917,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                 </button>
                               ))}
                               <button onClick={() => setShowAddCardForm(true)}
-                                className="w-full py-2 text-sm text-purple-600 font-medium border border-purple-200 rounded-xl mt-1">
+                                className="w-full py-2 text-sm text-[#6D5DFB] font-medium border border-[#6D5DFB]/30 rounded-xl mt-1">
                                 + Добавить карту
                               </button>
                             </>
@@ -1928,7 +1928,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                 {(['visa', 'mastercard', 'uzcard', 'humo'] as const).map(ct => (
                                   <button key={ct} onClick={() => setNewCard(prev => ({ ...prev, type: ct }))}
                                     className={`py-2 rounded-lg border-2 text-xs font-bold transition-all ${
-                                      newCard.type === ct ? 'border-purple-500 bg-purple-50 text-purple-700' : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
+                                      newCard.type === ct ? 'border-[#6D5DFB] bg-[#6D5DFB]/10 text-[#6D5DFB]' : isNight ? 'border-slate-600 text-gray-300' : 'border-gray-200 text-gray-600'
                                     }`}>
                                     {ct === 'visa' ? 'Visa' : ct === 'mastercard' ? 'MC' : ct === 'uzcard' ? 'UZCard' : 'Humo'}
                                   </button>
@@ -1991,7 +1991,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                   </div>
                                 </div>
                                 <button onClick={handleSaveNewCard} disabled={savingCard || !newCard.number || !newCard.firstName || !newCard.lastName}
-                                  className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50">
+                                  className="w-full py-3 rounded-xl bg-[#6D5DFB] text-white font-bold disabled:opacity-50">
                                   {savingCard ? 'Сохранение...' : 'Сохранить карту'}
                                 </button>
                               </div>
@@ -2016,7 +2016,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                               className={`flex-1 px-3 py-2 rounded-xl border text-sm outline-none ${isNight ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
                             />
                             <button onClick={applyPromo} disabled={promoChecking || !promoInput.trim()}
-                              className="px-4 py-2 rounded-xl bg-purple-600 text-white text-sm font-medium disabled:opacity-50">
+                              className="px-4 py-2 rounded-xl bg-[#6D5DFB] text-white text-sm font-medium disabled:opacity-50">
                               {promoChecking ? '...' : 'Применить'}
                             </button>
                           </div>
@@ -2060,7 +2060,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                       </div>
 
                       <button onClick={handlePlaceOrder} disabled={isCheckingOut || (checkoutPaymentMethod === 'card' && savedPaymentCards.length > 0 && !selectedCardId)}
-                        className="w-full py-3 rounded-xl bg-purple-600 text-white font-bold disabled:opacity-50 flex items-center justify-center">
+                        className="w-full py-3 rounded-xl bg-[#6D5DFB] text-white font-bold disabled:opacity-50 flex items-center justify-center">
                         {isCheckingOut ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> : 'Оформить заказ'}
                       </button>
                     </div>
@@ -2161,11 +2161,10 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                   ) : (
                     <div className="space-y-4">
                       {myOrders.map((order) => (
-                        <div 
-                          key={order.code} 
-                          className={`rounded-2xl p-4 shadow-sm border ${
-                            isNight ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-100'
-                          }`}
+                        <div
+                          key={order.code}
+                          className="rounded-2xl p-4 border"
+                          style={{ backgroundColor: isNight ? '#171C2A' : '#F6F7F9', borderColor: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(11,14,22,0.06)' }}
                         >
                           {/* Order Header */}
                           <div className="flex justify-between items-start mb-3">
@@ -2183,7 +2182,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                                 {formatDate(order.date)}
                               </div>
                             </div>
-                            <div className={`text-lg font-bold ${isNight ? 'text-blue-400' : 'text-blue-600'}`}>
+                            <div className="text-lg font-extrabold text-[#E8472A]">
                               {formatPrice(order.total)}
                             </div>
                           </div>
