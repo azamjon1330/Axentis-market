@@ -1735,6 +1735,20 @@ export const regions = {
 // DECORATION VIDEOS API (админ загружает короткие ролики, компании их используют
 // как анимированный фон страницы магазина)
 // ============================================================================
+// ============================================================================
+// CUSTOMER NOTIFICATIONS API (общий backend с приложением Homepage)
+// ============================================================================
+export const notifications = {
+  list: (phone: string) =>
+    apiCall(`/notifications?userPhone=${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  unreadCount: (phone: string) =>
+    apiCall(`/notifications/unread-count?userPhone=${encodeURIComponent(phone)}`, { requiresAuth: false }),
+  markRead: (id: number | string) =>
+    apiCall(`/notifications/${id}/read`, { method: 'PUT', requiresAuth: false }),
+  markAllRead: (phone: string) =>
+    apiCall('/notifications/mark-all-read', { method: 'PUT', body: JSON.stringify({ user_phone: phone }), requiresAuth: false }),
+};
+
 export const decorationVideos = {
   list: () => apiCall('/decoration-videos', { requiresAuth: false }),
   upload: (file: File, title = '') => {
@@ -1752,6 +1766,7 @@ export default {
   broadcast, // 💬 Общий чат-канал
   regions, // 🗺️ Регионы доставки
   decorationVideos, // 🎬 Декоративные видео (фон страницы магазина)
+  notifications, // 🔔 Уведомления покупателя
   products,
   sales,
   cashSales,

@@ -1,7 +1,7 @@
 import api, { saveUserCart, saveUserLikes, getUserCart, getUserLikes, getImageUrl } from '../utils/api';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import DeliveryLocationPicker from './DeliveryLocationPicker';
-import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck } from 'lucide-react';
+import { ShoppingCart, Search, Minus, Plus, Trash2, Check, Receipt, Clock, X, Heart, Camera, BadgeCheck, Menu, Moon, Sun, ShoppingBag, RotateCcw, Truck, Bell } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import CartItemImage from './CartItemImage';
 import HitCompanies from './HitCompanies';
@@ -14,6 +14,7 @@ import ApprovedAdsBanner from './ApprovedAdsBanner'; // 📢 Баннер утв
 import ProductCard from './ProductCard'; // 🖼️ НОВОЕ: Карточка товара с автоматическим листанием фото
 import ProductDetails from './ProductDetails'; // 📄 НОВОЕ: Страница деталей товара
 import CatalogPanel from './CatalogPanel'; // 📂 НОВОЕ: Панель каталога
+import NotificationsPage from './NotificationsPage'; // 🔔 Уведомления покупателя
 import AnimatedCartButton from './AnimatedCartButton'; // 🛒 Анимированная кнопка
 import { useProductUpdates } from '../utils/socket'; // 🔥 Socket.io Realtime
 
@@ -153,6 +154,8 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
   const [viewingImageIndex, setViewingImageIndex] = useState(0); 
   
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null); // 📄 Для открытия панели товара
+  const [showNotifications, setShowNotifications] = useState(false); // 🔔 Экран уведомлений
+  const [unreadNotifs, setUnreadNotifs] = useState(0); // 🔔 Кол-во непрочитанных
 
   const [viewingCompanyId, setViewingCompanyId] = useState<number | null>(null);
   const [viewingUserProfile, setViewingUserProfile] = useState<{ phone: string; name: string } | null>(null);
@@ -281,6 +284,19 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
       console.error('❌ [DeepLink] Не удалось открыть товар по ссылке:', error);
     }
   };
+
+  // 🔔 Подгружаем число непрочитанных уведомлений (и обновляем при закрытии экрана)
+  useEffect(() => {
+    if (!userPhone) { setUnreadNotifs(0); return; }
+    let active = true;
+    (async () => {
+      try {
+        const r: any = await api.notifications.unreadCount(userPhone);
+        if (active) setUnreadNotifs(typeof r === 'number' ? r : (r?.count ?? r?.unread ?? 0));
+      } catch { /* ignore */ }
+    })();
+    return () => { active = false; };
+  }, [userPhone, showNotifications]);
 
   // 🔄 HISTORY API HANDLER
   useEffect(() => {
@@ -1433,8 +1449,32 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
                 }`}
               />
             </div>
+
+            {/* 🔔 Колокольчик уведомлений */}
+            <button
+              onClick={() => setShowNotifications(true)}
+              className={`relative p-2.5 rounded-xl transition-colors flex-shrink-0 ${
+                isNight ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Bell className="w-5 h-5" />
+              {unreadNotifs > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold text-white flex items-center justify-center" style={{ background: '#EF4444' }}>
+                  {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                </span>
+              )}
+            </button>
           </div>
         </header>
+      )}
+
+      {/* 🔔 Экран уведомлений */}
+      {showNotifications && (
+        <NotificationsPage
+          userPhone={userPhone}
+          isNight={isNight}
+          onBack={() => setShowNotifications(false)}
+        />
       )}
 
       {/* Main Content */}
