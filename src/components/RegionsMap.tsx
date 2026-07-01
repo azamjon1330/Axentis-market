@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../utils/api';
+import { UZBEKISTAN_REGIONS_GEOJSON } from '../utils/uzbekistanRegionsGeo';
 
 interface RegionsMapProps {
   // Названия выбранных компанией регионов — они подсвечиваются другим цветом
@@ -57,22 +58,36 @@ export default function RegionsMap({ selectedRegions = [] }: RegionsMapProps) {
     const L = LRef.current, map = mapRef.current;
     if (!L || !map) return;
     if (layerRef.current) { map.removeLayer(layerRef.current); layerRef.current = null; }
-    if (!regions.length) return;
 
     const group = L.featureGroup();
     const selectedSet = new Set(selectedRegions);
+
+    // 1️⃣ Базовый слой — реальные границы 14 регионов Узбекистана.
+    UZBEKISTAN_REGIONS_GEOJSON.features.forEach((f: any) => {
+      const name = f.properties?.name || '';
+      const isSelected = selectedSet.has(name);
+      const style = isSelected
+        ? { color: '#7C5CF0', weight: 2, fillColor: '#7C5CF0', fillOpacity: 0.32 }
+        : { color: '#94A3B8', weight: 1, fillColor: '#94A3B8', fillOpacity: 0.06 };
+      try {
+        const poly = L.geoJSON(f, { style });
+        poly.bindTooltip(name, { sticky: true });
+        poly.addTo(group);
+      } catch { /* пропускаем некорректную геометрию */ }
+    });
+
+    // 2️⃣ Поверх — кастомные зоны, нарисованные админом (если есть).
     regions.forEach((r) => {
       if (!r.geojson) return;
       const isSelected = selectedSet.has(r.name) || (r.nameUz ? selectedSet.has(r.nameUz) : false);
-      const style = isSelected
-        ? { color: '#7C5CF0', weight: 2, fillColor: '#7C5CF0', fillOpacity: 0.28 }
-        : { color: '#94A3B8', weight: 1, fillColor: '#94A3B8', fillOpacity: 0.08 };
+      const style = { color: isSelected ? '#7C5CF0' : '#38BDF8', weight: 2, dashArray: '6 4', fillColor: isSelected ? '#7C5CF0' : '#38BDF8', fillOpacity: 0.12 };
       try {
         const poly = L.geoJSON(r.geojson, { style });
         poly.bindTooltip(r.name, { sticky: true });
         poly.addTo(group);
       } catch { /* пропускаем некорректную геометрию */ }
     });
+
     group.addTo(map);
     layerRef.current = group;
     try {
