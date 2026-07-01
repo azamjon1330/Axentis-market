@@ -274,6 +274,12 @@ export const getOrderDetail = async (id) => {
   return mapOrder(res.data);
 };
 
+// 🚴 Живое положение курьера по заказу (для отслеживания на карте)
+export const getOrderCourierLocation = async (id) => {
+  const res = await api.get(ENDPOINTS.orderCourierLocation(id));
+  return res.data;
+};
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 export const getNotifications = async (phone) => {
   const res = await api.get(ENDPOINTS.notifications, { params: { userPhone: phone } });

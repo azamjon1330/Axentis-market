@@ -30,6 +30,7 @@ export const ENDPOINTS = {
   orders: '/orders',
   orderDetail: (id) => `/orders/${id}`,
   orderStatus: (id) => `/orders/${id}/status`,
+  orderCourierLocation: (id) => `/orders/${id}/courier-location`,
   userProfile: (phone) => `/users/${phone}/profile`,
   userAvatar: (phone) => `/users/${phone}/avatar`,
   userDefaultAddress: (phone) => `/users/${phone}/default-delivery-address`,

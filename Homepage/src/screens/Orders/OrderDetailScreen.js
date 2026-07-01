@@ -9,9 +9,18 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { getOrderDetail, createReturn, getCompanyDetail } from '../../api';
+import { getOrderDetail, createReturn, getCompanyDetail, getOrderCourierLocation } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
 import { getImageUrl } from '../../utils/imageUrl';
+import CourierTrackMap from '../../components/common/CourierTrackMap';
+
+// "lat,lng" → { lat, lng }
+function parseCoords(str) {
+  if (!str || typeof str !== 'string') return null;
+  const [a, b] = str.split(',').map((x) => parseFloat(x.trim()));
+  if (isNaN(a) || isNaN(b)) return null;
+  return { lat: a, lng: b };
+}
 
 const STATUS_CONFIG = {
   pending: { labelKey: 'statusPendingFull', color: '#FFA726', icon: 'time-outline', step: 0 },
@@ -41,6 +50,9 @@ export default function OrderDetailScreen() {
   const [returnReason, setReturnReason] = useState('');
   const [submittingReturn, setSubmittingReturn] = useState(false);
   const [returnRequested, setReturnRequested] = useState(false);
+
+  // 🚴 Живое отслеживание курьера (только когда заказ в пути)
+  const [courierTrack, setCourierTrack] = useState(null);
 
   const submitReturn = async () => {
     if (!returnReason.trim()) {
@@ -79,6 +91,20 @@ export default function OrderDetailScreen() {
       .catch(() => setOrder(null))
       .finally(() => setIsLoading(false));
   }, [orderId]);
+
+  // Пока заказ «в пути» (shipped) — опрашиваем положение курьера каждые 10 сек
+  useEffect(() => {
+    if (order?.status !== 'shipped') { setCourierTrack(null); return; }
+    let active = true;
+    const load = () => {
+      getOrderCourierLocation(orderId)
+        .then((d) => { if (active) setCourierTrack(d); })
+        .catch(() => {});
+    };
+    load();
+    const iv = setInterval(load, 10000);
+    return () => { active = false; clearInterval(iv); };
+  }, [order?.status, orderId]);
 
   if (isLoading) {
     return (
@@ -139,6 +165,42 @@ export default function OrderDetailScreen() {
             </Text>
           </View>
         </View>
+
+        {/* 🚴 Живое отслеживание курьера — пока заказ в пути */}
+        {order.status === 'shipped' && courierTrack && (courierTrack.hasCourier || courierTrack.deliveryCoords) && (
+          <View style={[styles.trackCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.trackHeader}>
+              <Ionicons name="bicycle-outline" size={20} color={colors.primary} />
+              <Text style={[styles.trackTitle, { color: colors.text }]}>
+                {language === 'uz' ? 'Kuryer yoʻlda' : 'Курьер в пути'}
+              </Text>
+            </View>
+            <CourierTrackMap
+              courier={courierTrack.hasCourier ? { lat: courierTrack.courier.lat, lng: courierTrack.courier.lng } : null}
+              destination={parseCoords(courierTrack.deliveryCoords)}
+            />
+            {courierTrack.courier?.name ? (
+              <View style={styles.courierRow}>
+                <Text style={{ color: colors.text, fontWeight: '600', flex: 1 }} numberOfLines={1}>
+                  {courierTrack.courier.name}
+                </Text>
+                {courierTrack.courier.phone ? (
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`tel:${courierTrack.courier.phone}`)}
+                    style={[styles.callBtn, { backgroundColor: colors.primary }]}
+                  >
+                    <Ionicons name="call-outline" size={16} color="#FFF" />
+                    <Text style={styles.callTxt}>{courierTrack.courier.phone}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : (
+              <Text style={{ color: colors.textMuted, marginTop: 8, fontSize: 13 }}>
+                {language === 'uz' ? 'Kuryerning joylashuvi kutilmoqda…' : 'Ожидаем координаты курьера…'}
+              </Text>
+            )}
+          </View>
+        )}
 
         {order.status !== 'cancelled' && (
           <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -349,6 +411,12 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center' },
   scroll: { padding: 16, gap: 12 },
   statusCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, borderWidth: 1.5, padding: 16 },
+  trackCard: { borderRadius: 18, borderWidth: 1, padding: 14, marginTop: 12 },
+  trackHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  trackTitle: { fontSize: 15, fontWeight: '700' },
+  courierRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  callBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  callTxt: { color: '#FFF', fontWeight: '600', fontSize: 13 },
   statusIconBg: { width: 52, height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   statusLabel: { fontSize: 16, fontWeight: '700' },
   statusDate: { fontSize: 12, marginTop: 2 },

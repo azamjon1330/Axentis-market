@@ -196,6 +196,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			orders.PATCH("/:id", handlers.UpdateOrderStatus(db))
 			orders.PUT("/:id/status", handlers.UpdateOrderStatus(db))
 			orders.PUT("/:id/mark-delivered", handlers.MarkOrderDelivered(db))
+			orders.GET("/:id/courier-location", handlers.GetOrderCourierLocation(db)) // 🚴 Живое отслеживание курьера покупателем
 		}
 
 		// Courier routes

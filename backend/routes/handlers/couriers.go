@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -268,6 +269,78 @@ func UpdateCourierLocation(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"success": true})
+	}
+}
+
+// GetOrderCourierLocation — GET /orders/:id/courier-location
+// Позволяет покупателю следить за курьером в реальном времени.
+// Возвращает текущие координаты назначенного курьера и точку доставки.
+func GetOrderCourierLocation(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		orderID := c.Param("id")
+
+		var courierID sql.NullInt64
+		var deliveryCoords sql.NullString
+		var deliveryAddress sql.NullString
+		err := db.QueryRow(`
+			SELECT courier_id, delivery_coordinates, delivery_address
+			FROM orders WHERE id = $1
+		`, orderID).Scan(&courierID, &deliveryCoords, &deliveryAddress)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load order"})
+			return
+		}
+
+		resp := gin.H{
+			"hasCourier":       false,
+			"deliveryCoords":   nil,
+			"deliveryAddress":  nil,
+		}
+		if deliveryCoords.Valid {
+			resp["deliveryCoords"] = deliveryCoords.String
+		}
+		if deliveryAddress.Valid {
+			resp["deliveryAddress"] = deliveryAddress.String
+		}
+
+		if !courierID.Valid {
+			c.JSON(http.StatusOK, resp)
+			return
+		}
+
+		var name, surname, phone sql.NullString
+		var lat, lng sql.NullFloat64
+		var isOnline sql.NullBool
+		var updatedAt sql.NullTime
+		err = db.QueryRow(`
+			SELECT name, surname, phone, last_lat, last_lng, is_online, location_updated_at
+			FROM couriers WHERE id = $1
+		`, courierID.Int64).Scan(&name, &surname, &phone, &lat, &lng, &isOnline, &updatedAt)
+		if err != nil {
+			c.JSON(http.StatusOK, resp)
+			return
+		}
+
+		courier := gin.H{
+			"id":       courierID.Int64,
+			"name":     strings.TrimSpace(name.String + " " + surname.String),
+			"phone":    phone.String,
+			"isOnline": isOnline.Bool,
+		}
+		if lat.Valid && lng.Valid {
+			courier["lat"] = lat.Float64
+			courier["lng"] = lng.Float64
+		}
+		if updatedAt.Valid {
+			courier["updatedAt"] = updatedAt.Time
+		}
+		resp["hasCourier"] = lat.Valid && lng.Valid
+		resp["courier"] = courier
+		c.JSON(http.StatusOK, resp)
 	}
 }
 
