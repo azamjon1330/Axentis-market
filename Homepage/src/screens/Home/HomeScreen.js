@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
   StatusBar,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -24,6 +25,7 @@ import { useFavorites } from '../../context/FavoritesContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getProducts, getCategories, getApprovedAds, getRecentlyViewed, getRecommendations } from '../../api';
 import { useLocationRegion } from '../../context/LocationContext';
+import { ALL_REGION_NAMES } from '../../utils/region';
 import ProductCard from '../../components/common/ProductCard';
 import BannerCarousel from '../../components/common/BannerCarousel';
 import CategoryIcon from '../../components/common/CategoryIcon';
@@ -39,7 +41,7 @@ export default function HomeScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
   const { isFavorite, toggle: toggleFav } = useFavorites();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
 
   const [products, setProducts] = useState([]);
@@ -70,12 +72,13 @@ export default function HomeScreen() {
     return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
   }, [search]);
 
-  // 🗺️ Регион покупателя (по геолокации). Показываем товары СТРОГО его региона.
-  const { region, status: locStatus, requestLocation } = useLocationRegion();
+  // 🗺️ Регион покупателя (GPS ИЛИ выбранный вручную). Товары строго его региона.
+  const { region, manualRegion, status: locStatus, requestLocation, setManualRegion } = useLocationRegion();
+  const [regionPickerOpen, setRegionPickerOpen] = useState(false);
   // В приватном режиме (закрытая компания) фильтрация по региону не нужна.
   const isPrivateMode = user?.mode === 'private' && !!user?.privateCompanyId;
-  // Можно показывать товары, только когда регион определён (или приватный режим).
-  const regionReady = isPrivateMode || (locStatus === 'granted' && !!region);
+  // Готовы показывать товары, когда есть регион (определён или выбран вручную).
+  const regionReady = isPrivateMode || !!region;
 
   const getModeParams = useCallback(() => {
     const params = {};
@@ -383,6 +386,16 @@ export default function HomeScreen() {
                   <Text style={styles.retryLocationBtnText}>{t('enableLocationBtn')}</Text>
                 </TouchableOpacity>
               )}
+              {/* Ручной выбор региона — если GPS не сработал */}
+              <TouchableOpacity
+                onPress={() => setRegionPickerOpen(true)}
+                style={[styles.retryLocationBtn, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.primary, marginTop: 10 }]}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.retryLocationBtnText, { color: colors.primary }]}>
+                  {language === 'uz' ? 'Hududni qoʻlda tanlash' : 'Выбрать регион вручную'}
+                </Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.empty}>
@@ -390,6 +403,17 @@ export default function HomeScreen() {
               <Text style={[styles.emptyText, { color: colors.textMuted, textAlign: 'center', paddingHorizontal: 24 }]}>
                 {debouncedSearch.trim() ? t('nothingFound') : t('noPartnersInRegion')}
               </Text>
+              {!debouncedSearch.trim() && (
+                <TouchableOpacity
+                  onPress={() => setRegionPickerOpen(true)}
+                  style={[styles.retryLocationBtn, { backgroundColor: colors.primary, marginTop: 12 }]}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.retryLocationBtnText}>
+                    {language === 'uz' ? 'Boshqa hududni tanlash' : 'Выбрать другой регион'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )
         }
@@ -482,6 +506,50 @@ export default function HomeScreen() {
           )}
         />
       </Animated.View>
+
+      {/* 🗺️ Ручной выбор региона доставки */}
+      <Modal visible={regionPickerOpen} transparent animationType="slide" onRequestClose={() => setRegionPickerOpen(false)}>
+        <Pressable style={styles.regionOverlay} onPress={() => setRegionPickerOpen(false)}>
+          <Pressable style={[styles.regionSheet, { backgroundColor: colors.surface }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.regionHeader}>
+              <Text style={[styles.regionTitle, { color: colors.text }]}>
+                {language === 'uz' ? 'Hududingizni tanlang' : 'Выберите ваш регион'}
+              </Text>
+              <TouchableOpacity onPress={() => setRegionPickerOpen(false)}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 380 }}>
+              {ALL_REGION_NAMES.map((name) => {
+                const active = region === name;
+                return (
+                  <TouchableOpacity
+                    key={name}
+                    onPress={() => { setManualRegion(name); setRegionPickerOpen(false); }}
+                    style={[styles.regionRow, { borderBottomColor: colors.border }]}
+                  >
+                    <Text style={{ color: active ? colors.primary : colors.text, fontWeight: active ? '700' : '400', flex: 1 }}>
+                      {name}
+                    </Text>
+                    {active && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            {manualRegion ? (
+              <TouchableOpacity
+                onPress={() => { setManualRegion(null); setRegionPickerOpen(false); requestLocation(); }}
+                style={styles.regionAuto}
+              >
+                <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+                <Text style={{ color: colors.primary, marginLeft: 6 }}>
+                  {language === 'uz' ? 'Avtomatik (GPS) ga qaytish' : 'Определять автоматически (GPS)'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -583,6 +651,12 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 15 },
   retryLocationBtn: { marginTop: 14, paddingHorizontal: 22, paddingVertical: 11, borderRadius: 12 },
+  regionOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  regionSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 28 },
+  regionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  regionTitle: { fontSize: 17, fontWeight: '700' },
+  regionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  regionAuto: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingTop: 16 },
   retryLocationBtnText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
   loadMore: { paddingVertical: 20, alignItems: 'center' },
 

@@ -8,7 +8,7 @@
 // Список областей + ключевые слова (lat/uz/ru) для распознавания результата
 // обратного геокодирования (expo-location reverseGeocodeAsync).
 const REGIONS = [
-  { name: 'Андижанская область',        keys: ['andijan', 'andijon', 'андижан'] },
+  { name: 'Андижанская область',        keys: ['andijan', 'andijon', 'андижан', 'asaka', 'асака', 'shahrixon', 'shahrikhan', 'qorgontepa', "qo'rg'ontepa", 'kurgontepa', 'kurgantepa', 'кургантепа', 'qorasuv', 'korasuv', 'karasu', 'карасу'] },
   { name: 'Бухарская область',          keys: ['bukhara', 'buxoro', 'бухар'] },
   { name: 'Джизакская область',         keys: ['jizzakh', 'jizzax', 'jizzakh region', 'джизак'] },
   { name: 'Кашкадарьинская область',    keys: ['kashkadarya', 'qashqadaryo', 'qarshi', 'karshi', 'кашкадар', 'карши'] },

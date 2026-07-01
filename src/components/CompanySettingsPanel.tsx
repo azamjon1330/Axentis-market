@@ -1,7 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Lock, Unlock, Copy, Check, RefreshCw, AlertCircle, Globe, Shield, Truck, RotateCcw } from 'lucide-react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { Lock, Unlock, Copy, Check, RefreshCw, AlertCircle, Globe, Shield, Truck, RotateCcw, MapPin, X } from 'lucide-react';
 import api from '../utils/api';
 import { useTranslation, getCurrentLanguage } from '../utils/translations';
+import { UZBEKISTAN_REGIONS } from '../utils/uzbekistanRegions';
+
+// 🗺️ Карта границ регионов (ленивая загрузка)
+const RegionsMap = lazy(() => import('./RegionsMap'));
 
 interface CompanySettingsPanelProps {
   companyId: number;
@@ -25,10 +29,10 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
   const [returnWindowHours, setReturnWindowHours] = useState('24');
   const [savingDelivery, setSavingDelivery] = useState(false);
 
-  // 🗺️ Регион доставки
-  const [regions, setRegions] = useState<Array<{ id: number; name: string; nameUz?: string }>>([]);
-  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+  // 🗺️ Регионы доставки (мультивыбор названий — именно по ним фильтруются товары)
+  const [serviceRegions, setServiceRegions] = useState<string[]>([]);
   const [savingRegion, setSavingRegion] = useState(false);
+  const [regionsMapOpen, setRegionsMapOpen] = useState(false);
 
   useEffect(() => {
     loadCompanyData();
@@ -53,14 +57,8 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
           if (full.deliveryCostPerKm != null) setCostPerKm(String(full.deliveryCostPerKm));
           if (full.returnEnabled != null) setReturnEnabled(!!full.returnEnabled);
           if (full.returnWindowHours != null) setReturnWindowHours(String(full.returnWindowHours));
-          const rid = full.regionId ?? full.region_id;
-          if (rid != null) setSelectedRegionId(rid);
+          if (Array.isArray(full.serviceRegions)) setServiceRegions(full.serviceRegions);
         }
-      } catch { /* ignore */ }
-
-      try {
-        const regs = await api.regions.list();
-        setRegions(Array.isArray(regs) ? regs : []);
       } catch { /* ignore */ }
     } catch (error) {
       console.error('Error loading company data:', error);
@@ -70,13 +68,18 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
     }
   };
 
-  const handleSaveRegion = async (regionId: number | null) => {
-    setSelectedRegionId(regionId);
+  // Переключаем регион и сразу сохраняем весь список serviceRegions.
+  // Именно по этому полю бэкенд фильтрует товары для покупателей.
+  const toggleRegion = async (regionName: string) => {
+    const next = serviceRegions.includes(regionName)
+      ? serviceRegions.filter((x) => x !== regionName)
+      : [...serviceRegions, regionName];
+    setServiceRegions(next);
     try {
       setSavingRegion(true);
-      await api.regions.setCompanyRegion(companyId, regionId);
+      await api.companies.update(String(companyId), { serviceRegions: next });
     } catch (error) {
-      console.error('Error saving region:', error);
+      console.error('Error saving regions:', error);
     } finally {
       setSavingRegion(false);
     }
@@ -184,43 +187,77 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center gap-3 mb-4">
           <Globe className="w-6 h-6 text-emerald-600" />
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              {language === 'uz' ? 'Yetkazib berish regioni' : 'Регион доставки'}
+              {language === 'uz' ? 'Yetkazib berish hududlari' : 'Регионы доставки'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
               {language === 'uz'
-                ? 'Doʻkoningiz qaysi regionga xizmat qiladi (regionlarni admin yaratadi)'
-                : 'В каком регионе работает ваш магазин (регионы создаёт администратор)'}
+                ? 'Bir nechta hududni tanlashingiz mumkin. Faqat tanlangan hududlardagi xaridorlar mahsulotlaringizni koʻradi.'
+                : 'Можно выбрать несколько. Товары увидят только покупатели из выбранных регионов.'}
             </p>
           </div>
+          {savingRegion && <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />}
         </div>
-        {regions.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {language === 'uz' ? 'Hali regionlar qoʻshilmagan' : 'Регионы ещё не добавлены администратором'}
+
+        <button
+          onClick={() => setRegionsMapOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 mb-3 text-sm font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20"
+        >
+          <MapPin className="w-4 h-4" />
+          {language === 'uz' ? 'Hudud chegaralarini xaritada koʻrish' : 'Показать границы регионов на карте'}
+        </button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {UZBEKISTAN_REGIONS.map((r) => {
+            const active = serviceRegions.includes(r.name);
+            return (
+              <button
+                key={r.name}
+                disabled={savingRegion}
+                onClick={() => toggleRegion(r.name)}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-left font-medium border transition disabled:opacity-60 ${
+                  active
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-emerald-400'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 border ${active ? 'bg-white border-white' : 'border-gray-400 dark:border-gray-500'}`}>
+                  {active && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                </span>
+                <span className="truncate">{language === 'uz' ? r.nameUz : r.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {serviceRegions.length > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+            {language === 'uz' ? 'Tanlangan' : 'Выбрано'}: {serviceRegions.length}
           </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {regions.map((r) => {
-              const active = selectedRegionId === r.id;
-              return (
-                <button
-                  key={r.id}
-                  disabled={savingRegion}
-                  onClick={() => handleSaveRegion(active ? null : r.id)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition disabled:opacity-60 ${
-                    active
-                      ? 'bg-emerald-600 text-white border-emerald-600'
-                      : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-emerald-400'
-                  }`}
-                >
-                  {language === 'uz' && r.nameUz ? r.nameUz : r.name}
-                </button>
-              );
-            })}
-          </div>
         )}
       </div>
+
+      {/* 🗺️ Модал карты границ регионов */}
+      {regionsMapOpen && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 sm:p-6" onClick={() => setRegionsMapOpen(false)}>
+          <div className="relative w-full max-w-3xl rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-gray-800" style={{ maxHeight: '90vh' }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">
+                {language === 'uz' ? 'Hududlar chegaralari' : 'Границы регионов'}
+              </h3>
+              <button onClick={() => setRegionsMapOpen(false)} className="text-gray-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div style={{ height: 460, width: '100%' }}>
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center text-gray-500">…</div>}>
+                <RegionsMap selectedRegions={serviceRegions} />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🚚 Доставка */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">

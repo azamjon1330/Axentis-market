@@ -1,25 +1,47 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { resolveRegion } from '../utils/region';
 
 // Контекст геолокации покупателя.
 //
-// При каждом запуске приложения мы спрашиваем разрешение на геолокацию. Если
-// пользователь отказал — статус становится 'denied', и при следующем заходе
-// запрос повторится (приложение перезапускает провайдер). После согласия мы
-// определяем регион (область) покупателя и сохраняем его, чтобы каталог
-// показывал только товары компаний, обслуживающих этот регион.
+// При запуске приложения спрашиваем геолокацию и определяем область покупателя,
+// чтобы каталог показывал товары компаний, обслуживающих этот регион.
+// Если геолокация не сработала ИЛИ определила регион неверно — покупатель может
+// выбрать регион вручную (manualRegion), и он имеет приоритет над GPS.
+
+const MANUAL_KEY = 'manualRegion';
 
 const LocationContext = createContext({
   region: null,
+  detectedRegion: null,
+  manualRegion: null,
   status: 'idle', // idle | requesting | granted | denied | unavailable
   requestLocation: async () => {},
+  setManualRegion: async () => {},
 });
 
 export function LocationProvider({ children }) {
-  const [region, setRegion] = useState(null);
+  const [detectedRegion, setDetectedRegion] = useState(null);
+  const [manualRegion, setManualRegionState] = useState(null);
   const [status, setStatus] = useState('idle');
   const inFlight = useRef(false);
+
+  // Ручной выбор региона имеет приоритет над GPS.
+  const region = manualRegion || detectedRegion;
+
+  // Загружаем сохранённый ручной регион при старте.
+  useEffect(() => {
+    AsyncStorage.getItem(MANUAL_KEY).then((v) => { if (v) setManualRegionState(v); }).catch(() => {});
+  }, []);
+
+  const setManualRegion = useCallback(async (name) => {
+    setManualRegionState(name || null);
+    try {
+      if (name) await AsyncStorage.setItem(MANUAL_KEY, name);
+      else await AsyncStorage.removeItem(MANUAL_KEY);
+    } catch { /* ignore */ }
+  }, []);
 
   const requestLocation = useCallback(async () => {
     if (inFlight.current) return;
@@ -29,7 +51,7 @@ export function LocationProvider({ children }) {
       const { status: perm } = await Location.requestForegroundPermissionsAsync();
       if (perm !== 'granted') {
         setStatus('denied');
-        setRegion(null);
+        setDetectedRegion(null);
         return;
       }
       const pos = await Location.getCurrentPositionAsync({
@@ -47,11 +69,11 @@ export function LocationProvider({ children }) {
       } catch {
         // обратное геокодирование недоступно — оставляем регион пустым
       }
-      setRegion(resolved);
+      setDetectedRegion(resolved);
       setStatus('granted');
     } catch {
       setStatus('unavailable');
-      setRegion(null);
+      setDetectedRegion(null);
     } finally {
       inFlight.current = false;
     }
@@ -63,7 +85,7 @@ export function LocationProvider({ children }) {
   }, [requestLocation]);
 
   return (
-    <LocationContext.Provider value={{ region, status, requestLocation }}>
+    <LocationContext.Provider value={{ region, detectedRegion, manualRegion, status, requestLocation, setManualRegion }}>
       {children}
     </LocationContext.Provider>
   );
