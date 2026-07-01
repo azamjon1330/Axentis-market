@@ -724,6 +724,10 @@ export const companies = {
     return apiCall(`/companies/${id}/stats`, { requiresAuth: false });
   },
 
+  // 👁️ Засчитать просмотр страницы магазина
+  trackView: async (id: string | number) =>
+    apiCall(`/companies/${id}/view`, { method: 'POST', requiresAuth: false }),
+
   // Update company expenses
   updateExpenses: async (id: string, expenses: {
     employeeExpenses: number;

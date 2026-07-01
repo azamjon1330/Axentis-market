@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Star, BadgeCheck, TrendingUp, Package, Heart, Users, ThumbsUp, ShoppingBag, MapPin, ShieldCheck, Plus, Check } from 'lucide-react';
-import { getImageUrl } from '../utils/api';
+import api, { getImageUrl } from '../utils/api';
 // TODO: Company rating/subscriptions not yet in new API
 // import { rateCompany } from '../utils/api-old-supabase.tsx.backup';
 
@@ -169,14 +169,20 @@ export default function CompanyProfilePage({
 
   const categories: string[] = ['Все', ...Array.from(new Set(cachedProducts.map((p: Product) => p.category).filter(Boolean))) as string[]];
 
+  const SUBS_KEY = 'subscribedCompanies';
+
   useEffect(() => {
-    if (customerId) {
-      // ⚠️ Временно отключено - backend endpoint'ы не реализованы
-      // loadUserRating();
-      // loadSubscriptionStatus();
-      // loadProfileViews();
-      // incrementProfileViews();
-    }
+    // 👁️ Засчитываем просмотр магазина (счётчик view_count на бэкенде)
+    api.companies.trackView(companyId).catch(() => {});
+    // 👥 Актуальное число подписчиков
+    api.companies.getStats(String(companyId))
+      .then((s: any) => setSubscribersCount(Number(s?.subscribers ?? 0)))
+      .catch(() => {});
+    // 🔔 Подписан ли текущий покупатель (хранится локально, как в приложении)
+    try {
+      const subs: number[] = JSON.parse(localStorage.getItem(SUBS_KEY) || '[]');
+      setIsSubscribed(subs.includes(companyId));
+    } catch { /* ignore */ }
   }, [companyId, customerId]);
 
   const getPriceWithMarkup = (product: Product): number => {
@@ -268,25 +274,22 @@ export default function CompanyProfilePage({
       toast.error('Требуется авторизация');
       return;
     }
+    const willSubscribe = !isSubscribed;
     try {
-      const action = isSubscribed ? 'unsubscribe' : 'subscribe';
-      const response = await fetch(
-        `/api/companies/${companyId}/subscription`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ customer_id: customerId, action })
-        }
-      );
-      
-      const data = await response.json();
-      if (data.success) {
-        setIsSubscribed(!isSubscribed);
-        setSubscribersCount(prev => isSubscribed ? prev - 1 : prev + 1);
-        toast.success(isSubscribed ? 'Вы отписались' : 'Вы подписались');
+      if (willSubscribe) {
+        await api.companies.subscribe(companyId, customerId);
+      } else {
+        await api.companies.unsubscribe(companyId, customerId);
       }
+      // Локально запоминаем подписку (как в мобильном приложении)
+      try {
+        const subs: number[] = JSON.parse(localStorage.getItem(SUBS_KEY) || '[]');
+        const next = willSubscribe ? [...new Set([...subs, companyId])] : subs.filter(id => id !== companyId);
+        localStorage.setItem(SUBS_KEY, JSON.stringify(next));
+      } catch { /* ignore */ }
+      setIsSubscribed(willSubscribe);
+      setSubscribersCount(prev => Math.max(0, willSubscribe ? prev + 1 : prev - 1));
+      toast.success(willSubscribe ? 'Вы подписались' : 'Вы отписались');
     } catch (error) {
       console.error('Ошибка при подписке:', error);
       toast.error('Ошибка при подписке');
@@ -299,8 +302,7 @@ export default function CompanyProfilePage({
       return;
     }
     try {
-      // ⚠️ Временно отключено - backend endpoint не реализован
-      // await rateCompany(companyId, customerId, rating);
+      await api.companies.rate(companyId, customerId, rating);
       setSelectedRating(rating);
       toast.success('Спасибо за вашу оценку');
     } catch (error) {
@@ -478,6 +480,32 @@ export default function CompanyProfilePage({
               {isSubscribed ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
               {isSubscribed ? 'Вы подписаны' : 'Подписаться'}
             </button>
+
+            {/* ⭐ Оценка магазина покупателем */}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <span className="text-[13px] font-semibold" style={{ color: hp.textMuted }}>
+                {selectedRating > 0 ? 'Ваша оценка:' : 'Оцените магазин:'}
+              </span>
+              <div className="flex items-center gap-1" onMouseLeave={() => setHoveredRating(0)}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => handleRate(star)}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    className="transition-transform active:scale-90"
+                    aria-label={`Оценить на ${star}`}
+                  >
+                    <Star
+                      className="w-6 h-6"
+                      style={{
+                        color: star <= (hoveredRating || selectedRating) ? hp.star : hp.textMuted,
+                        fill: star <= (hoveredRating || selectedRating) ? hp.star : 'transparent',
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Описание товаров компании */}

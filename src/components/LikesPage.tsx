@@ -14,7 +14,8 @@ interface Product {
   markupPercent?: number;
   availableForCustomers?: boolean;
   images?: string[]; // 📸 Массив путей к изображениям товара
-  hasColorOptions?: boolean; 
+  hasColorOptions?: boolean;
+  company_id?: number; // 🏢 нужен для перехода в магазин компании
 }
 
 interface LikesPageProps {
@@ -157,6 +158,14 @@ export default function LikesPage({
     return product.price * (1 + markupPercent / 100);
   };
 
+  // 🏢 Открыть магазин компании: ставим deep-link хэш и уходим на главную,
+  // где HomePage по хэшу #company-ID откроет нужный магазин.
+  const handleViewCompany = (companyId?: number) => {
+    if (!companyId) return;
+    window.location.hash = `company-${companyId}`;
+    onNavigateTo?.('home');
+  };
+
   const isNight = displayMode === 'night';
 
   return (
@@ -256,7 +265,7 @@ export default function LikesPage({
                   setViewingImage({ url, name });
                   setViewingImageIndex(index);
                 }}
-                onViewCompany={() => {}} 
+                onViewCompany={() => handleViewCompany(product.company_id)}
                 onClick={() => {
                   // ✅ ОДИНАРНЫЙ КЛИК - открываем панель товара
                   setSelectedProduct(product);
@@ -355,7 +364,7 @@ export default function LikesPage({
           cartQuantity={cart[selectedProduct.id] || 0}
           formatPrice={formatPrice}
           getPriceWithMarkup={getPriceWithMarkup}
-          onViewCompany={() => {}} // Пока не реализовано
+          onViewCompany={(companyId) => handleViewCompany(companyId ?? selectedProduct.company_id)}
           userPhone={userPhone}
           isLiked={likedProductIds.includes(selectedProduct.id)}
           onToggleLike={(productId) => {
