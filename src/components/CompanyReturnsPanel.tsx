@@ -69,13 +69,22 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  const setStatus = async (id: number, status: string) => {
+  const setStatus = async (id: number, status: string, comment?: string) => {
     try {
-      await api.returns.updateStatus(id, status);
+      await api.returns.updateStatus(id, status, comment);
       await load();
     } catch (e) {
       console.error('Update return status failed:', e);
     }
+  };
+
+  // При отклонении спрашиваем причину — она сохраняется как comment и видна покупателю
+  const handleReject = (id: number) => {
+    const reason = window.prompt(
+      lang === 'uz' ? 'Rad etish sababi (ixtiyoriy):' : 'Причина отклонения (необязательно):'
+    );
+    if (reason === null) return; // отменили
+    setStatus(id, 'rejected', reason || undefined);
   };
 
   return (
@@ -122,6 +131,11 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
               <p className="text-sm" style={{ color: 'var(--ax-text-2)' }}>📞 {r.customerPhone}</p>
               {r.orderId && <p className="text-sm" style={{ color: 'var(--ax-text-2)' }}>{L.order} #{r.orderId}</p>}
               {r.reason && <p className="text-sm mt-1" style={{ color: 'var(--ax-text)' }}>{L.reason}: {r.reason}</p>}
+              {r.comment && (
+                <p className="text-sm mt-1 px-2 py-1 rounded-lg" style={{ background: 'rgba(248,113,113,0.10)', color: '#F87171' }}>
+                  💬 {r.comment}
+                </p>
+              )}
               <p className="text-sm font-semibold mt-1" style={{ color: '#22C55E' }}>{L.toRefund}: {Number(r.refundAmount).toLocaleString('uz-UZ')} {L.sum}</p>
               <p className="text-xs mt-1" style={{ color: 'var(--ax-text-2)', opacity: 0.7 }}>
                 {r.createdAt ? new Date(r.createdAt).toLocaleString() : ''}
@@ -137,7 +151,7 @@ export default function CompanyReturnsPanel({ companyId }: CompanyReturnsPanelPr
                     <Check className="w-4 h-4" /> {L.approve}
                   </button>
                   <button
-                    onClick={() => setStatus(r.id, 'rejected')}
+                    onClick={() => handleReject(r.id)}
                     className="flex items-center gap-1 px-3 py-2 rounded-lg text-white text-sm font-medium active:scale-95"
                     style={{ background: 'linear-gradient(135deg, #F87171, #DC2626)' }}
                   >
