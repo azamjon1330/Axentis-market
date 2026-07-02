@@ -1,6 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+
+// 📲 Глобальный ref навигации — по нему NotificationsManager открывает нужный
+// экран при нажатии на push (например, заказ с картой курьера).
+export const navigationRef = createNavigationContainerRef();
 
 // 🔗 Глубокие ссылки: открывают товар/магазин прямо в приложении.
 //   axentis://product/123 · axentis://company/45
@@ -147,6 +151,7 @@ export default function Navigation() {
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       linking={deepLinking}
       theme={{
         dark: isDark,

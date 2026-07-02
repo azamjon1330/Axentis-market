@@ -69,12 +69,15 @@ async function apiCall(
     headers['Content-Type'] = 'application/json';
   }
 
-  // Add auth token if required
-  if (requiresAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  // Always attach the auth token when we have one — the backend now scopes
+  // personal data (cart, favorites, orders, addresses, cards, notifications)
+  // to the authenticated principal, so even "public-ish" calls must carry it.
+  // Attaching a token to a truly public endpoint is harmless.
+  // `requiresAuth` is kept for call-site compatibility.
+  void requiresAuth;
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   try {
@@ -223,9 +226,17 @@ export const products = {
     return apiCall(`/products?${query}`, { requiresAuth: false });
   },
 
-  // 🔍 Typo-tolerant relevance search (pg_trgm)
-  search: async (q: string, limit = 30) => {
-    return apiCall(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}`, { requiresAuth: false });
+  // 🔍 Typo-tolerant relevance search (pg_trgm).
+  // extra: { sort: 'price_asc'|'price_desc'|'popular'|'new', minPrice, maxPrice, category, brand }
+  search: async (q: string, limit = 30, extra: Record<string, string | number> = {}) => {
+    const params = new URLSearchParams({ q, limit: String(limit), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, String(v)])) });
+    return apiCall(`/products/search?${params}`, { requiresAuth: false });
+  },
+
+  // 💡 Автодополнение поисковой строки: [{ label, type: 'product'|'brand'|'category' }]
+  suggest: async (q: string) => {
+    if (!q || q.trim().length < 2) return [];
+    return apiCall(`/products/suggest?q=${encodeURIComponent(q.trim())}`, { requiresAuth: false });
   },
 
   // Get product by ID
@@ -610,8 +621,15 @@ export const orders = {
 // COURIERS API
 // ============================================================================
 export const couriers = {
-  login: async (phone: string, password: string) =>
-    apiCall('/couriers/login', { method: 'POST', body: JSON.stringify({ phone, password }), requiresAuth: false }),
+  // Курьер получает собственный JWT — сохраняем его, чтобы обновление
+  // статуса/локации и список заказов проходили авторизацию.
+  login: async (phone: string, password: string) => {
+    const response = await apiCall('/couriers/login', { method: 'POST', body: JSON.stringify({ phone, password }), requiresAuth: false });
+    if (response.token) {
+      setAuthToken(response.token);
+    }
+    return response;
+  },
 
   list: async (companyId?: number | string) =>
     apiCall(`/couriers${companyId ? `?company_id=${companyId}` : ''}`, { requiresAuth: false }),
@@ -636,6 +654,10 @@ export const couriers = {
 
   getOrders: async (id: number | string) =>
     apiCall(`/couriers/${id}/orders`, { requiresAuth: false }),
+
+  // 📊 Статистика курьера: доставлено сегодня (кол-во, сумма) и всего
+  getStats: async (id: number | string) =>
+    apiCall(`/couriers/${id}/stats`),
 };
 
 // ============================================================================
@@ -703,6 +725,10 @@ export const companies = {
       body: formData,
     });
   },
+
+  // ✅ Выдать/снять значок «Проверенный магазин» (админ)
+  setVerified: async (id: string | number, isVerified: boolean) =>
+    apiCall(`/companies/${id}/verify`, { method: 'PUT', body: JSON.stringify({ isVerified }) }),
 
   // Approve company (admin only)
   approve: async (id: string, approved: boolean) => {
@@ -1315,6 +1341,11 @@ export const analytics = {
   // 📊 Unified seller dashboard snapshot
   dashboard: async (companyId: string | number) => {
     return apiCall(`/analytics/company/${companyId}/dashboard`);
+  },
+
+  // 📦 Инсайты склада: прогноз остатков (дней до нуля) + ABC-анализ по выручке
+  inventoryInsights: async (companyId: string | number) => {
+    return apiCall(`/analytics/company/${companyId}/inventory-insights`);
   },
 
   // Get top products

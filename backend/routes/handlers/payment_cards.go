@@ -94,6 +94,10 @@ func AddPaymentCard(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Required fields missing"})
 			return
 		}
+		// Карту можно привязать только к своему номеру телефона.
+		if !requirePhoneMatch(c, req.UserPhone) {
+			return
+		}
 
 		// Валидация номера карты (16 цифр)
 		if len(req.CardNumber) != 16 {
@@ -208,6 +212,16 @@ func DeletePaymentCard(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Удалять карту может только её владелец (или админ).
+		var owner string
+		if err := db.QueryRow("SELECT user_phone FROM payment_cards WHERE id = $1", id).Scan(&owner); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Card not found"})
+			return
+		}
+		if !requirePhoneMatch(c, owner) {
+			return
+		}
+
 		_, err = db.Exec("DELETE FROM payment_cards WHERE id = $1", id)
 		if err != nil {
 			log.Printf("Error deleting card: %v", err)
@@ -245,6 +259,11 @@ func SetDefaultCard(db *sql.DB) gin.HandlerFunc {
 			}
 			log.Printf("Error fetching card: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch card"})
+			return
+		}
+
+		// Менять карту по умолчанию может только её владелец (или админ).
+		if !requirePhoneMatch(c, userPhone) {
 			return
 		}
 

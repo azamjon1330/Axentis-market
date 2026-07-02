@@ -139,6 +139,10 @@ func RedeemLoyaltyPoints(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "userPhone and a positive points value are required"})
 			return
 		}
+		// Списывать баллы можно только со своего счёта.
+		if !requirePhoneMatch(c, req.UserPhone) {
+			return
+		}
 
 		tx, err := db.Begin()
 		if err != nil {

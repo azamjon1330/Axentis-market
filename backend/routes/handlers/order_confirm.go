@@ -42,6 +42,11 @@ func ConfirmOrder(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Отгрузку подтверждает только компания-продавец (или админ).
+		if !requireCompanyMatch(c, order.CompanyID) {
+			return
+		}
+
 		// Принимаем только заказы со статусом confirmed (принятые)
 		if order.Status == "shipped" || order.Status == "delivered" || order.Status == "completed" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Order already shipped"})

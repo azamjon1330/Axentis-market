@@ -31,7 +31,10 @@ export default function ProductDetailScreen() {
   const { isFavorite: ctxIsFavorite, toggle: toggleFav } = useFavorites();
   const navigation = useNavigation();
   const route = useRoute();
-  const { productId } = route.params;
+  const { productId, openReview } = route.params;
+  // 🔗 «Оцените покупку» из заказа: после загрузки скроллим к форме отзыва
+  const scrollRef = useRef(null);
+  const reviewScrolled = useRef(false);
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -218,7 +221,9 @@ export default function ProductDetailScreen() {
   const handleShare = async () => {
     if (!product) return;
     const price = (selectedVariant?.sellingPrice || selectedVariant?.price || product.sellingPrice || product.price || 0).toLocaleString('ru-RU');
-    const url = `https://axentis.uz/#product-${productId}`;
+    // Умная ссылка: у кого установлено приложение — откроется приложение
+    // (App Links/deep linking), у остальных — сайт с карточкой товара.
+    const url = `https://axentis.uz/product/${productId}`;
     await Share.share({
       title: product.name,
       message: `${product.name}\n${price} ${t('sum')}\n\n${url}`,
@@ -411,7 +416,7 @@ export default function ProductDetailScreen() {
         </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         <View style={styles.body}>
           {/* ── Фото товара на всю ширину ── */}
           <View style={[styles.imgColFull, { width: IMG_FULL, backgroundColor: colors.cardAlt, borderColor: colors.border }]}>
@@ -695,7 +700,17 @@ export default function ProductDetailScreen() {
           ) : null}
 
           {user && reviews.filter(r => r.userPhone === user.phone).length < 2 ? (
-            <View style={styles.writeReviewCard}>
+            <View
+              style={styles.writeReviewCard}
+              onLayout={(e) => {
+                // Открыто из «Оцените покупку» в заказе — подводим к форме отзыва
+                if (openReview && !reviewScrolled.current && scrollRef.current) {
+                  reviewScrolled.current = true;
+                  const y = e.nativeEvent.layout.y;
+                  setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(y - 60, 0), animated: true }), 400);
+                }
+              }}
+            >
               <Text style={[styles.writeReviewTitle, { color: colors.text }]}>{t('leaveReview')}</Text>
               <Text style={[styles.writeReviewSub, { color: colors.textMuted }]}>
                 {t('reviewHelps')}

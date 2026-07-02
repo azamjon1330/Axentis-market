@@ -104,7 +104,12 @@ func CreateSale(db *sql.DB) gin.HandlerFunc {
 			itemsJSON = "[]"
 		}
 
-		log.Printf("💰 Creating sale: companyId=%v, totalAmount=%v, items=%s", 
+		// Продажа записывается только на компанию из токена.
+		if !isAdmin(c) {
+			req["companyId"] = ctxCompanyID(c)
+		}
+
+		log.Printf("💰 Creating sale: companyId=%v, totalAmount=%v, items=%s",
 			req["companyId"], req["totalAmount"], itemsJSON)
 
 		var saleID int64

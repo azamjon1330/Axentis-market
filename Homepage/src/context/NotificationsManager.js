@@ -5,6 +5,20 @@ import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { useAuth } from './AuthContext';
 import { getNotifications, savePushToken } from '../api';
+import { navigationRef } from '../navigation';
+
+// 📦 Открыть экран по data-payload push-уведомления. Для заказа «в пути»
+// экран заказа сам показывает живую карту курьера.
+function handleNotificationData(data) {
+  if (!data || !navigationRef.isReady()) return;
+  try {
+    if (data.type === 'order' && data.orderId) {
+      navigationRef.navigate('OrderDetail', { orderId: Number(data.orderId) });
+    }
+  } catch {
+    // навигация могла быть не готова — не критично
+  }
+}
 
 const LAST_SEEN_KEY = 'last_seen_notif_id';
 const POLL_INTERVAL_MS = 25_000;
@@ -79,6 +93,21 @@ export default function NotificationsManager() {
 
   useEffect(() => {
     ensureAndroidChannel();
+  }, []);
+
+  // Нажатие на push → открываем связанный экран (в т.ч. если приложение
+  // было закрыто и запустилось из уведомления).
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      handleNotificationData(response?.notification?.request?.content?.data);
+    });
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        // Даём навигации смонтироваться после холодного старта
+        setTimeout(() => handleNotificationData(response?.notification?.request?.content?.data), 800);
+      }
+    }).catch(() => {});
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

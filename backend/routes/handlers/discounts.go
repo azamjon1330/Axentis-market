@@ -19,6 +19,11 @@ func CreateDiscount(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Компания создаёт скидки только на свои товары от своего имени.
+		if !isAdmin(c) {
+			discount.CompanyID = ctxCompanyID(c)
+		}
+
 		// Валидация процента скидки
 		if discount.DiscountPercent < 0 || discount.DiscountPercent > 100 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Процент скидки должен быть от 0 до 100"})
@@ -277,6 +282,14 @@ func DeleteDiscount(db *sql.DB) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Неверный ID скидки"})
 			return
+		}
+
+		// Удалять скидку может только её компания (или админ).
+		var ownerID int64
+		if err := db.QueryRow("SELECT company_id FROM discounts WHERE id = $1", discountID).Scan(&ownerID); err == nil {
+			if !requireCompanyMatch(c, ownerID) {
+				return
+			}
 		}
 
 		_, err = db.Exec("DELETE FROM discounts WHERE id = $1", discountID)

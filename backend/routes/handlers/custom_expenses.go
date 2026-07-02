@@ -108,6 +108,11 @@ func CreateCustomExpense(db *sql.DB) gin.HandlerFunc {
 			req.ExpenseType = "monthly"
 		}
 
+		// Расход записывается только на компанию из токена.
+		if !isAdmin(c) {
+			req.CompanyID = ctxCompanyID(c)
+		}
+
 		expenseDate := time.Now()
 		if req.ExpenseDate != nil && *req.ExpenseDate != "" {
 			if parsed, err := time.Parse("2006-01-02", *req.ExpenseDate); err == nil {

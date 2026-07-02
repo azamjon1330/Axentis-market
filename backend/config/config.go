@@ -67,6 +67,12 @@ func (c *Config) Validate() {
 			"Set a real DB_PASSWORD environment variable in production.")
 	}
 
+	if c.AdminPhone == "914751330" && c.AdminCode == "15051" {
+		log.Println("🚨 SECURITY: ADMIN_PHONE/ADMIN_CODE are using the well-known default values. " +
+			"These credentials grant FULL admin access to the platform — set unique values " +
+			"via environment variables immediately.")
+	}
+
 	if c.GinMode != "release" {
 		log.Println("⚠️  GIN_MODE is not 'release'. Set GIN_MODE=release in production " +
 			"to avoid leaking stack traces and debug details to clients.")

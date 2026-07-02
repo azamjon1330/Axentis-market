@@ -1,22 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, LogOut, Users, Trash2, Building2, Save, RefreshCw, Eye, EyeOff, CreditCard, Megaphone, Menu, X, Copy, Check, Package, Bell, BarChart3, Tag, Ticket, Truck, MessageSquare, Globe, Film } from 'lucide-react';
 import api from '../utils/api';
-// TODO: Main company management not yet in new API
-import CompanyManagement from './CompanyManagement';
-import PaymentSettings from './PaymentSettings';
-import PaymentHistoryPanel from './PaymentHistoryPanel';
-import AdminAdsPanel from './AdminAdsPanel';
-import AdminCategoriesPanel from './AdminCategoriesPanel';
-import AdminNotificationsPanel from './AdminNotificationsPanel';
-import AdminCompanyMessagesPanel from './AdminCompanyMessagesPanel';
-import BroadcastChatPanel from './BroadcastChatPanel';
-import AdminRegionsPanel from './AdminRegionsPanel';
-import AdminDecorationVideosPanel from './AdminDecorationVideosPanel'; // 🎬 Видео-декорации
-import AdminAnalyticsPanel from './AdminAnalyticsPanel';
-import AdminDiscountsPanel from './AdminDiscountsPanel';
-import AdminPromoCodesPanel from './AdminPromoCodesPanel';
-import AdminReferralPanel from './AdminReferralPanel'; // 👥 Реферальная система
-import CouriersManagementPanel from './CouriersManagementPanel'; // 🚚 Курьеры
+// ⚡ Каждый раздел админки — ленивый чанк: панель открывается быстро, код
+// раздела подгружается по клику на пункт меню.
+const CompanyManagement = React.lazy(() => import('./CompanyManagement'));
+const PaymentSettings = React.lazy(() => import('./PaymentSettings'));
+const PaymentHistoryPanel = React.lazy(() => import('./PaymentHistoryPanel'));
+const AdminAdsPanel = React.lazy(() => import('./AdminAdsPanel'));
+const AdminCategoriesPanel = React.lazy(() => import('./AdminCategoriesPanel'));
+const AdminNotificationsPanel = React.lazy(() => import('./AdminNotificationsPanel'));
+const AdminCompanyMessagesPanel = React.lazy(() => import('./AdminCompanyMessagesPanel'));
+const BroadcastChatPanel = React.lazy(() => import('./BroadcastChatPanel'));
+const AdminRegionsPanel = React.lazy(() => import('./AdminRegionsPanel'));
+const AdminDecorationVideosPanel = React.lazy(() => import('./AdminDecorationVideosPanel')); // 🎬 Видео-декорации
+const AdminAnalyticsPanel = React.lazy(() => import('./AdminAnalyticsPanel'));
+const AdminDiscountsPanel = React.lazy(() => import('./AdminDiscountsPanel'));
+const AdminPromoCodesPanel = React.lazy(() => import('./AdminPromoCodesPanel'));
+const AdminReferralPanel = React.lazy(() => import('./AdminReferralPanel')); // 👥 Реферальная система
+const CouriersManagementPanel = React.lazy(() => import('./CouriersManagementPanel')); // 🚚 Курьеры
+
+// Спиннер на время подгрузки раздела
+const AdminTabLoading = () => (
+  <div className="flex items-center justify-center py-24 text-gray-400 gap-2">
+    <RefreshCw className="w-5 h-5 animate-spin" />
+    Загрузка раздела...
+  </div>
+);
 import { broadcastReload } from '../utils/reloadBroadcast';
 import { getCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 
@@ -307,7 +316,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
       {/* Sidebar слева - РЕСПОНСИВНЫЙ */}
       <aside className={`
-        w-64 bg-gradient-to-b from-red-600 to-red-700 text-white shadow-lg 
+        w-64 bg-[#13132A] text-white shadow-xl border-r border-white/10 
         fixed h-full z-30 transition-transform duration-300 flex flex-col
         lg:translate-x-0
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -318,7 +327,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               <Shield className="w-8 h-8" />
               <div>
                 <h1 className="text-xl font-bold">Админ Панель</h1>
-                <p className="text-red-100 text-xs">Полный контроль</p>
+                <p className="text-gray-400 text-xs">Панель управления платформой</p>
               </div>
             </div>
             {/* Кнопка закрытия для мобильных */}
@@ -337,8 +346,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('overview')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'overview'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Shield className="w-5 h-5" />
@@ -349,8 +358,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('analytics')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'analytics'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <BarChart3 className="w-5 h-5" />
@@ -361,8 +370,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('companies')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'companies'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Building2 className="w-5 h-5" />
@@ -373,8 +382,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('payment')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'payment'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <CreditCard className="w-5 h-5" />
@@ -385,8 +394,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('ads')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'ads'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Megaphone className="w-5 h-5" />
@@ -397,8 +406,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('categories')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'categories'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Package className="w-5 h-5" />
@@ -409,8 +418,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('notifications')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'notifications'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Bell className="w-5 h-5" />
@@ -421,8 +430,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('companyMessages')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'companyMessages'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Building2 className="w-5 h-5" />
@@ -433,8 +442,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('chat')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'chat'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <MessageSquare className="w-5 h-5" />
@@ -445,8 +454,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('regions')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'regions'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Globe className="w-5 h-5" />
@@ -457,8 +466,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('decorationVideos')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'decorationVideos'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Film className="w-5 h-5" />
@@ -469,8 +478,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('discounts')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'discounts'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Tag className="w-5 h-5" />
@@ -481,8 +490,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('promo')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'promo'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Tag className="w-5 h-5" />
@@ -493,8 +502,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('referrals')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'referrals'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Ticket className="w-5 h-5" />
@@ -505,8 +514,8 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
               onClick={() => handleNavigate('couriers')}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300 ${
                 activeTab === 'couriers'
-                  ? 'bg-white text-red-600 shadow-lg'
-                  : 'text-white hover:bg-white/10 hover:scale-y-105'
+                  ? 'bg-[#7C5CF0] text-white shadow-lg shadow-purple-900/40'
+                  : 'text-gray-300 hover:bg-white/10 hover:text-white'
               }`}
             >
               <Truck className="w-5 h-5" />
@@ -561,6 +570,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
 
         {/* Контент панелей */}
         <div className="p-4 lg:p-8">{/* Tab Content */}
+          <React.Suspense fallback={<AdminTabLoading />}>
           {activeTab === 'overview' ? (
             <>
               {/* Stats */}
@@ -846,6 +856,7 @@ export default function AdminPanel({ onLogout }: AdminPanelProps) {
           ) : (
             <AdminAdsPanel />
           )}
+          </React.Suspense>
         </div>
       </main>
     </div>

@@ -28,17 +28,23 @@ export default function CompanyLogin({ onLogin }: CompanyLoginProps) {
 
     setLoading(true);
     try {
-      // 🔐 1. Проверка админа ПЕРВЫМ ДЕЛОМ
-      if (phone === '914751330' && password === '15051') {
-        console.log('✅ Admin login detected');
-        setLoading(false);
-        onLogin({ 
-          id: 0, 
-          phone: '914751330', 
-          name: 'Admin',
-          isAdmin: true 
-        });
-        return;
+      // 🔐 1. Пробуем войти как админ (креды проверяет бэкенд — никаких
+      // захардкоженных паролей во фронтенде, они видны любому в JS-бандле)
+      try {
+        const adminResp = await api.auth.loginAdmin(phone, password);
+        if (adminResp?.token) {
+          console.log('✅ Admin login detected');
+          setLoading(false);
+          onLogin({
+            id: 0,
+            phone,
+            name: 'Admin',
+            isAdmin: true
+          });
+          return;
+        }
+      } catch {
+        // не админ — пробуем другие типы аккаунтов
       }
 
       // 🏢 2. Пробуем войти как компания

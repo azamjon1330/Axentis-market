@@ -140,6 +140,23 @@ func GetOrders(db *sql.DB) gin.HandlerFunc {
 			companyIDStr = c.Query("companyId")
 		}
 
+		// Скоупинг по роли: заказы содержат телефоны и адреса покупателей.
+		// Покупатель видит только свои заказы, компания — только свои,
+		// админ — любые. Без токена список недоступен.
+		switch ctxRole(c) {
+		case "admin":
+			// без ограничений
+		case "company":
+			companyIDStr = strconv.FormatInt(ctxCompanyID(c), 10)
+			customerPhone = ""
+		case "user":
+			customerPhone = ctxPhone(c)
+			companyIDStr = ""
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+
 		if customerPhone == "" && companyIDStr == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "customer_phone or company_id required"})
 			return
@@ -407,6 +424,26 @@ func GetOrderByID(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Заказ видят только участники: покупатель, компания-продавец,
+		// курьер (для доставки) или админ.
+		switch ctxRole(c) {
+		case "admin", "courier":
+			// ok
+		case "company":
+			if !o.CompanyID.Valid || o.CompanyID.Int64 != ctxCompanyID(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+		case "user":
+			if o.CustomerPhone != ctxPhone(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+
 		// Parse items (handles direct array and double-encoded string).
 		var itemsArray []map[string]interface{}
 		if len(o.Items) > 0 {
@@ -466,6 +503,12 @@ func CreateOrder(db *sql.DB) gin.HandlerFunc {
 			log.Printf("❌ CreateOrder: Ошибка парсинга JSON: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
+		}
+
+		// Авторизованный покупатель всегда оформляет заказ на свой телефон —
+		// нельзя оформить заказ «от имени» другого пользователя.
+		if ctxRole(c) == "user" {
+			req["customerPhone"] = ctxPhone(c)
 		}
 
 		// Логируем входящий запрос
@@ -897,6 +940,20 @@ func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Отметить доставку могут курьер, компания-продавец или админ.
+		switch ctxRole(c) {
+		case "admin", "courier":
+			// ok
+		case "company":
+			if !companyID.Valid || companyID.Int64 != ctxCompanyID(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+
 		if currentStatus != "shipped" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Only shipped orders can be marked as delivered"})
 			return
@@ -909,7 +966,14 @@ func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.Exec(`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`, id); err != nil {
+		// Запоминаем, какой курьер доставил заказ — на этом строится его
+		// статистика «доставлено сегодня» в панели курьера.
+		if ctxRole(c) == "courier" {
+			if _, err := tx.Exec(`UPDATE orders SET status = 'completed', courier_id = $2, updated_at = NOW() WHERE id = $1`, id, ctxCompanyID(c)); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+				return
+			}
+		} else if _, err := tx.Exec(`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`, id); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
 			return
 		}
@@ -926,7 +990,8 @@ func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		sendOrderStatusPush(db, customerPhone, orderCode.String, "completed")
+		oid64, _ := strconv.ParseInt(id, 10, 64)
+		sendOrderStatusPush(db, customerPhone, orderCode.String, "completed", oid64)
 		log.Printf("✅ MarkOrderDelivered: order %s marked as completed", id)
 		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
@@ -1012,6 +1077,29 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 			FROM orders WHERE id = $1
 		`, id).Scan(&currentStatus, &itemsJSON, &customerPhone, &companyID, &totalAmount, &orderCode); err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
+			return
+		}
+
+		// Кто и что может менять:
+		//   админ / курьер   — любой переход;
+		//   компания         — только свои заказы;
+		//   покупатель       — только отмену СВОЕГО ещё не отправленного заказа.
+		switch ctxRole(c) {
+		case "admin", "courier":
+			// ok
+		case "company":
+			if !companyID.Valid || companyID.Int64 != ctxCompanyID(c) {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+		case "user":
+			if customerPhone != ctxPhone(c) || req.Status != "cancelled" ||
+				(currentStatus != "pending" && currentStatus != "processing") {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 			return
 		}
 
@@ -1138,7 +1226,8 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 		// 📲 Real push to the customer's phone (Expo), after the commit so the
 		// network call never blocks the transaction or the API response.
 		if req.Status != currentStatus {
-			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status)
+			oid64, _ := strconv.ParseInt(id, 10, 64)
+			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status, oid64)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true})

@@ -19,9 +19,15 @@ import (
 // Get Companies
 func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// SECURITY: credential fields (password, access key, private code) are
+		// only included for the platform admin. This endpoint is public — the
+		// storefronts use it to list shops — so leaking them here would hand
+		// out every seller's login to anyone.
+		admin := isAdmin(c)
+
 		// Для админ панели показываем все компании, для пользователей - только approved
 		query := `
-			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled, COALESCE(platform_commission_percent, 3)
+			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled, COALESCE(platform_commission_percent, 3), COALESCE(is_verified, FALSE)
 			FROM companies
 			ORDER BY created_at DESC
 		`
@@ -56,10 +62,11 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				DeliveryEnabled     bool
 				IsEnabled           sql.NullBool
 				PlatformCommission  float64
+				IsVerified          bool
 			}
 
 			if err := rows.Scan(&comp.ID, &comp.Name, &comp.Phone, &comp.PasswordHash, &comp.PasswordPlain, &comp.AccessKey, &comp.Mode, &comp.PrivateCode, &comp.Status,
-				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled, &comp.PlatformCommission); err != nil {
+				&comp.LogoURL, &comp.Address, &comp.Description, &comp.ProductsDescription, &comp.Latitude, &comp.Longitude, &comp.DeliveryEnabled, &comp.IsEnabled, &comp.PlatformCommission, &comp.IsVerified); err != nil {
 				log.Printf("❌ GetCompanies: Failed to scan row: %v", err)
 				continue
 			}
@@ -72,23 +79,27 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"status":          comp.Status,
 				"deliveryEnabled": comp.DeliveryEnabled,
 				"platformCommissionPercent": comp.PlatformCommission,
+				"isVerified":      comp.IsVerified,
 			}
 
-			// Expose the readable password for the admin panel. We surface
-			// password_plain (kept in sync on create/update); if it is empty but
-			// the stored hash is still legacy plaintext (not a bcrypt "$2..."
-			// hash), fall back to it. The bcrypt hash itself is never exposed.
-			if comp.PasswordPlain != "" {
-				company["password"] = comp.PasswordPlain
-			} else if comp.PasswordHash != "" && !strings.HasPrefix(comp.PasswordHash, "$2") {
-				company["password"] = comp.PasswordHash
-			}
-
-			if comp.AccessKey.Valid {
-				company["accessKey"] = comp.AccessKey.String
-			}
-			if comp.PrivateCode.Valid {
-				company["privateCode"] = comp.PrivateCode.String
+			// Expose the readable password for the admin panel ONLY (plus each
+			// company's own row, which the seller settings panel reads for its
+			// private code). We surface password_plain (kept in sync on
+			// create/update); if it is empty but the stored hash is still legacy
+			// plaintext (not a bcrypt "$2..." hash), fall back to it. The bcrypt
+			// hash itself is never exposed.
+			if admin || (ctxRole(c) == "company" && ctxCompanyID(c) == comp.ID) {
+				if comp.PasswordPlain != "" {
+					company["password"] = comp.PasswordPlain
+				} else if comp.PasswordHash != "" && !strings.HasPrefix(comp.PasswordHash, "$2") {
+					company["password"] = comp.PasswordHash
+				}
+				if comp.AccessKey.Valid {
+					company["accessKey"] = comp.AccessKey.String
+				}
+				if comp.PrivateCode.Valid {
+					company["privateCode"] = comp.PrivateCode.String
+				}
 			}
 			if comp.LogoURL.Valid {
 				company["logoUrl"] = comp.LogoURL.String
@@ -131,7 +142,8 @@ func GetTopCompanies(db *sql.DB) gin.HandlerFunc {
 			       COALESCE(c.view_count, 0) AS view_count,
 			       COALESCE((SELECT AVG(rating) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating,
 			       COALESCE((SELECT COUNT(*) FROM company_ratings cr WHERE cr.company_id = c.id), 0) AS rating_count,
-			       COALESCE((SELECT COUNT(*) FROM products p WHERE p.company_id = c.id AND p.available_for_customers = TRUE), 0) AS product_count
+			       COALESCE((SELECT COUNT(*) FROM products p WHERE p.company_id = c.id AND p.available_for_customers = TRUE), 0) AS product_count,
+			       COALESCE(c.is_verified, FALSE) AS is_verified
 			FROM companies c
 			WHERE c.status = 'approved'
 			  AND (c.mode = 'public' OR c.mode IS NULL)
@@ -154,14 +166,16 @@ func GetTopCompanies(db *sql.DB) gin.HandlerFunc {
 				soldUnits, viewCount     int
 				rating                   float64
 				ratingCount, productCnt  int
+				isVerified               bool
 			)
-			if err := rows.Scan(&id, &name, &logo, &address, &soldUnits, &viewCount, &rating, &ratingCount, &productCnt); err != nil {
+			if err := rows.Scan(&id, &name, &logo, &address, &soldUnits, &viewCount, &rating, &ratingCount, &productCnt, &isVerified); err != nil {
 				continue
 			}
 			list = append(list, gin.H{
 				"id": id, "name": name, "logoUrl": logo, "address": address,
 				"soldUnits": soldUnits, "viewCount": viewCount,
 				"rating": rating, "ratingCount": ratingCount, "productCount": productCnt,
+				"isVerified": isVerified,
 			})
 		}
 		c.JSON(http.StatusOK, list)
@@ -198,6 +212,7 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			ServiceRegions      sql.NullString
 			CoverVideoURL       sql.NullString
 			PlatformCommission  sql.NullFloat64
+			IsVerified          bool
 		}
 
 		err := db.QueryRow(`
@@ -205,14 +220,14 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			       COALESCE(delivery_radius_km, 0), delivery_radius_lat, delivery_radius_lng,
 			       COALESCE(delivery_cost_per_km, 1500), COALESCE(return_enabled, true), COALESCE(return_window_hours, 24),
 			       region, district, COALESCE(service_regions::text, '[]'), cover_video_url,
-			       COALESCE(platform_commission_percent, 3)
+			       COALESCE(platform_commission_percent, 3), COALESCE(is_verified, FALSE)
 			FROM companies WHERE id = $1
 		`, id).Scan(&company.ID, &company.Name, &company.Phone, &company.Mode, &company.Status,
 			&company.LogoURL, &company.CoverURL, &company.Address, &company.Description, &company.ProductsDescription, &company.Latitude, &company.Longitude, &company.DeliveryEnabled,
 			&company.DeliveryRadiusKm, &company.DeliveryRadiusLat, &company.DeliveryRadiusLng,
 			&company.DeliveryCostPerKm, &company.ReturnEnabled, &company.ReturnWindowHours,
 			&company.Region, &company.District, &company.ServiceRegions, &company.CoverVideoURL,
-			&company.PlatformCommission)
+			&company.PlatformCommission, &company.IsVerified)
 
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
@@ -226,6 +241,7 @@ func GetCompany(db *sql.DB) gin.HandlerFunc {
 			"mode":            company.Mode,
 			"status":          company.Status,
 			"deliveryEnabled": company.DeliveryEnabled,
+			"isVerified":      company.IsVerified,
 		}
 
 		if company.LogoURL.Valid {
@@ -518,6 +534,31 @@ func DeleteCompany(db *sql.DB) gin.HandlerFunc {
 }
 
 // Verify Access Key
+// SetCompanyVerified — PUT /companies/:id/verify (только админ).
+// Выдаёт или снимает значок «Проверенный магазин».
+func SetCompanyVerified(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			IsVerified bool `json:"isVerified"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		res, err := db.Exec(`UPDATE companies SET is_verified = $1, updated_at = NOW() WHERE id = $2`, req.IsVerified, c.Param("id"))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update verification"})
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Company not found"})
+			return
+		}
+		log.Printf("✅ Company %s verification set to %v", c.Param("id"), req.IsVerified)
+		c.JSON(http.StatusOK, gin.H{"success": true, "isVerified": req.IsVerified})
+	}
+}
+
 func VerifyAccessKey(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")

@@ -151,9 +151,12 @@ export default function CompanyStoreScreen() {
 
   const handleShareStore = async () => {
     try {
+      // Умная ссылка: с приложением откроется приложение, без — сайт магазина.
+      const url = `https://axentis.uz/company/${companyId}`;
       await Share.share({
         title: company?.name || t('storeWord'),
-        message: `${company?.name || t('storeWord')}\nhttps://axentis.uz`,
+        message: `${company?.name || t('storeWord')}\n${url}`,
+        url,
       });
     } catch { /* ignore */ }
   };
@@ -240,7 +243,8 @@ export default function CompanyStoreScreen() {
               <View style={styles.headInfo}>
                 <View style={styles.nameRow}>
                   <Text style={[styles.companyName, { color: colors.text }]} numberOfLines={1}>{company?.name}</Text>
-                  {companyRating >= 4.5 && (
+                  {/* ✅ Настоящий значок: выдаёт админ (is_verified), а не рейтинг */}
+                  {!!company?.isVerified && (
                     <Ionicons name="checkmark-circle" size={18} color="#3B82F6" />
                   )}
                 </View>
@@ -250,7 +254,7 @@ export default function CompanyStoreScreen() {
                     <Text style={[styles.addressText, { color: colors.textMuted }]} numberOfLines={1}>{company.address}</Text>
                   </View>
                 ) : null}
-                {companyRating >= 4.5 && (
+                {!!company?.isVerified && (
                   <View style={[styles.verifiedBadge, { backgroundColor: '#3B82F6' + '18' }]}>
                     <Ionicons name="shield-checkmark" size={11} color="#3B82F6" />
                     <Text style={styles.verifiedText}>{t('storeVerified')}</Text>

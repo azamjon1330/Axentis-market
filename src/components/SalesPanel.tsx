@@ -378,6 +378,31 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
     }
   };
 
+  // 📄 Экспорт истории продаж в CSV (открывается в Excel — BOM для кириллицы).
+  const exportSalesCSV = () => {
+    const rows: string[][] = [['Дата', 'Товары', 'Кол-во позиций', 'Сумма', 'Прибыль', 'Оплата']];
+    for (const s of salesHistory) {
+      let items: any[] = [];
+      try { items = typeof s.items === 'string' ? JSON.parse(s.items) : (s.items || []); } catch { /* ignore */ }
+      const names = items.map((i: any) => `${i.productName || i.product_name || i.name || 'Товар'} x${i.quantity || 1}`).join('; ');
+      rows.push([
+        new Date(s.created_at || s.createdAt).toLocaleString('ru-RU'),
+        names,
+        String(items.reduce((n: number, i: any) => n + (i.quantity || 1), 0)),
+        String(s.total_amount ?? s.totalAmount ?? 0),
+        String(s.markup_profit ?? s.markupProfit ?? 0),
+        (s.payment_method === 'card' ? `Карта ${s.card_subtype || ''}`.trim() : 'Наличные'),
+      ]);
+    }
+    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `sales_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div>
       {/* Stats Row */}
@@ -409,6 +434,21 @@ export default function SalesPanel({ companyId }: SalesPanelProps) {
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+        {/* 📄 Экспорт продаж для бухгалтерии */}
+        <button
+          onClick={exportSalesCSV}
+          disabled={salesHistory.length === 0}
+          title="Скачать историю продаж (CSV для Excel)"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
+            background: salesHistory.length > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.05)',
+            color: salesHistory.length > 0 ? '#22C55E' : '#8B8BAA',
+            border: '1px solid rgba(34,197,94,0.25)', borderRadius: 10,
+            cursor: salesHistory.length > 0 ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600,
+          }}
+        >
+          ⬇️ Excel (CSV)
+        </button>
         <button
           onClick={openSaleModal}
           disabled={selectedForSale.size === 0}

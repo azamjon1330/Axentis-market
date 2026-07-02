@@ -21,6 +21,13 @@ type ExpoPushMessage struct {
 
 // SendExpoPushNotification - отправить push-уведомление через Expo
 func SendExpoPushNotification(tokens []string, title, body string) (int, error) {
+	return SendExpoPushNotificationData(tokens, title, body, map[string]interface{}{"type": "admin_message"})
+}
+
+// SendExpoPushNotificationData — как SendExpoPushNotification, но с произвольным
+// data-payload: по нему приложение решает, какой экран открыть по нажатию
+// (например {type:"order", orderId:123} → экран заказа с картой курьера).
+func SendExpoPushNotificationData(tokens []string, title, body string, data map[string]interface{}) (int, error) {
 	if len(tokens) == 0 {
 		log.Printf("⚠️ No push tokens provided")
 		return 0, nil
@@ -36,9 +43,7 @@ func SendExpoPushNotification(tokens []string, title, body string) (int, error) 
 				Title: title,
 				Body:  body,
 				Sound: "default",
-				Data: map[string]interface{}{
-					"type": "admin_message",
-				},
+				Data:  data,
 			})
 			log.Printf("   📱 Token: %s...", token[:min(30, len(token))])
 		}
@@ -106,6 +111,10 @@ func SaveExpoPushToken(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "phone and pushToken are required"})
 			return
 		}
+		// Push-токен можно привязать только к своему номеру.
+		if !requirePhoneMatch(c, phone) {
+			return
+		}
 
 		// Обновляем или создаём пользователя с push token
 		_, err := db.Exec(`
@@ -151,9 +160,13 @@ func GetUserNotifications(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
 			return
 		}
+		// Уведомления видит только их получатель (или админ).
+		if !requirePhoneMatch(c, userPhone) {
+			return
+		}
 
 		rows, err := db.Query(`
-			SELECT n.id, n.user_phone, n.type, n.title, n.message, 
+			SELECT n.id, n.user_phone, n.type, n.title, n.message,
 			       n.company_id, n.product_id, n.is_read, n.created_at,
 			       COALESCE(c.name, '') as company_name,
 			       COALESCE(c.logo_url, '') as company_logo,
@@ -237,6 +250,9 @@ func GetUnreadNotificationsCount(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
 			return
 		}
+		if !requirePhoneMatch(c, userPhone) {
+			return
+		}
 
 		var count int
 		err := db.QueryRow(`
@@ -256,6 +272,14 @@ func GetUnreadNotificationsCount(db *sql.DB) gin.HandlerFunc {
 func MarkNotificationAsRead(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		notificationID := c.Param("id")
+
+		// Отмечать прочитанным может только получатель уведомления.
+		var owner string
+		if err := db.QueryRow(`SELECT user_phone FROM notifications WHERE id = $1`, notificationID).Scan(&owner); err == nil {
+			if !requirePhoneMatch(c, owner) {
+				return
+			}
+		}
 
 		_, err := db.Exec(`UPDATE notifications SET is_read = true WHERE id = $1`, notificationID)
 		if err != nil {
@@ -286,6 +310,9 @@ func MarkAllNotificationsAsRead(db *sql.DB) gin.HandlerFunc {
 		}
 		if userPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Phone is required"})
+			return
+		}
+		if !requirePhoneMatch(c, userPhone) {
 			return
 		}
 

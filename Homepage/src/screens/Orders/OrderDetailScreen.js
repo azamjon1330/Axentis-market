@@ -292,6 +292,18 @@ export default function OrderDetailScreen() {
                     </View>
                   )}
                   <Text style={[styles.itemQty, { color: colors.textMuted }]}>{item.quantity} {t('pcs')}</Text>
+                  {/* ⭐ После доставки предлагаем оценить каждый товар — форма
+                      отзыва (с фото) уже есть на странице товара */}
+                  {isDeliveredOrDone && item.productId ? (
+                    <TouchableOpacity
+                      style={[styles.rateBtn, { backgroundColor: colors.primary + '18' }]}
+                      onPress={() => navigation.navigate('ProductDetail', { productId: item.productId, openReview: true })}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="star-outline" size={13} color={colors.primary} />
+                      <Text style={[styles.rateBtnText, { color: colors.primary }]}>{t('ratePurchase')}</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
                 <Text style={[styles.itemPrice, { color: colors.text }]}>
                   {(unitPrice * item.quantity).toLocaleString(dateLocale)} {t('sum')}
@@ -438,6 +450,8 @@ const styles = StyleSheet.create({
   variantChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1 },
   variantChipText: { fontSize: 11, fontWeight: '600' },
   itemQty: { fontSize: 12, marginTop: 4 },
+  rateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 9, marginTop: 6 },
+  rateBtnText: { fontSize: 12, fontWeight: '600' },
   itemPrice: { fontSize: 15, fontWeight: '700' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, paddingTop: 10 },
   totalLabel: { fontSize: 16, fontWeight: '700' },

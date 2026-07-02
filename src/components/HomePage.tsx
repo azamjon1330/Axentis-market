@@ -55,7 +55,7 @@ const UZ_REGIONS = [
 
 const DEMO_BANNERS = [
   { title: "Chegirmalar 40% gacha", subtitle: "Elektronika bo'limida", bg: "linear-gradient(135deg,#6c3fc7,#3a1b7a)", emoji: "📱" },
-  { title: "Yangi kolleksiya", subtitle: "Kiyim-kechak bo'limida", bg: "linear-gradient(135deg,#c0336c,#7a1b40)", emoji: "👗" },
+  { title: "Yangi kolleksiya", subtitle: "Kiyim-kechak bo'limida", bg: "linear-gradient(135deg,#6D5DFB,#5546E0)", emoji: "👗" },
   { title: "Tez yetkazib berish", subtitle: "Bugun buyurtma — ertaga qo'lingizda", bg: "linear-gradient(135deg,#1a6fb5,#0d3566)", emoji: "🚀" },
   { title: "Sport tovarlari", subtitle: "Sport va faol hayot uchun", bg: "linear-gradient(135deg,#1a9c6b,#0a5940)", emoji: "⚽" },
 ];
@@ -1380,14 +1380,36 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
 
   return (
     <div className={`min-h-screen pb-20 relative transition-colors duration-500 ${
-      isNight ? 'bg-[#1a0b16]' : 'bg-[#F5F5F5]'
+      isNight ? 'bg-[#08090D]' : 'bg-[#F6F7F9]'
     }`}>
-      {/* � Loading Screen при первой загрузке */}
+      {/* 💀 Скелетоны при первой загрузке — вместо пустого экрана со спиннером
+          покупатель сразу видит «каркас» витрины, как у Ozon/Uzum */}
       {loading && products.length === 0 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#C0BCBC]"></div>
-            <p className="text-[#C0BCBC] text-lg font-medium">Загрузка...</p>
+        <div className={`fixed inset-0 z-50 overflow-hidden ${isNight ? 'bg-[#08090D]' : 'bg-[#F6F7F9]'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="px-4 pt-4 animate-pulse">
+            {/* Поисковая строка */}
+            <div className={`h-11 rounded-2xl mb-4 ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+            {/* Баннер */}
+            <div className={`h-36 rounded-2xl mb-4 ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+            {/* Категории */}
+            <div className="flex gap-3 mb-5 overflow-hidden">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div className={`w-14 h-14 rounded-2xl ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+                  <div className={`w-12 h-2.5 rounded ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+                </div>
+              ))}
+            </div>
+            {/* Сетка карточек товаров */}
+            <div className="grid grid-cols-2 gap-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i}>
+                  <div className={`aspect-[3/4] rounded-2xl mb-2 ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+                  <div className={`h-3 rounded w-3/4 mb-1.5 ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+                  <div className={`h-3.5 rounded w-1/2 ${isNight ? 'bg-white/10' : 'bg-gray-200'}`} />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1397,7 +1419,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
         <header
           className={`sticky top-0 z-40 transition-colors duration-300 ${
             isNight
-              ? 'bg-[#120a0f]/95 border-b border-white/5'
+              ? 'bg-[#10131F]/95 border-b border-white/5'
               : 'bg-white/95 border-b border-gray-100'
           }`}
           style={{

@@ -8,13 +8,15 @@ import CompanyKeyVerification from './components/CompanyKeyVerification';
 import HomePage from './components/HomePage';
 import LikesPage from './components/LikesPage';
 import SettingsPage from './components/SettingsPage';
-import AdminPanel from './components/AdminPanel';
-import ReferralAgentPanel from './components/ReferralAgentPanel'; // 👥 Панель реферальных агентов
-import CourierPanel from './components/CourierPanel'; // 🚚 Панель курьера
-import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
-import CompanyPanel from './components/CompanyPanel';
 import LoadingScreen from './components/LoadingScreen';
-import PaymentPage from './components/PaymentPage';
+// ⚡ Код-сплиттинг: тяжёлые панели (админка, кабинет продавца, курьер, агент)
+// загружаются лениво — покупатель не тянет их код при открытии витрины.
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const ReferralAgentPanel = React.lazy(() => import('./components/ReferralAgentPanel')); // 👥 Панель реферальных агентов
+const CourierPanel = React.lazy(() => import('./components/CourierPanel')); // 🚚 Панель курьера
+import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
+const CompanyPanel = React.lazy(() => import('./components/CompanyPanel'));
+const PaymentPage = React.lazy(() => import('./components/PaymentPage'));
 import MobileOptimization from './components/MobileOptimization'; // 📱 МОБИЛЬНАЯ ОПТИМИЗАЦИЯ для покупателей
 import CompanyMobileOptimization from './components/CompanyMobileOptimization'; // 🌐 Для компании как веб-сайт
 import UserAuthPage from './components/UserAuthPage'; // 🆕 НОВЫЙ: Объединенная страница входа/регистрации
@@ -46,6 +48,15 @@ function AppContent() {
 
       // Direct URL routes: axentis.uz/courier → courier login
       if (pathname === 'courier') return 'courierLogin';
+
+      // 🔗 Смарт-ссылки шаринга: axentis.uz/product/123 и axentis.uz/company/45.
+      // Переводим путь в существующий hash-механизм витрины и чистим URL.
+      const shareMatch = pathname.match(/^(product|company)\/(\d+)/);
+      if (shareMatch) {
+        window.history.replaceState(null, '', `/#${shareMatch[1]}-${shareMatch[2]}`);
+        window.location.hash = `${shareMatch[1]}-${shareMatch[2]}`;
+        return 'home';
+      }
 
       if (state && state.page) {
         return state.page;
@@ -235,6 +246,13 @@ function AppContent() {
             console.log('👤 [App] Restoring customer session...');
             setPendingUser(session.userData);
             setUserType('customer');
+
+            // Персональные эндпоинты (корзина, избранное, заказы) теперь требуют
+            // JWT. Старые сессии могли сохраниться без токена — тихо перелогиниваем
+            // (работает для аккаунтов без пароля; с паролем попросим войти заново).
+            if (!api.getAuthToken() && session.userData?.phone) {
+              try { await api.auth.loginUser(session.userData.phone); } catch (e) { console.warn('Silent re-login failed:', e); }
+            }
             
             // Восстанавливаем company_id если есть
             if (session.userData.companyId) {
@@ -277,9 +295,8 @@ function AppContent() {
             return;
           } else if (session.userType === 'admin' && session.userData) {
             console.log('👨‍💼 [App] Restoring admin session...');
-            // Re-obtain a fresh admin JWT so protected admin endpoints (editing
-            // companies/passwords, etc.) keep working after the stored token expires.
-            try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token refresh error:', e); }
+            // Используем сохранённый admin JWT (живёт 168ч). Когда истечёт —
+            // админ входит заново через форму; креды в коде не хранятся.
             setPendingUser(session.userData);
             setUserType('admin');
             
@@ -438,11 +455,9 @@ function AppContent() {
     console.log('🔐 handleUserLogin called with userData:', userData);
     setPendingUser(userData);
 
-    // Check if this is admin login (already verified in LoginPage)
-    if (userData.phone === '914751330') {
+    // Check if this is admin login (already verified via backend in the login form)
+    if (userData.isAdmin) {
       console.log('✅ Admin detected! Opening admin panel...');
-      // Obtain a real admin JWT so the admin panel can call protected endpoints.
-      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       // Admin login - go directly to admin panel
       setUserType('admin');
       navigateTo('admin', true);
@@ -530,10 +545,13 @@ function AppContent() {
   };
 
   const handleSmsVerify = async (code: string) => {
-    // Check for admin access
-    if (pendingUser.phone === '914751330' && code === '15051') {
-      // Obtain a real admin JWT so the admin panel can call protected endpoints.
-      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
+    // Check for admin access — креды проверяет бэкенд, не фронтенд.
+    let adminOk = false;
+    try {
+      const resp = await api.auth.loginAdmin(pendingUser.phone, code);
+      adminOk = !!resp?.token;
+    } catch { /* не админ */ }
+    if (adminOk) {
       setUserType('admin');
       navigateTo('admin', true);
       
@@ -637,15 +655,14 @@ function AppContent() {
         fullObject: companyData
       });
       
-      // 🔑 Проверка на админа по телефону
-      if (companyData?.phone === '914751330' || companyData?.company?.phone === '914751330') {
+      // 🔑 Проверка на админа: CompanyLogin уже получил admin JWT у бэкенда
+      // и пометил объект isAdmin — никаких захардкоженных кредов здесь.
+      if (companyData?.isAdmin) {
         console.log('🔐 Admin detected, redirecting to admin panel...');
-        // Obtain a real admin JWT so the admin panel can call protected endpoints.
-        try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
         setCurrentCompany({
           id: 0,
           name: 'Admin',
-          phone: '914751330',
+          phone: companyData.phone,
           mode: 'admin',
           status: 'active',
           isAdmin: true
@@ -849,25 +866,33 @@ function AppContent() {
             />
           )}
           {currentPage === 'admin' && (
-            <AdminPanel onLogout={handleLogout} />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <AdminPanel onLogout={handleLogout} />
+            </React.Suspense>
           )}
           {currentPage === 'referralAgent' && (
-            <ReferralAgentPanel agentData={currentReferralAgent} onLogout={handleLogout} />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <ReferralAgentPanel agentData={currentReferralAgent} onLogout={handleLogout} />
+            </React.Suspense>
           )}
           {currentPage === 'company' && currentCompany && (
-            <CompanyPanel 
-              onLogout={handleLogout} 
-              companyId={currentCompany.id}
-              companyName={currentCompany.name}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <CompanyPanel
+                onLogout={handleLogout}
+                companyId={currentCompany.id}
+                companyName={currentCompany.name}
+              />
+            </React.Suspense>
           )}
           {currentPage === 'payment' && (
-            <PaymentPage
-              onBackToHome={() => setCurrentPage('home')}
-              onLogout={handleLogout}
-              userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
-              userPhone={pendingUser?.phone}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <PaymentPage
+                onBackToHome={() => setCurrentPage('home')}
+                onLogout={handleLogout}
+                userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
+                userPhone={pendingUser?.phone}
+              />
+            </React.Suspense>
           )}
           {currentPage === 'courierLogin' && (
             <CourierLoginPage
@@ -880,14 +905,16 @@ function AppContent() {
             />
           )}
           {currentPage === 'courier' && currentCourier && (
-            <CourierPanel
-              courierData={currentCourier}
-              onLogout={() => {
-                setCurrentCourier(null);
-                localStorage.removeItem('userSession');
-                navigateTo('companyLogin', true);
-              }}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <CourierPanel
+                courierData={currentCourier}
+                onLogout={() => {
+                  setCurrentCourier(null);
+                  localStorage.removeItem('userSession');
+                  navigateTo('companyLogin', true);
+                }}
+              />
+            </React.Suspense>
           )}
 
         </>

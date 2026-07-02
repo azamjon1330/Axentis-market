@@ -110,7 +110,7 @@ backend and builds the web app on every push and pull request.
 ## Deployment
 
 Production runs on a VPS behind Nginx (`axentis.uz`). The `deploy-*.sh` /
-`*.ps1` helper scripts in the repo root drive the current manual process; the
+`*.ps1` helper scripts in [`scripts/legacy/`](scripts/legacy/) drive the current manual process; the
 runbooks and historical notes live in [`docs/`](docs/) — start with
 [`docs/DEPLOY_MANUAL.md`](docs/DEPLOY_MANUAL.md) and
 [`docs/DEPLOYMENT_NOTES.md`](docs/DEPLOYMENT_NOTES.md).

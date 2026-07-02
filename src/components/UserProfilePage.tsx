@@ -66,7 +66,7 @@ export default function UserProfilePage({
   const headerColor = '#C4A484';
   const darkCardColor = '#A68A76';
   const lightCardColor = '#C4A484';
-  const bgColor = isNight ? 'bg-[#1a0b16]' : 'bg-white';
+  const bgColor = isNight ? 'bg-[#08090D]' : 'bg-white';
   const textColor = isNight ? 'text-white' : 'text-black';
 
   useEffect(() => {
@@ -266,7 +266,7 @@ export default function UserProfilePage({
                     <div 
                       key={review.id} 
                       className={`p-3 rounded-xl border ${
-                        isNight ? 'bg-[#1a0b16] border-gray-700' : 'bg-gray-50 border-gray-100'
+                        isNight ? 'bg-[#08090D] border-gray-700' : 'bg-gray-50 border-gray-100'
                       }`}
                     >
                       {/* Product Info */}

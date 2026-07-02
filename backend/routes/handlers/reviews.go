@@ -412,9 +412,22 @@ func GetCompanyProductReviews(db *sql.DB) gin.HandlerFunc {
 }
 
 // DeleteReview removes a product review (DELETE /reviews/:id). The seller can
-// remove inappropriate reviews from their management panel.
+// remove inappropriate reviews from their management panel — but only reviews
+// on their OWN products (the admin can remove any).
 func DeleteReview(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var productCompanyID sql.NullInt64
+		err := db.QueryRow(`
+			SELECT p.company_id FROM reviews r JOIN products p ON p.id = r.product_id
+			WHERE r.id = $1
+		`, c.Param("id")).Scan(&productCompanyID)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Review not found"})
+			return
+		}
+		if err == nil && !requireCompanyMatch(c, productCompanyID.Int64) {
+			return
+		}
 		if _, err := db.Exec(`DELETE FROM reviews WHERE id = $1`, c.Param("id")); err != nil {
 			log.Printf("❌ DeleteReview: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete review"})

@@ -1,19 +1,29 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Building2, LogOut, Package, ShoppingCart, Receipt, BarChart3, Barcode, Megaphone, Menu, X, Globe, Tag, Sun, Moon, MessageSquare, RotateCcw, LayoutDashboard, MessageCircleQuestion, Truck, Settings } from 'lucide-react';
-import CompanyDashboardPanel from './CompanyDashboardPanel';
-import CompanyQuestionsPanel from './CompanyQuestionsPanel';
-import { DigitalWarehouse } from './DigitalWarehouse';
-import SalesPanel from './SalesPanel';
-import CompanyOrdersPanel from './CompanyOrdersPanel';
-import BroadcastChatPanel from './BroadcastChatPanel';
-import AnalyticsPanel from './AnalyticsPanel';
-import BarcodeSearchPanel from './BarcodeSearchPanel';
-import CompanySMMPanel from './CompanySMMPanel';
-import CompanyDiscountsManager from './CompanyDiscountsManager';
-import CompanyReturnsPanel from './CompanyReturnsPanel';
-import CompanyInboxPanel from './CompanyInboxPanel';
-import CouriersManagementPanel from './CouriersManagementPanel';
-import CompanySettingsPanel from './CompanySettingsPanel';
+// ⚡ Каждая вкладка — отдельный ленивый чанк: продавец грузит только тот
+// раздел, который открыл, а не всю панель целиком.
+const CompanyDashboardPanel = React.lazy(() => import('./CompanyDashboardPanel'));
+const CompanyQuestionsPanel = React.lazy(() => import('./CompanyQuestionsPanel'));
+const DigitalWarehouse = React.lazy(() => import('./DigitalWarehouse').then((m) => ({ default: m.DigitalWarehouse })));
+const SalesPanel = React.lazy(() => import('./SalesPanel'));
+const CompanyOrdersPanel = React.lazy(() => import('./CompanyOrdersPanel'));
+const BroadcastChatPanel = React.lazy(() => import('./BroadcastChatPanel'));
+const AnalyticsPanel = React.lazy(() => import('./AnalyticsPanel'));
+const BarcodeSearchPanel = React.lazy(() => import('./BarcodeSearchPanel'));
+const CompanySMMPanel = React.lazy(() => import('./CompanySMMPanel'));
+const CompanyDiscountsManager = React.lazy(() => import('./CompanyDiscountsManager'));
+const CompanyReturnsPanel = React.lazy(() => import('./CompanyReturnsPanel'));
+const CompanyInboxPanel = React.lazy(() => import('./CompanyInboxPanel'));
+const CouriersManagementPanel = React.lazy(() => import('./CouriersManagementPanel'));
+const CompanySettingsPanel = React.lazy(() => import('./CompanySettingsPanel'));
+
+// Лёгкий спиннер на время подгрузки чанка вкладки
+const TabLoading = () => (
+  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180, color: '#8B8BAA', gap: 8 }}>
+    <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(124,92,240,0.3)', borderTopColor: '#7C5CF0', animation: 'spin 0.8s linear infinite' }} />
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+  </div>
+);
 import { getCurrentLanguage, setCurrentLanguage, type Language, useTranslation } from '../utils/translations';
 import { useResponsive, useResponsiveClasses } from '../hooks/useResponsive';
 import { useTheme } from '../utils/ThemeContext';
@@ -425,6 +435,7 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
 
         {/* Panel content */}
         <div style={{ padding: isMobile ? '12px 8px' : '16px' }}>
+          <Suspense fallback={<TabLoading />}>
           {activeTab === 'warehouse' && <DigitalWarehouse companyId={companyId} />}
           {activeTab === 'sales' && <SalesPanel companyId={companyId} />}
           {activeTab === 'orders' && <CompanyOrdersPanel companyId={companyId} />}
@@ -438,15 +449,18 @@ export default function CompanyPanel({ onLogout, companyId, companyName }: Compa
           {activeTab === 'couriers' && <CouriersManagementPanel companyId={companyId} />}
           {activeTab === 'chat' && <BroadcastChatPanel companyId={companyId} />}
           {activeTab === 'settings' && <CompanySettingsPanel companyId={companyId} companyName={companyName} />}
+          </Suspense>
         </div>
       </main>
 
       {/* Inbox modal */}
       {showInbox && (
-        <CompanyInboxPanel
-          companyId={companyId}
-          onClose={() => setShowInbox(false)}
-        />
+        <Suspense fallback={null}>
+          <CompanyInboxPanel
+            companyId={companyId}
+            onClose={() => setShowInbox(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

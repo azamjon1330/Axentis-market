@@ -12,6 +12,7 @@ interface TopCompany {
   rating: number;
   ratingCount: number;
   productCount: number;
+  isVerified?: boolean;
 }
 
 interface HitCompaniesProps {
@@ -83,7 +84,8 @@ export default function HitCompanies({ isNight, onOpenCompany }: HitCompaniesPro
                 </div>
                 <div className={`text-xs font-semibold line-clamp-1 flex items-center justify-center gap-0.5 ${isNight ? 'text-white' : 'text-gray-900'}`}>
                   {co.name}
-                  <BadgeCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  {/* ✅ Значок показывается только магазинам, проверенным админом */}
+                  {co.isVerified && <BadgeCheck className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
                 </div>
                 <div className="flex items-center justify-center gap-1 mt-0.5">
                   <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
