@@ -5,6 +5,7 @@ export const ENDPOINTS = {
   loginUser: '/auth/login/user',
   products: '/products',
   productSearch: '/products/search',
+  productSuggest: '/products/suggest',
   productDetail: (id) => `/products/${id}`,
   productFrequentlyBought: (id) => `/products/${id}/frequently-bought-with`,
   productReviews: (id) => `/products/${id}/reviews`,

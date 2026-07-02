@@ -8,13 +8,15 @@ import CompanyKeyVerification from './components/CompanyKeyVerification';
 import HomePage from './components/HomePage';
 import LikesPage from './components/LikesPage';
 import SettingsPage from './components/SettingsPage';
-import AdminPanel from './components/AdminPanel';
-import ReferralAgentPanel from './components/ReferralAgentPanel'; // 👥 Панель реферальных агентов
-import CourierPanel from './components/CourierPanel'; // 🚚 Панель курьера
-import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
-import CompanyPanel from './components/CompanyPanel';
 import LoadingScreen from './components/LoadingScreen';
-import PaymentPage from './components/PaymentPage';
+// ⚡ Код-сплиттинг: тяжёлые панели (админка, кабинет продавца, курьер, агент)
+// загружаются лениво — покупатель не тянет их код при открытии витрины.
+const AdminPanel = React.lazy(() => import('./components/AdminPanel'));
+const ReferralAgentPanel = React.lazy(() => import('./components/ReferralAgentPanel')); // 👥 Панель реферальных агентов
+const CourierPanel = React.lazy(() => import('./components/CourierPanel')); // 🚚 Панель курьера
+import CourierLoginPage from './components/CourierLoginPage'; // 🚚 Логин курьера
+const CompanyPanel = React.lazy(() => import('./components/CompanyPanel'));
+const PaymentPage = React.lazy(() => import('./components/PaymentPage'));
 import MobileOptimization from './components/MobileOptimization'; // 📱 МОБИЛЬНАЯ ОПТИМИЗАЦИЯ для покупателей
 import CompanyMobileOptimization from './components/CompanyMobileOptimization'; // 🌐 Для компании как веб-сайт
 import UserAuthPage from './components/UserAuthPage'; // 🆕 НОВЫЙ: Объединенная страница входа/регистрации
@@ -855,25 +857,33 @@ function AppContent() {
             />
           )}
           {currentPage === 'admin' && (
-            <AdminPanel onLogout={handleLogout} />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <AdminPanel onLogout={handleLogout} />
+            </React.Suspense>
           )}
           {currentPage === 'referralAgent' && (
-            <ReferralAgentPanel agentData={currentReferralAgent} onLogout={handleLogout} />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <ReferralAgentPanel agentData={currentReferralAgent} onLogout={handleLogout} />
+            </React.Suspense>
           )}
           {currentPage === 'company' && currentCompany && (
-            <CompanyPanel 
-              onLogout={handleLogout} 
-              companyId={currentCompany.id}
-              companyName={currentCompany.name}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <CompanyPanel
+                onLogout={handleLogout}
+                companyId={currentCompany.id}
+                companyName={currentCompany.name}
+              />
+            </React.Suspense>
           )}
           {currentPage === 'payment' && (
-            <PaymentPage
-              onBackToHome={() => setCurrentPage('home')}
-              onLogout={handleLogout}
-              userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
-              userPhone={pendingUser?.phone}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <PaymentPage
+                onBackToHome={() => setCurrentPage('home')}
+                onLogout={handleLogout}
+                userName={pendingUser ? `${pendingUser.firstName} ${pendingUser.lastName}` : undefined}
+                userPhone={pendingUser?.phone}
+              />
+            </React.Suspense>
           )}
           {currentPage === 'courierLogin' && (
             <CourierLoginPage
@@ -886,14 +896,16 @@ function AppContent() {
             />
           )}
           {currentPage === 'courier' && currentCourier && (
-            <CourierPanel
-              courierData={currentCourier}
-              onLogout={() => {
-                setCurrentCourier(null);
-                localStorage.removeItem('userSession');
-                navigateTo('companyLogin', true);
-              }}
-            />
+            <React.Suspense fallback={<LoadingScreen />}>
+              <CourierPanel
+                courierData={currentCourier}
+                onLogout={() => {
+                  setCurrentCourier(null);
+                  localStorage.removeItem('userSession');
+                  navigateTo('companyLogin', true);
+                }}
+              />
+            </React.Suspense>
           )}
 
         </>

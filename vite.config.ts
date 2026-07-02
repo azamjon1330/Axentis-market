@@ -54,6 +54,17 @@
     build: {
       target: 'esnext',
       outDir: 'build',
+      rollupOptions: {
+        output: {
+          // Крупные библиотеки — в отдельные кэшируемые чанки: обновление кода
+          // приложения не заставляет клиентов перекачивать вендорные мегабайты.
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-charts': ['recharts'],
+            'vendor-icons': ['lucide-react'],
+          },
+        },
+      },
     },
     server: {
       port: 5173,

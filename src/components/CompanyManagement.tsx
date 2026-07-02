@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Trash2, Eye, EyeOff, Key, Phone, Lock, Edit2, X, Check, Globe, LockIcon, Copy, Save, Truck, Power, Percent } from 'lucide-react';
+import { Building2, Plus, Trash2, Eye, EyeOff, Key, Phone, Lock, Edit2, X, Check, Globe, LockIcon, Copy, Save, Truck, Power, Percent, BadgeCheck } from 'lucide-react';
 import api from '../utils/api';
 
 interface Company {
@@ -226,6 +226,18 @@ export default function CompanyManagement() {
     } catch (error: any) {
       console.error('Error toggling company status:', error);
       alert('Ошибка при изменении статуса: ' + (error.message || 'Неизвестная ошибка'));
+    }
+  };
+
+  // ✅ Выдать/снять значок «Проверенный магазин»
+  const handleToggleVerified = async (company: Company) => {
+    const next = !(company as any).isVerified;
+    try {
+      await api.companies.setVerified(company.id, next);
+      loadCompanies();
+    } catch (error: any) {
+      console.error('Error toggling verified badge:', error);
+      alert('Ошибка изменения значка: ' + (error.message || 'Неизвестная ошибка'));
     }
   };
 
@@ -728,6 +740,19 @@ export default function CompanyManagement() {
                   >
                     <Percent className="w-4 h-4" />
                     {company.platformCommissionPercent ?? 3}%
+                  </button>
+
+                  {/* ✅ Значок «Проверенный магазин» */}
+                  <button
+                    onClick={() => handleToggleVerified(company)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      (company as any).isVerified
+                        ? 'text-blue-600 hover:bg-blue-50'
+                        : 'text-gray-400 hover:bg-gray-100'
+                    }`}
+                    title={(company as any).isVerified ? 'Снять значок «Проверенный магазин»' : 'Выдать значок «Проверенный магазин»'}
+                  >
+                    <BadgeCheck className="w-5 h-5" />
                   </button>
 
                   {/* Кнопка включения/выключения */}

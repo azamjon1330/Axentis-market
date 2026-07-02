@@ -371,7 +371,8 @@ export default function CompanyProfilePage({
   const logoUrl = (company as any).logoUrl ? getImageUrl((company as any).logoUrl) : '';
   const positivePct = averageRating > 0 ? Math.round((averageRating / 5) * 100) : null;
   const subsLabel = subscribersCount >= 1000 ? `${(subscribersCount / 1000).toFixed(1)}K` : String(subscribersCount);
-  const verified = (company as any).verified || averageRating >= 4.5;
+  // ✅ Значок «Проверенный магазин» выдаёт админ (is_verified), рейтинг на него не влияет
+  const verified = !!((company as any).isVerified || (company as any).verified);
 
   return (
     <div className="h-screen relative" style={{ background: hp.bg }}>

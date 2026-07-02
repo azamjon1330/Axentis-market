@@ -77,7 +77,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		products := api.Group("/products")
 		{
 			products.GET("", handlers.GetProducts(db)) // Все товары или с query param companyId
-			products.GET("/search", handlers.SearchProducts(db)) // 🔍 Умный поиск (с опечатками, ранжирование)
+			products.GET("/search", handlers.SearchProducts(db)) // 🔍 Умный поиск (опечатки, фильтры, сортировка)
+			products.GET("/suggest", handlers.SuggestProducts(db)) // 💡 Автодополнение поисковой строки
 			products.GET("/find-by-barcode", handlers.FindProductByBarcode(db)) // Поиск по штрих-коду (включая варианты)
 			products.POST("", middleware.RequireCompany(cfg), handlers.CreateProduct(db))
 			products.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "products"), handlers.UpdateProduct(db))
@@ -153,6 +154,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.GET("/top", handlers.GetTopCompanies(db)) // ⭐ Хитовые магазины (рекомендации)
 			companies.GET("/:id", handlers.GetCompany(db))
 			companies.POST("/:id/verify-access", handlers.VerifyAccessKey(db))
+			companies.PUT("/:id/verify", middleware.RequireAdmin(cfg), handlers.SetCompanyVerified(db)) // ✅ Значок «Проверенный магазин» (админ)
 			companies.PUT("/:id", middleware.RequireAdminOrOwnCompany(), handlers.UpdateCompany(db))
 			companies.DELETE("/:id", middleware.RequireAdminOrOwnCompany(), handlers.DeleteCompany(db))
 			companies.POST("/:id/view", handlers.TrackCompanyView(db))
@@ -336,6 +338,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			analytics.GET("/company/:companyId", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyAnalytics(db))
 			analytics.GET("/company/:companyId/dashboard", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyDashboard(db)) // 📊 Единый дашборд продавца
+			analytics.GET("/company/:companyId/inventory-insights", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetInventoryInsights(db)) // 📦 Прогноз остатков + ABC-анализ
 			analytics.GET("/revenue", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetRevenueAnalytics(db))
 		}
 

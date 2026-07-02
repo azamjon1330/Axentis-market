@@ -32,9 +32,17 @@ export const getProducts = async (params = {}) => {
   return Array.isArray(res.data) ? res.data : (res.data?.products || []);
 };
 
-export const searchProducts = async (q, limit = 40) => {
+export const searchProducts = async (q, limit = 40, extra = {}) => {
   if (!q?.trim()) return [];
-  const res = await api.get(ENDPOINTS.productSearch, { params: { q: q.trim(), limit } });
+  // extra: { sort, minPrice, maxPrice, category, brand }
+  const res = await api.get(ENDPOINTS.productSearch, { params: { q: q.trim(), limit, ...extra } });
+  return Array.isArray(res.data) ? res.data : [];
+};
+
+// 💡 Подсказки для поисковой строки (автодополнение): [{ label, type }]
+export const suggestProducts = async (q) => {
+  if (!q?.trim() || q.trim().length < 2) return [];
+  const res = await api.get(ENDPOINTS.productSuggest, { params: { q: q.trim() } });
   return Array.isArray(res.data) ? res.data : [];
 };
 

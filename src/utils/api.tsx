@@ -226,9 +226,17 @@ export const products = {
     return apiCall(`/products?${query}`, { requiresAuth: false });
   },
 
-  // 🔍 Typo-tolerant relevance search (pg_trgm)
-  search: async (q: string, limit = 30) => {
-    return apiCall(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}`, { requiresAuth: false });
+  // 🔍 Typo-tolerant relevance search (pg_trgm).
+  // extra: { sort: 'price_asc'|'price_desc'|'popular'|'new', minPrice, maxPrice, category, brand }
+  search: async (q: string, limit = 30, extra: Record<string, string | number> = {}) => {
+    const params = new URLSearchParams({ q, limit: String(limit), ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, String(v)])) });
+    return apiCall(`/products/search?${params}`, { requiresAuth: false });
+  },
+
+  // 💡 Автодополнение поисковой строки: [{ label, type: 'product'|'brand'|'category' }]
+  suggest: async (q: string) => {
+    if (!q || q.trim().length < 2) return [];
+    return apiCall(`/products/suggest?q=${encodeURIComponent(q.trim())}`, { requiresAuth: false });
   },
 
   // Get product by ID
@@ -713,6 +721,10 @@ export const companies = {
       body: formData,
     });
   },
+
+  // ✅ Выдать/снять значок «Проверенный магазин» (админ)
+  setVerified: async (id: string | number, isVerified: boolean) =>
+    apiCall(`/companies/${id}/verify`, { method: 'PUT', body: JSON.stringify({ isVerified }) }),
 
   // Approve company (admin only)
   approve: async (id: string, approved: boolean) => {
@@ -1325,6 +1337,11 @@ export const analytics = {
   // 📊 Unified seller dashboard snapshot
   dashboard: async (companyId: string | number) => {
     return apiCall(`/analytics/company/${companyId}/dashboard`);
+  },
+
+  // 📦 Инсайты склада: прогноз остатков (дней до нуля) + ABC-анализ по выручке
+  inventoryInsights: async (companyId: string | number) => {
+    return apiCall(`/analytics/company/${companyId}/inventory-insights`);
   },
 
   // Get top products

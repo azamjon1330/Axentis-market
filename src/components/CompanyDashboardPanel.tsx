@@ -68,10 +68,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+interface InsightsData {
+  stockForecast: Array<{ productId: number; name: string; stock: number; soldPerDay: number; daysLeft: number; outOfStock: boolean }>;
+  abcAnalysis: Array<{ productId: number; name: string; revenue: number; revenueShare: number; class: string }>;
+  totalRevenue90: number;
+}
+
 export default function CompanyDashboardPanel({ companyId, onNavigate }: CompanyDashboardPanelProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [inventoryCost, setInventoryCost] = useState(0);
+  const [insights, setInsights] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -80,12 +87,14 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
       api.analytics.dashboard(companyId),
       api.orders.list({ companyId }).catch(() => []),
       api.analytics.company(companyId).catch(() => ({})),
-    ]).then(([dashData, ordersData, analyticsData]) => {
+      api.analytics.inventoryInsights(companyId).catch(() => null),
+    ]).then(([dashData, ordersData, analyticsData, insightsData]) => {
       if (!active) return;
       setData(dashData);
       const orders = Array.isArray(ordersData) ? ordersData : (ordersData?.orders || []);
       setAllOrders(orders);
       setInventoryCost(analyticsData.inventoryCost || analyticsData.inventoryValue || 0);
+      setInsights(insightsData);
     }).catch((e) => console.error('Dashboard load failed:', e))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
@@ -114,6 +123,18 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
     salesChart: isUz ? 'Sotuv dinamikasi' : 'Динамика продаж',
     allOrders: isUz ? 'Barchasi' : 'Все заказы',
     statusDist: isUz ? 'Buyurtma holatlari' : 'Статусы заказов',
+    forecastTitle: isUz ? 'Zaxira prognozi' : 'Прогноз остатков',
+    forecastHint: isUz ? '30 kunlik sotuv tezligi boʻyicha' : 'по скорости продаж за 30 дней',
+    daysLeft: isUz ? 'kun qoldi' : 'дн. осталось',
+    outOfStock: isUz ? 'Tugadi' : 'Закончился',
+    perDay: isUz ? 'dona/kun' : 'шт/день',
+    stockLeft: isUz ? 'qoldiq' : 'остаток',
+    abcTitle: isUz ? 'ABC-tahlil' : 'ABC-анализ ассортимента',
+    abcHint: isUz ? '90 kunlik tushum boʻyicha' : 'по выручке за 90 дней',
+    abcA: isUz ? 'A — asosiy daromad' : 'A — приносят 80% выручки',
+    abcB: isUz ? 'B — oʻrtacha' : 'B — следующие 15%',
+    abcC: isUz ? 'C — kam daromad' : 'C — хвост ассортимента',
+    noSalesData: isUz ? 'Sotuvlar yetarli emas' : 'Пока мало данных о продажах',
   };
 
   const statusLabel: Record<string, string> = isUz ? {
@@ -316,6 +337,76 @@ export default function CompanyDashboardPanel({ companyId, onNavigate }: Company
       ) : (
         <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, color: '#22C55E', fontSize: 14 }}>
           <CheckCircle2 size={18} />{L.allGood}
+        </div>
+      )}
+
+      {/* 📦 Инсайты склада: прогноз остатков + ABC-анализ */}
+      {insights && (insights.stockForecast?.length > 0 || insights.abcAnalysis?.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+          {card(
+            <>
+              <div style={{ padding: '16px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>📦 {L.forecastTitle}</span>
+                <span style={{ fontSize: 11, color: '#5A5A78' }}>{L.forecastHint}</span>
+              </div>
+              {(!insights.stockForecast || insights.stockForecast.length === 0) ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#5A5A78', fontSize: 13 }}>{L.noSalesData}</div>
+              ) : (
+                <div style={{ padding: '4px 12px 14px' }}>
+                  {insights.stockForecast.slice(0, 8).map((f) => {
+                    const critical = f.outOfStock || (f.daysLeft >= 0 && f.daysLeft <= 7);
+                    const warn = !critical && f.daysLeft >= 0 && f.daysLeft <= 14;
+                    const color = critical ? '#F87171' : warn ? '#FBBF24' : '#22C55E';
+                    return (
+                      <div key={f.productId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 8px', borderRadius: 10 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</div>
+                          <div style={{ fontSize: 11, color: '#5A5A78' }}>{f.soldPerDay} {L.perDay} · {L.stockLeft}: {f.stock}</div>
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color, whiteSpace: 'nowrap', background: `${color}1A`, padding: '4px 10px', borderRadius: 12 }}>
+                          {f.outOfStock ? L.outOfStock : f.daysLeft < 0 ? '—' : `${f.daysLeft} ${L.daysLeft}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>,
+          )}
+          {card(
+            <>
+              <div style={{ padding: '16px 20px 8px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#FFFFFF' }}>🏆 {L.abcTitle}</span>
+                <span style={{ fontSize: 11, color: '#5A5A78' }}>{L.abcHint}</span>
+              </div>
+              {(!insights.abcAnalysis || insights.abcAnalysis.length === 0) ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#5A5A78', fontSize: 13 }}>{L.noSalesData}</div>
+              ) : (
+                <div style={{ padding: '4px 12px 14px' }}>
+                  <div style={{ display: 'flex', gap: 10, padding: '4px 8px 10px', flexWrap: 'wrap' }}>
+                    {[['A', '#22C55E', L.abcA], ['B', '#FBBF24', L.abcB], ['C', '#8B8BAA', L.abcC]].map(([cls, clr, label]) => (
+                      <span key={cls as string} style={{ fontSize: 10.5, color: clr as string, background: `${clr}14`, padding: '3px 8px', borderRadius: 10 }}>{label as string}</span>
+                    ))}
+                  </div>
+                  {insights.abcAnalysis.slice(0, 8).map((a) => {
+                    const clr = a.class === 'A' ? '#22C55E' : a.class === 'B' ? '#FBBF24' : '#8B8BAA';
+                    return (
+                      <div key={a.productId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 8px' }}>
+                        <span style={{ width: 22, height: 22, borderRadius: 7, background: `${clr}1A`, color: clr, fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{a.class}</span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 13, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#FFFFFF' }}>{fmt(a.revenue)} {L.sum}</div>
+                          <div style={{ fontSize: 10.5, color: '#5A5A78' }}>{a.revenueShare}%</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>,
+          )}
         </div>
       )}
 
