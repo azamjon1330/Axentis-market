@@ -990,7 +990,8 @@ func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		sendOrderStatusPush(db, customerPhone, orderCode.String, "completed")
+		oid64, _ := strconv.ParseInt(id, 10, 64)
+		sendOrderStatusPush(db, customerPhone, orderCode.String, "completed", oid64)
 		log.Printf("✅ MarkOrderDelivered: order %s marked as completed", id)
 		c.JSON(http.StatusOK, gin.H{"success": true})
 	}
@@ -1225,7 +1226,8 @@ func UpdateOrderStatus(db *sql.DB) gin.HandlerFunc {
 		// 📲 Real push to the customer's phone (Expo), after the commit so the
 		// network call never blocks the transaction or the API response.
 		if req.Status != currentStatus {
-			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status)
+			oid64, _ := strconv.ParseInt(id, 10, 64)
+			sendOrderStatusPush(db, customerPhone, orderCode.String, req.Status, oid64)
 		}
 
 		c.JSON(http.StatusOK, gin.H{"success": true})

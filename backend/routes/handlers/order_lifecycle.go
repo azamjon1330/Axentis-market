@@ -148,7 +148,7 @@ func notifyOrderStatus(tx *sql.Tx, phone string, companyID sql.NullInt64, orderC
 // (Expo) for an order status change. It is fire-and-forget: the token lookup and
 // network call run in a goroutine so the API response is never blocked, and any
 // failure is only logged. Call this AFTER the transaction commits.
-func sendOrderStatusPush(db *sql.DB, phone, orderCode, status string) {
+func sendOrderStatusPush(db *sql.DB, phone, orderCode, status string, orderID int64) {
 	if phone == "" {
 		return
 	}
@@ -162,7 +162,10 @@ func sendOrderStatusPush(db *sql.DB, phone, orderCode, status string) {
 			return
 		}
 		if token.Valid && token.String != "" {
-			if _, err := SendExpoPushNotification([]string{token.String}, title, message); err != nil {
+			// data-payload открывает экран заказа по нажатию на уведомление
+			// (для shipped там живая карта курьера).
+			data := map[string]interface{}{"type": "order", "orderId": orderID, "status": status}
+			if _, err := SendExpoPushNotificationData([]string{token.String}, title, message, data); err != nil {
 				log.Printf("⚠️ order status push failed for %s: %v", phone, err)
 			}
 		}
