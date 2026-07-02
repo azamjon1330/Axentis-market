@@ -494,7 +494,7 @@ export default function ProductDetails({
                     <div className="flex gap-2">
                       <input type="text" value={userComment} onChange={(e) => setUserComment(e.target.value)}
                         placeholder="Напишите комментарий..."
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm outline-none border ${isNight ? 'bg-[#1a0b16] border-[#2d1222] text-white placeholder-gray-500' : 'bg-white border-gray-200 text-black'}`} />
+                        className={`flex-1 px-4 py-2 rounded-lg text-sm outline-none border ${isNight ? 'bg-[#08090D] border-[#2d1222] text-white placeholder-gray-500' : 'bg-white border-gray-200 text-black'}`} />
                       <button onClick={handleSubmitReview} disabled={submitting || !userComment.trim()}
                         className={`p-2 rounded-lg text-white transition-colors ${submitting || !userComment.trim() ? 'bg-gray-300' : 'bg-purple-600 hover:bg-purple-700'}`}>
                         <Send className="w-5 h-5" />

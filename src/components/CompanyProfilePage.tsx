@@ -336,7 +336,7 @@ export default function CompanyProfilePage({
 
   if (loading || !company) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F5F5]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F6F7F9]">
         <div className="text-center">
           <div className="w-12 h-12 border-3 border-[#C0BCBC] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
           <p className="text-gray-600 text-sm">Загрузка...</p>

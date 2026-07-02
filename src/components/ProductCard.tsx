@@ -273,8 +273,8 @@ export default function ProductCard({
       <div
         className={`relative w-full aspect-[3/4] overflow-hidden group rounded-2xl
           ${isNight
-            ? 'bg-[#2A2A3A] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
-            : 'bg-[#F4F4F6] shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
+            ? 'bg-[#171C2A] shadow-[0_2px_16px_rgba(0,0,0,0.45)]'
+            : 'bg-[#F2F3F6] shadow-[0_2px_12px_rgba(0,0,0,0.09)]'}
         `}
       >
         {images.length > 0 ? (

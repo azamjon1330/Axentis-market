@@ -373,7 +373,7 @@ export default function SettingsPage({
                       key={review.id} 
                       className={`p-3 rounded-xl border ${
                         displayMode === 'night' 
-                          ? 'bg-[#1a0b16] border-gray-700' 
+                          ? 'bg-[#08090D] border-gray-700' 
                           : 'bg-gray-50 border-gray-100'
                       }`}
                     >
@@ -478,7 +478,7 @@ export default function SettingsPage({
                       key={user.id} 
                       className={`p-3 rounded-xl flex items-center justify-between ${
                         displayMode === 'night' 
-                          ? 'bg-[#1a0b16] border border-gray-700' 
+                          ? 'bg-[#08090D] border border-gray-700' 
                           : 'bg-gray-50 border border-gray-100'
                       }`}
                     >
