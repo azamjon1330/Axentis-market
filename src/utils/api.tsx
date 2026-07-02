@@ -654,6 +654,10 @@ export const couriers = {
 
   getOrders: async (id: number | string) =>
     apiCall(`/couriers/${id}/orders`, { requiresAuth: false }),
+
+  // 📊 Статистика курьера: доставлено сегодня (кол-во, сумма) и всего
+  getStats: async (id: number | string) =>
+    apiCall(`/couriers/${id}/stats`),
 };
 
 // ============================================================================

@@ -33,6 +33,12 @@ interface CourierPanelProps {
   onLogout: () => void;
 }
 
+interface CourierStats {
+  todayDelivered: number;
+  todayAmount: number;
+  totalDelivered: number;
+}
+
 export default function CourierPanel({ courierData, onLogout }: CourierPanelProps) {
   const [orderList, setOrderList] = useState<DeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +48,7 @@ export default function CourierPanel({ courierData, onLogout }: CourierPanelProp
   const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [stats, setStats] = useState<CourierStats | null>(null);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -57,11 +64,25 @@ export default function CourierPanel({ courierData, onLogout }: CourierPanelProp
     } finally {
       setLoading(false);
     }
+    // Статистика смены — некритична, грузим в фоне
+    couriers.getStats(courierData.id).then(setStats).catch(() => {});
   }, [courierData.id]);
 
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // 🔄 Автообновление списка заказов каждые 60 сек, пока курьер онлайн —
+  // новые доставки появляются без ручного нажатия «обновить».
+  useEffect(() => {
+    if (!isOnline) return;
+    const t = setInterval(() => {
+      couriers.getOrders(courierData.id)
+        .then((d) => setOrderList(Array.isArray(d) ? d : []))
+        .catch(() => {});
+    }, 60000);
+    return () => clearInterval(t);
+  }, [isOnline, courierData.id]);
 
   useEffect(() => {
     if (!selectedOrder || !mapRef.current) return;
@@ -272,7 +293,36 @@ export default function CourierPanel({ courierData, onLogout }: CourierPanelProp
           })()}
         </div>
 
-        <div className="p-4 bg-white border-t">
+        <div className="p-4 bg-white border-t space-y-2.5">
+          {/* 🧭 Открыть точку доставки в родном навигаторе (Яндекс/Google) */}
+          {(() => {
+            const dest = parseCoords(selectedOrder.delivery_coordinates);
+            if (!dest) return null;
+            return (
+              <div className="flex gap-2.5">
+                <a
+                  href={`https://yandex.uz/maps/?rtext=~${dest[0]},${dest[1]}&rtt=auto`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />Яндекс
+                </a>
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${dest[0]},${dest[1]}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex-1 bg-blue-50 text-blue-600 py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                >
+                  <Navigation className="w-4 h-4" />Google
+                </a>
+                <a
+                  href={`tel:${selectedOrder.customer_phone}`}
+                  className="flex-1 bg-green-50 text-green-600 py-3 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-green-100 transition-colors"
+                >
+                  <Phone className="w-4 h-4" />Звонок
+                </a>
+              </div>
+            );
+          })()}
           <button
             onClick={() => handleMarkDelivered(selectedOrder.id)}
             disabled={markingId === selectedOrder.id}
@@ -320,6 +370,24 @@ export default function CourierPanel({ courierData, onLogout }: CourierPanelProp
             <><WifiOff className="w-4 h-4" />ОФЛАЙН — нажмите для начала работы</>
           )}
         </button>
+
+        {/* 📊 Итоги смены: мотивация и контроль дня */}
+        {stats && (
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div className="bg-orange-50 rounded-xl px-2 py-2 text-center">
+              <div className="text-lg font-bold text-orange-600">{stats.todayDelivered}</div>
+              <div className="text-[10px] text-orange-400 font-medium">сегодня</div>
+            </div>
+            <div className="bg-green-50 rounded-xl px-2 py-2 text-center">
+              <div className="text-lg font-bold text-green-600">{(stats.todayAmount / 1000).toFixed(0)}K</div>
+              <div className="text-[10px] text-green-500 font-medium">сум за день</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl px-2 py-2 text-center">
+              <div className="text-lg font-bold text-gray-700">{stats.totalDelivered}</div>
+              <div className="text-[10px] text-gray-400 font-medium">всего</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Order list */}
@@ -370,9 +438,20 @@ export default function CourierPanel({ courierData, onLogout }: CourierPanelProp
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold text-gray-800">{formatAmount(order.total_amount)}</span>
-                  <div className="flex items-center gap-1 text-orange-500 text-xs font-semibold">
-                    <Navigation className="w-3.5 h-3.5" />
-                    Маршрут
+                  <div className="flex items-center gap-3">
+                    {/* 📞 Звонок покупателю прямо из списка (span, т.к. карточка — <button>) */}
+                    <span
+                      role="link"
+                      onClick={(e) => { e.stopPropagation(); window.location.href = `tel:${order.customer_phone}`; }}
+                      className="flex items-center gap-1 text-green-600 text-xs font-semibold bg-green-50 px-2.5 py-1.5 rounded-lg hover:bg-green-100 cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      Звонок
+                    </span>
+                    <div className="flex items-center gap-1 text-orange-500 text-xs font-semibold">
+                      <Navigation className="w-3.5 h-3.5" />
+                      Маршрут
+                    </div>
                   </div>
                 </div>
               </button>

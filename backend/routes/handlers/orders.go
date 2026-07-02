@@ -966,7 +966,14 @@ func MarkOrderDelivered(db *sql.DB) gin.HandlerFunc {
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.Exec(`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`, id); err != nil {
+		// Запоминаем, какой курьер доставил заказ — на этом строится его
+		// статистика «доставлено сегодня» в панели курьера.
+		if ctxRole(c) == "courier" {
+			if _, err := tx.Exec(`UPDATE orders SET status = 'completed', courier_id = $2, updated_at = NOW() WHERE id = $1`, id, ctxCompanyID(c)); err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
+				return
+			}
+		} else if _, err := tx.Exec(`UPDATE orders SET status = 'completed', updated_at = NOW() WHERE id = $1`, id); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update order"})
 			return
 		}

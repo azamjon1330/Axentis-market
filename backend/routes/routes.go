@@ -213,6 +213,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			couriers.PUT("/:id/status", middleware.RequireCourierAccess(db), handlers.UpdateCourierStatus(db))
 			couriers.PUT("/:id/location", middleware.RequireCourierAccess(db), handlers.UpdateCourierLocation(db))
 			couriers.GET("/:id/orders", middleware.RequireCourierAccess(db), handlers.GetCourierShippedOrders(db))
+			couriers.GET("/:id/stats", middleware.RequireCourierAccess(db), handlers.GetCourierStats(db)) // 📊 Доставлено сегодня/всего
 		}
 
 		// Users routes

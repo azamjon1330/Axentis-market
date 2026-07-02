@@ -300,6 +300,34 @@ func UpdateCourierLocation(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// GetCourierStats — GET /couriers/:id/stats
+// Статистика курьера для его панели: доставлено сегодня (кол-во и сумма)
+// и всего за всё время. Мотивация + контроль смены.
+func GetCourierStats(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		var todayCount, totalCount int
+		var todaySum float64
+		err := db.QueryRow(`
+			SELECT
+				COUNT(*) FILTER (WHERE updated_at::date = CURRENT_DATE),
+				COALESCE(SUM(total_amount) FILTER (WHERE updated_at::date = CURRENT_DATE), 0),
+				COUNT(*)
+			FROM orders
+			WHERE courier_id = $1 AND status = 'completed'
+		`, id).Scan(&todayCount, &todaySum, &totalCount)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load stats"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"todayDelivered": todayCount,
+			"todayAmount":    todaySum,
+			"totalDelivered": totalCount,
+		})
+	}
+}
+
 // GetOrderCourierLocation — GET /orders/:id/courier-location
 // Позволяет покупателю следить за курьером в реальном времени.
 // Возвращает текущие координаты назначенного курьера и точку доставки.

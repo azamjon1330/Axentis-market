@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { getUserOrders } from '../../api';
 import { UPLOADS_URL } from '../../constants/Api';
@@ -33,6 +34,7 @@ const STATUS_CONFIG = {
 export default function OrdersScreen() {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
+  const { addItem } = useCart();
   const { t, language } = useLanguage();
   const navigation = useNavigation();
   const dateLocale = language === 'uz' ? 'uz-UZ' : 'ru-RU';
@@ -41,6 +43,26 @@ export default function OrdersScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [reorderingId, setReorderingId] = useState(null);
+
+  // 🔁 «Повторить заказ»: кладёт все позиции завершённого заказа в корзину
+  // и открывает её — одна кнопка вместо повторного поиска товаров.
+  const handleReorder = async (order) => {
+    if (reorderingId) return;
+    setReorderingId(order.id);
+    try {
+      const items = Array.isArray(order.items) ? order.items : [];
+      for (const it of items) {
+        if (!it.productId) continue;
+        try {
+          await addItem(it.productId, it.quantity || 1, it.color, it.size);
+        } catch { /* товар мог закончиться — пропускаем */ }
+      }
+      navigation.navigate('Main', { screen: 'Cart' });
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -125,6 +147,25 @@ export default function OrdersScreen() {
             <Text style={[styles.deliveryInfo, { color: colors.textMuted }]}>
               · {item.deliveryType === 'delivery' ? t('deliveryWord') : t('pickup')}
             </Text>
+          )}
+          {['delivered', 'completed', 'cancelled'].includes(item.status) && orderItems.length > 0 && (
+            <TouchableOpacity
+              style={[styles.reorderBtn, { backgroundColor: colors.primary + '18' }]}
+              onPress={() => handleReorder(item)}
+              disabled={reorderingId === item.id}
+              activeOpacity={0.7}
+            >
+              {reorderingId === item.id ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="repeat-outline" size={14} color={colors.primary} />
+                  <Text style={[styles.reorderText, { color: colors.primary }]}>
+                    {t('reorderBtn') || (language === 'uz' ? 'Qayta buyurtma' : 'Повторить')}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
         </View>
       </TouchableOpacity>
@@ -233,6 +274,8 @@ const styles = StyleSheet.create({
   orderItems: { fontSize: 13 },
   cardDivider: { height: 1, marginHorizontal: 14 },
   cardBottom: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 6 },
+  reorderBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginLeft: 'auto' },
+  reorderText: { fontSize: 12, fontWeight: '600' },
   totalLabel: { fontSize: 13 },
   totalValue: { fontSize: 16, fontWeight: '700' },
   deliveryInfo: { fontSize: 13 },
