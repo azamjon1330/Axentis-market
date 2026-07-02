@@ -40,21 +40,44 @@ func absoluteImageURL(base, path string) string {
 	return base + path
 }
 
-func writeSharePage(c *gin.Context, title, description, image, redirect string) {
+// writeSharePage отдаёт страницу шаринга. Логика «как у Яндекс Маркета»:
+// сначала пробуем открыть установленное приложение по схеме axentis://
+// (appLink); если через ~1.4с страница всё ещё видима — приложения нет,
+// уходим на сайт. Боты соцсетей JS не выполняют и просто читают OG-теги.
+func writeSharePage(c *gin.Context, title, description, image, redirect, appLink string) {
 	page := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>%s — Axentis Market</title>
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Axentis Market">
 <meta property="og:title" content="%s">
 <meta property="og:description" content="%s">
 %s<meta name="twitter:card" content="summary_large_image">
-<meta http-equiv="refresh" content="0;url=%s">
-<script>window.location.replace(%q);</script>
+<script>
+(function () {
+  var web = %q;
+  var app = %q;
+  // Если приложение открылось — вкладка уходит в фон и таймер отменяется.
+  var t = setTimeout(function () { window.location.replace(web); }, 1400);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) clearTimeout(t);
+  });
+  window.addEventListener('pagehide', function () { clearTimeout(t); });
+  if (app) {
+    try { window.location.href = app; } catch (e) { /* сразу на сайт */ }
+  } else {
+    clearTimeout(t);
+    window.location.replace(web);
+  }
+})();
+</script>
 </head>
-<body>Открываем Axentis Market…</body>
+<body style="background:#08090D;color:#9CA3AF;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+Открываем Axentis Market…
+</body>
 </html>`,
 		html.EscapeString(title), html.EscapeString(title), html.EscapeString(description),
 		func() string {
@@ -63,7 +86,7 @@ func writeSharePage(c *gin.Context, title, description, image, redirect string) 
 			}
 			return fmt.Sprintf("<meta property=\"og:image\" content=\"%s\">\n", html.EscapeString(image))
 		}(),
-		html.EscapeString(redirect), redirect)
+		redirect, appLink)
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(page))
 }
 
@@ -101,7 +124,7 @@ func ShareProduct(db *sql.DB) gin.HandlerFunc {
 		if companyName.Valid && companyName.String != "" {
 			desc += " · " + companyName.String
 		}
-		writeSharePage(c, name, desc, image, redirect)
+		writeSharePage(c, name, desc, image, redirect, "axentis://product/"+id)
 	}
 }
 
@@ -126,7 +149,7 @@ func ShareCompany(db *sql.DB) gin.HandlerFunc {
 		if description.Valid && description.String != "" {
 			desc = description.String
 		}
-		writeSharePage(c, name, desc, absoluteImageURL(base, logo.String), redirect)
+		writeSharePage(c, name, desc, absoluteImageURL(base, logo.String), redirect, "axentis://company/"+id)
 	}
 }
 
