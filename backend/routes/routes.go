@@ -53,6 +53,11 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// 🔗 Страницы шаринга с OG-превью (фото+цена в Telegram/Instagram).
+	// nginx проксирует сюда /product/:id и /company/:id.
+	router.GET("/share/product/:id", handlers.ShareProduct(db))
+	router.GET("/share/company/:id", handlers.ShareCompany(db))
+
 	// API routes
 	api := router.Group("/api")
 	// Attach the authenticated principal (companyId/phone/role) to the request

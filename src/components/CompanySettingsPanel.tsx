@@ -1,5 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
-import { Lock, Unlock, Copy, Check, RefreshCw, AlertCircle, Globe, Shield, Truck, RotateCcw, MapPin, X } from 'lucide-react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { Lock, Unlock, Copy, Check, RefreshCw, AlertCircle, Globe, Shield, Truck, RotateCcw, MapPin, X, QrCode, Download } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react';
 import api from '../utils/api';
 import { useTranslation, getCurrentLanguage } from '../utils/translations';
 import { UZBEKISTAN_REGIONS } from '../utils/uzbekistanRegions';
@@ -16,6 +17,17 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
   const language = getCurrentLanguage();
   const t = useTranslation(language);
   
+  // 📱 QR-код магазина: скачивание как PNG (canvas → файл)
+  const qrWrapRef = useRef<HTMLDivElement>(null);
+  const downloadQR = () => {
+    const canvas = qrWrapRef.current?.querySelector('canvas');
+    if (!canvas) return;
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `axentis-store-${companyId}-qr.png`;
+    a.click();
+  };
+
   const [companyMode, setCompanyMode] = useState<'public' | 'private'>('public');
   const [privateCode, setPrivateCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -181,6 +193,40 @@ export default function CompanySettingsPanel({ companyId }: CompanySettingsPanel
             ? 'Har bir doʻkon uchun yetkazib berish tarifi va qaytarish qoidalari'
             : 'Тариф доставки и правила возврата для вашего магазина'}
         </p>
+      </div>
+
+      {/* 📱 QR-код магазина: распечатайте и поставьте на кассе */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <QrCode className="w-6 h-6 text-emerald-600" />
+          <div className="flex-1">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              {language === 'uz' ? 'Doʻkon QR-kodi' : 'QR-код магазина'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {language === 'uz'
+                ? 'Chop etib kassaga qoʻying — xaridor skanerlaydi va doʻkoningizga tushadi (ilova oʻrnatilgan boʻlsa, ilova ochiladi).'
+                : 'Распечатайте и поставьте на кассе — покупатель сканирует и попадает в ваш магазин (с приложением откроется приложение).'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-6">
+          <div ref={qrWrapRef} className="bg-white p-3 rounded-xl border border-gray-200">
+            <QRCodeCanvas value={`https://axentis.uz/company/${companyId}`} size={160} level="M" includeMargin />
+          </div>
+          <div className="space-y-3">
+            <div className="text-sm text-gray-700 dark:text-gray-300 font-mono break-all">
+              https://axentis.uz/company/{companyId}
+            </div>
+            <button
+              onClick={downloadQR}
+              className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
+            >
+              <Download className="w-4 h-4" />
+              {language === 'uz' ? 'PNG yuklab olish' : 'Скачать PNG'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 🗺️ Регион доставки */}

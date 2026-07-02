@@ -49,6 +49,15 @@ function AppContent() {
       // Direct URL routes: axentis.uz/courier → courier login
       if (pathname === 'courier') return 'courierLogin';
 
+      // 🔗 Смарт-ссылки шаринга: axentis.uz/product/123 и axentis.uz/company/45.
+      // Переводим путь в существующий hash-механизм витрины и чистим URL.
+      const shareMatch = pathname.match(/^(product|company)\/(\d+)/);
+      if (shareMatch) {
+        window.history.replaceState(null, '', `/#${shareMatch[1]}-${shareMatch[2]}`);
+        window.location.hash = `${shareMatch[1]}-${shareMatch[2]}`;
+        return 'home';
+      }
+
       if (state && state.page) {
         return state.page;
       }

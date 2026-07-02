@@ -151,9 +151,12 @@ export default function CompanyStoreScreen() {
 
   const handleShareStore = async () => {
     try {
+      // Умная ссылка: с приложением откроется приложение, без — сайт магазина.
+      const url = `https://axentis.uz/company/${companyId}`;
       await Share.share({
         title: company?.name || t('storeWord'),
-        message: `${company?.name || t('storeWord')}\nhttps://axentis.uz`,
+        message: `${company?.name || t('storeWord')}\n${url}`,
+        url,
       });
     } catch { /* ignore */ }
   };

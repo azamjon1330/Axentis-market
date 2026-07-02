@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.axentis.homepage",
+      "associatedDomains": ["applinks:axentis.uz"],
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Нам нужен доступ к вашему местоположению для выбора адреса доставки."
       }
@@ -25,6 +26,17 @@
         "backgroundColor": "#0D1117"
       },
       "package": "com.axentis.homepage",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "axentis.uz", "pathPrefix": "/product" },
+            { "scheme": "https", "host": "axentis.uz", "pathPrefix": "/company" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
