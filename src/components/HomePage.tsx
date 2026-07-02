@@ -1736,8 +1736,9 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
               return (
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
-                      Ommabop
+                    {/* Заголовки секций — как в приложении: жирные, обычный регистр */}
+                    <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
+                      Ommabop mahsulotlar
                     </h2>
                   </div>
                   <div
@@ -1802,7 +1803,7 @@ export default function HomePage({ onLogout, userName, userPhone, userCompanyId,
             {/* ── PRODUCT GRID ── */}
             {!loading && filteredProducts.length > 0 && (
               <div className="flex items-center justify-between mb-3">
-                <h2 className={`text-sm font-bold tracking-wide uppercase ${isNight ? 'text-gray-300' : 'text-gray-500'}`}>
+                <h2 className={`text-base font-bold ${isNight ? 'text-white' : 'text-gray-900'}`}>
                   {activeCategory || 'Barcha mahsulotlar'}
                 </h2>
                 <span className={`text-xs ${isNight ? 'text-gray-500' : 'text-gray-400'}`}>
