@@ -45,6 +45,21 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
   const companyRating = Number(product.companyRating ?? product.company_rating ?? 0);
   const companyVerified = companyRating >= 4.5;
 
+  // 🏷️ Авто-бейджи как у крупных маркетплейсов: «Хит» по продажам,
+  // «Новинка» по дате, «Осталось N» при низком остатке (максимум 2).
+  const createdAt = product.created_at ?? product.createdAt;
+  const badges = [];
+  if (soldCount >= 50) {
+    badges.push({ label: language === 'uz' ? '🔥 Xit' : '🔥 Хит', bg: '#EF4444' });
+  }
+  if (createdAt && Date.now() - new Date(createdAt).getTime() < 14 * 24 * 60 * 60 * 1000) {
+    badges.push({ label: language === 'uz' ? 'Yangi' : 'Новинка', bg: '#22C55E' });
+  }
+  if (badges.length < 2 && product.quantity > 0 && product.quantity <= 5) {
+    badges.push({ label: language === 'uz' ? `${product.quantity} ta qoldi` : `Осталось ${product.quantity}`, bg: '#F97316' });
+  }
+  const visibleBadges = badges.slice(0, 2);
+
   const localeTag = language === 'uz' ? 'uz-UZ' : 'ru-RU';
   const formatPrice = p => `${(p || 0).toLocaleString(localeTag)} ${t('sum')}`;
   // «от 12 000 сум» (ru) / «12 000 so'mdan» (uz) — приставка/суффикс по языку
@@ -98,6 +113,17 @@ export default function ProductCard({ product, onPress, onFavorite, isFavorite, 
           {hasDiscount && (
             <View style={styles.discountBadge}>
               <Text style={styles.discountText}>-{product.discountPercent}%</Text>
+            </View>
+          )}
+
+          {/* 🏷️ Авто-бейджи (хит/новинка/остаток) — под скидкой слева */}
+          {visibleBadges.length > 0 && (
+            <View style={[styles.autoBadges, hasDiscount && { top: 36 }]}>
+              {visibleBadges.map((b, i) => (
+                <View key={i} style={[styles.autoBadge, { backgroundColor: b.bg }]}>
+                  <Text style={styles.autoBadgeText}>{b.label}</Text>
+                </View>
+              ))}
             </View>
           )}
 
@@ -197,6 +223,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',
+  },
+  autoBadges: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    gap: 4,
+  },
+  autoBadge: {
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  autoBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   heartBtn: {
     position: 'absolute',
