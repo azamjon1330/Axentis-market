@@ -75,6 +75,23 @@ func RegisterUser(db *sql.DB) gin.HandlerFunc {
 			privateCompanyID = &companyID
 		}
 
+		// SECURITY: регистрация работает как upsert по телефону. Если аккаунт
+		// уже существует и защищён паролем — требуем этот пароль, иначе любой,
+		// кто знает номер телефона, получил бы JWT чужого аккаунта (перезаписав
+		// заодно имя и режим).
+		var existingHash sql.NullString
+		exErr := db.QueryRow(`SELECT password_hash FROM users WHERE phone = $1`, req.Phone).Scan(&existingHash)
+		if exErr == nil && existingHash.Valid && existingHash.String != "" {
+			if req.Password == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Этот номер защищён паролем — введите пароль"})
+				return
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(existingHash.String), []byte(req.Password)); err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Неверный пароль"})
+				return
+			}
+		}
+
 		// Хешируем пароль если передан
 		var passwordHash *string
 		if req.Password != "" {

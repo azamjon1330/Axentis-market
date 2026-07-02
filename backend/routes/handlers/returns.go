@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,10 @@ func CreateReturn(db *sql.DB) gin.HandlerFunc {
 		}
 		if req.CustomerPhone == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "customerPhone is required"})
+			return
+		}
+		// Заявку на возврат создаёт только сам покупатель (или админ).
+		if !requirePhoneMatch(c, req.CustomerPhone) {
 			return
 		}
 
@@ -105,6 +110,22 @@ func GetReturns(db *sql.DB) gin.HandlerFunc {
 		companyID := c.Query("companyId")
 		customerPhone := c.Query("customerPhone")
 
+		// Скоупинг: компания видит только свои возвраты, покупатель — только
+		// свои, админ — любые.
+		switch ctxRole(c) {
+		case "admin":
+			// ok
+		case "company":
+			companyID = strconv.FormatInt(ctxCompanyID(c), 10)
+			customerPhone = ""
+		case "user":
+			customerPhone = ctxPhone(c)
+			companyID = ""
+		default:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+			return
+		}
+
 		var rows *sql.Rows
 		var err error
 		switch {
@@ -171,6 +192,16 @@ func UpdateReturnStatus(db *sql.DB) gin.HandlerFunc {
 		valid := map[string]bool{"requested": true, "approved": true, "rejected": true, "refunded": true}
 		if !valid[req.Status] {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid status"})
+			return
+		}
+
+		// Статус возврата меняет только компания, которой он адресован (или админ).
+		var returnCompanyID sql.NullInt64
+		if err := db.QueryRow(`SELECT company_id FROM order_returns WHERE id = $1`, id).Scan(&returnCompanyID); err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Return not found"})
+			return
+		}
+		if !requireCompanyMatch(c, returnCompanyID.Int64) {
 			return
 		}
 

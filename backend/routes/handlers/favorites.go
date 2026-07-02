@@ -166,6 +166,9 @@ func AddToFavorites(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User phone is required"})
 			return
 		}
+		if !requirePhoneMatch(c, input.UserPhone) {
+			return
+		}
 		if input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID is required"})
 			return
@@ -228,9 +231,12 @@ func RemoveFromFavorites(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User phone and product ID are required"})
 			return
 		}
+		if !requirePhoneMatch(c, input.UserPhone) {
+			return
+		}
 
 		result, err := db.Exec(`
-			DELETE FROM user_favorites 
+			DELETE FROM user_favorites
 			WHERE user_phone = $1 AND product_id = $2
 		`, input.UserPhone, input.ProductID)
 
@@ -266,6 +272,9 @@ func ToggleFavorite(db *sql.DB) gin.HandlerFunc {
 
 		if input.UserPhone == "" || input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User phone and product ID are required"})
+			return
+		}
+		if !requirePhoneMatch(c, input.UserPhone) {
 			return
 		}
 

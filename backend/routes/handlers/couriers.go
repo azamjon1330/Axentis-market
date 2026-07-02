@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"azaton-backend/config"
+	"azaton-backend/middleware"
 	"database/sql"
 	"log"
 	"net/http"
@@ -13,7 +15,7 @@ import (
 
 // LoginCourier — POST /couriers/login
 // Body: { phone, password }
-func LoginCourier(db *sql.DB) gin.HandlerFunc {
+func LoginCourier(db *sql.DB, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Phone    string `json:"phone" binding:"required"`
@@ -55,6 +57,15 @@ func LoginCourier(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Выдаём курьеру собственный JWT (роль "courier", в claim companyId —
+		// id курьера), чтобы обновление статуса/локации и список заказов были
+		// доступны только самому курьеру, его компании или админу.
+		token, err := middleware.GenerateToken(cfg, courier.ID, courier.Phone, "courier")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+			return
+		}
+
 		log.Printf("✅ Courier login: id=%d phone=%s", courier.ID, courier.Phone)
 		c.JSON(http.StatusOK, gin.H{
 			"id":          courier.ID,
@@ -63,6 +74,7 @@ func LoginCourier(db *sql.DB) gin.HandlerFunc {
 			"phone":       courier.Phone,
 			"passport_id": courier.PassportID.String,
 			"company_id":  courierCompanyID(courier.CompanyID),
+			"token":       token,
 		})
 	}
 }
@@ -95,6 +107,17 @@ func CreateCourier(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Компания может создавать курьеров только для себя; глобальных
+		// (company_id = NULL) курьеров создаёт только админ.
+		if !isAdmin(c) {
+			if ctxRole(c) != "company" {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+				return
+			}
+			cid := ctxCompanyID(c)
+			req.CompanyID = &cid
+		}
+
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
@@ -123,6 +146,11 @@ func CreateCourier(db *sql.DB) gin.HandlerFunc {
 func GetCouriers(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		companyIDStr := c.Query("company_id")
+		// Не-админ всегда видит только курьеров своей компании, независимо от
+		// параметров запроса.
+		if !isAdmin(c) {
+			companyIDStr = strconv.FormatInt(ctxCompanyID(c), 10)
+		}
 
 		var rows *sql.Rows
 		var err error
@@ -282,10 +310,33 @@ func GetOrderCourierLocation(db *sql.DB) gin.HandlerFunc {
 		var courierID sql.NullInt64
 		var deliveryCoords sql.NullString
 		var deliveryAddress sql.NullString
+		var customerPhone string
+		var orderCompanyID sql.NullInt64
 		err := db.QueryRow(`
-			SELECT courier_id, delivery_coordinates, delivery_address
+			SELECT courier_id, delivery_coordinates, delivery_address, customer_phone, company_id
 			FROM orders WHERE id = $1
-		`, orderID).Scan(&courierID, &deliveryCoords, &deliveryAddress)
+		`, orderID).Scan(&courierID, &deliveryCoords, &deliveryAddress, &customerPhone, &orderCompanyID)
+
+		// Позицию курьера и адрес доставки видят только участники заказа.
+		if err == nil {
+			switch ctxRole(c) {
+			case "admin", "courier":
+				// ok
+			case "company":
+				if !orderCompanyID.Valid || orderCompanyID.Int64 != ctxCompanyID(c) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+					return
+				}
+			case "user":
+				if customerPhone != ctxPhone(c) {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Доступ запрещён"})
+					return
+				}
+			default:
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+				return
+			}
+		}
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 			return

@@ -69,12 +69,15 @@ async function apiCall(
     headers['Content-Type'] = 'application/json';
   }
 
-  // Add auth token if required
-  if (requiresAuth) {
-    const token = getAuthToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+  // Always attach the auth token when we have one — the backend now scopes
+  // personal data (cart, favorites, orders, addresses, cards, notifications)
+  // to the authenticated principal, so even "public-ish" calls must carry it.
+  // Attaching a token to a truly public endpoint is harmless.
+  // `requiresAuth` is kept for call-site compatibility.
+  void requiresAuth;
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   try {
@@ -610,8 +613,15 @@ export const orders = {
 // COURIERS API
 // ============================================================================
 export const couriers = {
-  login: async (phone: string, password: string) =>
-    apiCall('/couriers/login', { method: 'POST', body: JSON.stringify({ phone, password }), requiresAuth: false }),
+  // Курьер получает собственный JWT — сохраняем его, чтобы обновление
+  // статуса/локации и список заказов проходили авторизацию.
+  login: async (phone: string, password: string) => {
+    const response = await apiCall('/couriers/login', { method: 'POST', body: JSON.stringify({ phone, password }), requiresAuth: false });
+    if (response.token) {
+      setAuthToken(response.token);
+    }
+    return response;
+  },
 
   list: async (companyId?: number | string) =>
     apiCall(`/couriers${companyId ? `?company_id=${companyId}` : ''}`, { requiresAuth: false }),

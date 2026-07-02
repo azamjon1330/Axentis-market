@@ -186,6 +186,12 @@ func CreateAd(db *sql.DB) gin.HandlerFunc {
 		log.Printf("📢 CreateAd received: title=%s, image_url=%v, ad_type=%s, company_id=%v", 
 			req.Title, req.ImageURL, req.AdType, req.CompanyID)
 		
+		// Компания создаёт рекламу только от своего имени.
+		if !isAdmin(c) {
+			cid := ctxCompanyID(c)
+			req.CompanyID = &cid
+		}
+
 		// Валидация: для product рекламы нужен productId
 		if req.AdType == "product" && (req.ProductID == nil || *req.ProductID == 0) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "productId is required for product ads"})

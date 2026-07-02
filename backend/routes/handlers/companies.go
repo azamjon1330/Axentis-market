@@ -19,6 +19,12 @@ import (
 // Get Companies
 func GetCompanies(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// SECURITY: credential fields (password, access key, private code) are
+		// only included for the platform admin. This endpoint is public — the
+		// storefronts use it to list shops — so leaking them here would hand
+		// out every seller's login to anyone.
+		admin := isAdmin(c)
+
 		// Для админ панели показываем все компании, для пользователей - только approved
 		query := `
 			SELECT id, name, phone, password_hash, COALESCE(password_plain, ''), access_key, mode, private_code, status, logo_url, address, description, products_description, latitude, longitude, delivery_enabled, is_enabled, COALESCE(platform_commission_percent, 3)
@@ -74,21 +80,24 @@ func GetCompanies(db *sql.DB) gin.HandlerFunc {
 				"platformCommissionPercent": comp.PlatformCommission,
 			}
 
-			// Expose the readable password for the admin panel. We surface
-			// password_plain (kept in sync on create/update); if it is empty but
-			// the stored hash is still legacy plaintext (not a bcrypt "$2..."
-			// hash), fall back to it. The bcrypt hash itself is never exposed.
-			if comp.PasswordPlain != "" {
-				company["password"] = comp.PasswordPlain
-			} else if comp.PasswordHash != "" && !strings.HasPrefix(comp.PasswordHash, "$2") {
-				company["password"] = comp.PasswordHash
-			}
-
-			if comp.AccessKey.Valid {
-				company["accessKey"] = comp.AccessKey.String
-			}
-			if comp.PrivateCode.Valid {
-				company["privateCode"] = comp.PrivateCode.String
+			// Expose the readable password for the admin panel ONLY (plus each
+			// company's own row, which the seller settings panel reads for its
+			// private code). We surface password_plain (kept in sync on
+			// create/update); if it is empty but the stored hash is still legacy
+			// plaintext (not a bcrypt "$2..." hash), fall back to it. The bcrypt
+			// hash itself is never exposed.
+			if admin || (ctxRole(c) == "company" && ctxCompanyID(c) == comp.ID) {
+				if comp.PasswordPlain != "" {
+					company["password"] = comp.PasswordPlain
+				} else if comp.PasswordHash != "" && !strings.HasPrefix(comp.PasswordHash, "$2") {
+					company["password"] = comp.PasswordHash
+				}
+				if comp.AccessKey.Valid {
+					company["accessKey"] = comp.AccessKey.String
+				}
+				if comp.PrivateCode.Valid {
+					company["privateCode"] = comp.PrivateCode.String
+				}
 			}
 			if comp.LogoURL.Valid {
 				company["logoUrl"] = comp.LogoURL.String

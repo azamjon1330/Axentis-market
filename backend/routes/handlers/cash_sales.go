@@ -24,6 +24,11 @@ func CreateCashSale(db *sql.DB) gin.HandlerFunc {
 
 		log.Printf("💵 [CASH SALE] Received request: %+v", req)
 
+		// Кассовая продажа записывается только на компанию из токена.
+		if !isAdmin(c) {
+			req["companyId"] = float64(ctxCompanyID(c))
+		}
+
 		// 💳 Парсинг способа оплаты
 		paymentMethod := "cash" // По умолчанию наличные
 		if pm, ok := req["paymentMethod"].(string); ok && pm != "" {

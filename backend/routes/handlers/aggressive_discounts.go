@@ -19,6 +19,11 @@ func CreateAggressiveDiscount(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		// Компания создаёт скидки только от своего имени.
+		if !isAdmin(c) {
+			discount.CompanyID = ctxCompanyID(c)
+		}
+
 		// Валидация процента скидки
 		if discount.DiscountPercent < 0 || discount.DiscountPercent > 100 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Процент скидки должен быть от 0 до 100"})

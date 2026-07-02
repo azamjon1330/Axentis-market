@@ -18,6 +18,19 @@ export const AuthProvider = ({ children }) => {
       if (savedUser) {
         const parsed = JSON.parse(savedUser);
         setUser(parsed);
+
+        // Персональные эндпоинты требуют JWT. Старые установки могли сохранить
+        // сессию без токена — тихо перелогиниваем (для аккаунтов без пароля).
+        try {
+          const token = await AsyncStorage.getItem('userToken');
+          if (!token && parsed?.phone) {
+            const result = await loginUser(parsed.phone);
+            if (result?.token) await AsyncStorage.setItem('userToken', result.token);
+          }
+        } catch {
+          // аккаунт с паролем — пользователь войдёт вручную
+        }
+
         try {
           const fresh = await getUserProfile(parsed.phone);
           setUser(fresh);

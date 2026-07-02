@@ -160,12 +160,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			companies.GET("/:id/rating", handlers.GetCompanyRating(db))
 			companies.POST("/:id/subscribe", handlers.SubscribeToCompany(db))
 			companies.POST("/:id/unsubscribe", handlers.UnsubscribeFromCompany(db))
-			companies.PUT("/:id/expenses", middleware.RequireCompany(cfg), handlers.UpdateCompanyExpenses(db))
-			companies.POST("/:id/upload-logo", middleware.RequireCompany(cfg), handlers.UploadCompanyLogo(db))
-			companies.POST("/:id/upload-cover", middleware.RequireCompany(cfg), handlers.UploadCompanyCover(db)) // 🖼️ Фоновое фото магазина
-			companies.PUT("/:id/privacy", middleware.RequireCompany(cfg), handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
-			companies.PUT("/:id/region", middleware.RequireCompany(cfg), handlers.SetCompanyRegion(db)) // 🗺️ Компания выбирает регион доставки
-			companies.PUT("/:id/delivery", middleware.RequireCompany(cfg), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
+			companies.PUT("/:id/expenses", middleware.RequireAdminOrOwnCompany(), handlers.UpdateCompanyExpenses(db))
+			companies.POST("/:id/upload-logo", middleware.RequireAdminOrOwnCompany(), handlers.UploadCompanyLogo(db))
+			companies.POST("/:id/upload-cover", middleware.RequireAdminOrOwnCompany(), handlers.UploadCompanyCover(db)) // 🖼️ Фоновое фото магазина
+			companies.PUT("/:id/privacy", middleware.RequireAdminOrOwnCompany(), handlers.ToggleCompanyPrivacy(db)) // 🔐 Переключение приватности
+			companies.PUT("/:id/region", middleware.RequireAdminOrOwnCompany(), handlers.SetCompanyRegion(db)) // 🗺️ Компания выбирает регион доставки
+			companies.PUT("/:id/delivery", middleware.RequireAdminOrOwnCompany(), handlers.ToggleCompanyDelivery(db)) // 🚚 Переключение доставки
 			companies.POST("/verify-private-code", handlers.VerifyPrivateCode(db)) // 🔍 Проверка кода
 			companies.POST("/:id/rate", handlers.RateCompany(db)) // ⭐ Оценка компании
 			companies.GET("/:id/reviews", handlers.GetCompanyReviews(db)) // 💬 Отзывы магазина
@@ -175,7 +175,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Sales routes
 		sales := api.Group("/sales")
 		{
-			sales.GET("", handlers.GetSales(db))
+			sales.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetSales(db))
 			sales.POST("", middleware.RequireCompany(cfg), handlers.CreateSale(db))
 		}
 
@@ -183,7 +183,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		cashSales := api.Group("/cash-sales")
 		{
 			cashSales.POST("", middleware.RequireCompany(cfg), handlers.CreateCashSale(db))
-			cashSales.GET("", handlers.GetCashSales(db))
+			cashSales.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetCashSales(db))
 		}
 
 		// Orders routes
@@ -199,16 +199,18 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			orders.GET("/:id/courier-location", handlers.GetOrderCourierLocation(db)) // 🚴 Живое отслеживание курьера покупателем
 		}
 
-		// Courier routes
+		// Courier routes. Couriers get their own JWT (role "courier") at login;
+		// managing couriers is company/admin-only, and a courier can only act
+		// on itself (status/location/orders).
 		couriers := api.Group("/couriers")
 		{
-			couriers.POST("/login", handlers.LoginCourier(db))
-			couriers.GET("", handlers.GetCouriers(db))
-			couriers.POST("", handlers.CreateCourier(db))
-			couriers.DELETE("/:id", handlers.DeleteCourier(db))
-			couriers.PUT("/:id/status", handlers.UpdateCourierStatus(db))
-			couriers.PUT("/:id/location", handlers.UpdateCourierLocation(db))
-			couriers.GET("/:id/orders", handlers.GetCourierShippedOrders(db))
+			couriers.POST("/login", middleware.RateLimit(30, 10), handlers.LoginCourier(db, cfg))
+			couriers.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("company_id"), handlers.GetCouriers(db))
+			couriers.POST("", middleware.RequireCompany(cfg), handlers.CreateCourier(db))
+			couriers.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireCourierAccess(db), handlers.DeleteCourier(db))
+			couriers.PUT("/:id/status", middleware.RequireCourierAccess(db), handlers.UpdateCourierStatus(db))
+			couriers.PUT("/:id/location", middleware.RequireCourierAccess(db), handlers.UpdateCourierLocation(db))
+			couriers.GET("/:id/orders", middleware.RequireCourierAccess(db), handlers.GetCourierShippedOrders(db))
 		}
 
 		// Users routes
@@ -218,55 +220,60 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			users.GET("/count", handlers.GetUsersCount(db))
 			users.GET("/:phone", handlers.GetUserByPhone(db))
 			// Old cart/likes routes removed - use /api/cart and /api/favorites instead
-			users.POST("/:phone/avatar", handlers.UploadUserAvatar(db))
-			users.DELETE("/:phone/avatar", handlers.DeleteUserAvatar(db))
+			users.POST("/:phone/avatar", middleware.RequireSelfPhone("phone"), handlers.UploadUserAvatar(db))
+			users.DELETE("/:phone/avatar", middleware.RequireSelfPhone("phone"), handlers.DeleteUserAvatar(db))
 			users.GET("/:phone/profile", handlers.GetUserProfile(db))
 			users.GET("/:phone/reviews", handlers.GetUserReviews(db))
-			users.GET("/:phone/recently-viewed", handlers.GetRecentlyViewed(db)) // 👁 Недавно смотрели
-			users.GET("/:phone/recommendations", handlers.GetRecommendations(db)) // ✨ Рекомендуем вам
+			users.GET("/:phone/recently-viewed", middleware.RequireSelfPhone("phone"), handlers.GetRecentlyViewed(db)) // 👁 Недавно смотрели
+			users.GET("/:phone/recommendations", middleware.RequireSelfPhone("phone"), handlers.GetRecommendations(db)) // ✨ Рекомендуем вам
 			users.GET("/:phone/stats", handlers.GetUserStats(db))
-			users.POST("/:phone/subscribe", handlers.ToggleSubscription(db))
+			users.POST("/:phone/subscribe", middleware.RequireSelfPhone("phone"), handlers.ToggleSubscription(db))
 			users.GET("/:phone/subscription-status/:targetPhone", handlers.CheckSubscriptionStatus(db))
 			users.POST("/:phone/increment-views", handlers.IncrementProfileViews(db))
-			users.GET("/:phone/default-delivery-address", handlers.GetUserDefaultDeliveryAddress(db)) // 📍 Адрес доставки по умолчанию
+			// 📍 Адреса доставки — личные данные, доступны только владельцу телефона (или админу)
+			users.GET("/:phone/default-delivery-address", middleware.RequireSelfPhone("phone"), handlers.GetUserDefaultDeliveryAddress(db))
 			// Delivery addresses (multiple saved locations)
-			users.GET("/:phone/frequent-locations", handlers.GetFrequentLocations(db)) // 📍 Частые места доставки (топ-3)
-			users.GET("/:phone/addresses", handlers.GetUserAddresses(db))
-			users.POST("/:phone/addresses", handlers.AddUserAddress(db))
-			users.PUT("/:phone/addresses/:id", handlers.UpdateUserAddress(db))
-			users.DELETE("/:phone/addresses/:id", handlers.DeleteUserAddress(db))
-			users.PUT("/:phone/addresses/:id/default", handlers.SetDefaultAddress(db))
+			users.GET("/:phone/frequent-locations", middleware.RequireSelfPhone("phone"), handlers.GetFrequentLocations(db)) // 📍 Частые места доставки (топ-3)
+			users.GET("/:phone/addresses", middleware.RequireSelfPhone("phone"), handlers.GetUserAddresses(db))
+			users.POST("/:phone/addresses", middleware.RequireSelfPhone("phone"), handlers.AddUserAddress(db))
+			users.PUT("/:phone/addresses/:id", middleware.RequireSelfPhone("phone"), handlers.UpdateUserAddress(db))
+			users.DELETE("/:phone/addresses/:id", middleware.RequireSelfPhone("phone"), handlers.DeleteUserAddress(db))
+			users.PUT("/:phone/addresses/:id/default", middleware.RequireSelfPhone("phone"), handlers.SetDefaultAddress(db))
 		}
 
 		// Cart routes (🛒 Новый API для корзины с БД)
+		// Корзина привязана к телефону — все операции только для владельца
+		// телефона из JWT (или админа). Операции по телу запроса / id позиции
+		// проверяются внутри обработчиков.
 		cart := api.Group("/cart")
 		{
-			cart.GET("/:phone", handlers.GetUserCart(db))                    // Получить корзину пользователя
-			cart.GET("/:phone/count", handlers.GetCartCount(db))             // Количество товаров в корзине
+			cart.GET("/:phone", middleware.RequireSelfPhone("phone"), handlers.GetUserCart(db))        // Получить корзину пользователя
+			cart.GET("/:phone/count", middleware.RequireSelfPhone("phone"), handlers.GetCartCount(db)) // Количество товаров в корзине
 			cart.POST("", handlers.AddToCart(db))                            // Добавить товар в корзину (quantity += N)
 			cart.POST("/set", handlers.SetCartItemQuantity(db))              // Установить точное количество (upsert, 0=удалить)
 			cart.PUT("/item/:id", handlers.UpdateCartItem(db))               // Обновить количество (по DB id)
 			cart.DELETE("/item/:id", handlers.RemoveFromCart(db))            // Удалить товар из корзины (по DB id)
 			cart.DELETE("/item", handlers.RemoveCartItemByProduct(db))       // Удалить товар из корзины (по phone+product_id)
-			cart.DELETE("/user/:phone", handlers.ClearCart(db))              // Очистить всю корзину
+			cart.DELETE("/user/:phone", middleware.RequireSelfPhone("phone"), handlers.ClearCart(db)) // Очистить всю корзину
 		}
 
 		// Favorites routes (❤️ Новый API для избранного с БД)
 		favorites := api.Group("/favorites")
 		{
-			favorites.GET("/:phone", handlers.GetUserFavorites(db))          // Получить избранное пользователя
-			favorites.GET("/:phone/count", handlers.GetFavoritesCount(db))   // Количество избранных
+			favorites.GET("/:phone", middleware.RequireSelfPhone("phone"), handlers.GetUserFavorites(db))        // Получить избранное пользователя
+			favorites.GET("/:phone/count", middleware.RequireSelfPhone("phone"), handlers.GetFavoritesCount(db)) // Количество избранных
 			favorites.GET("/check", handlers.CheckFavoriteStatus(db))        // Проверить статус (query: phone, product_id)
 			favorites.POST("", handlers.AddToFavorites(db))                  // Добавить в избранное
 			favorites.POST("/toggle", handlers.ToggleFavorite(db))           // Переключить статус (toggle)
 			favorites.DELETE("", handlers.RemoveFromFavorites(db))           // Удалить из избранного
-			favorites.DELETE("/user/:phone", handlers.ClearFavorites(db))    // Очистить все избранное
+			favorites.DELETE("/user/:phone", middleware.RequireSelfPhone("phone"), handlers.ClearFavorites(db)) // Очистить все избранное
 		}
 
-		// Payment Cards routes
+		// Payment Cards routes — строго личные данные: только владелец телефона
+		// из JWT (или админ). Удаление/`default` проверяют владельца карты внутри.
 		paymentCards := api.Group("/payment-cards")
 		{
-			paymentCards.GET("/:phone", handlers.GetUserPaymentCards(db))
+			paymentCards.GET("/:phone", middleware.RequireSelfPhone("phone"), handlers.GetUserPaymentCards(db))
 			paymentCards.POST("", handlers.AddPaymentCard(db, cfg))
 			paymentCards.DELETE("/:id", handlers.DeletePaymentCard(db))
 			paymentCards.PUT("/:id/default", handlers.SetDefaultCard(db))
@@ -280,7 +287,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			notifications.PUT("/:id/read", handlers.MarkNotificationAsRead(db))
 			notifications.PUT("/mark-all-read", handlers.MarkAllNotificationsAsRead(db))
 			notifications.POST("/send", middleware.RequireAdmin(cfg), handlers.SendAdminNotification(db))      // Отправка от админа
-			notifications.GET("/users-list", handlers.GetAllUsersPhones(db))     // Список пользователей
+			notifications.GET("/users-list", middleware.RequireAdmin(cfg), handlers.GetAllUsersPhones(db))     // Список пользователей (только админ)
 			notifications.POST("/push-token", handlers.SaveExpoPushToken(db))    // Сохранение Expo Push Token
 		}
 
@@ -289,17 +296,17 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			companyMessages.POST("/send", middleware.RequireAdmin(cfg), handlers.SendMessageToCompany(db))                         // Отправить компании
 			companyMessages.POST("/send-all", middleware.RequireAdmin(cfg), handlers.SendMessageToAllCompanies(db))                // Отправить всем
-			companyMessages.GET("/companies", handlers.GetAllCompaniesForMessages(db))               // Список компаний
-			companyMessages.GET("/company/:companyId", handlers.GetCompanyMessages(db))              // Сообщения компании
-			companyMessages.GET("/company/:companyId/count", handlers.GetCompanyMessagesCount(db))   // Кол-во непрочитанных
-			companyMessages.PUT("/:id/read", handlers.MarkCompanyMessageAsRead(db))                  // Отметить как прочитано
-			companyMessages.PUT("/company/:companyId/read-all", handlers.MarkAllCompanyMessagesAsRead(db)) // Все прочитано
+			companyMessages.GET("/companies", middleware.RequireAdmin(cfg), handlers.GetAllCompaniesForMessages(db))               // Список компаний (только админ)
+			companyMessages.GET("/company/:companyId", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyMessages(db))              // Сообщения компании
+			companyMessages.GET("/company/:companyId/count", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyMessagesCount(db))   // Кол-во непрочитанных
+			companyMessages.PUT("/:id/read", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "company_messages"), handlers.MarkCompanyMessageAsRead(db)) // Отметить как прочитано
+			companyMessages.PUT("/company/:companyId/read-all", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.MarkAllCompanyMessagesAsRead(db)) // Все прочитано
 		}
 
 		// Expenses routes
 		expenses := api.Group("/expenses")
 		{
-			expenses.GET("", handlers.GetExpenses(db))
+			expenses.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetExpenses(db))
 			expenses.POST("", middleware.RequireCompany(cfg), handlers.CreateExpense(db))
 			expenses.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "expenses"), handlers.DeleteExpense(db))
 		}
@@ -307,7 +314,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Custom Expenses routes
 		customExpenses := api.Group("/custom-expenses")
 		{
-			customExpenses.GET("", handlers.GetCustomExpenses(db))
+			customExpenses.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetCustomExpenses(db))
 			customExpenses.POST("", middleware.RequireCompany(cfg), handlers.CreateCustomExpense(db))
 			customExpenses.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "custom_expenses"), handlers.UpdateCustomExpense(db))
 			customExpenses.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "custom_expenses"), handlers.DeleteCustomExpense(db))
@@ -316,23 +323,24 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Product Purchases routes (📦 История закупок товаров)
 		productPurchases := api.Group("/product-purchases")
 		{
-			productPurchases.GET("", handlers.GetProductPurchases(db))                  // Список закупок
+			productPurchases.GET("", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetProductPurchases(db)) // Список закупок
 			productPurchases.POST("", middleware.RequireCompany(cfg), handlers.CreateProductPurchase(db))              // Создание записи о закупке
-			productPurchases.GET("/stats", handlers.GetProductPurchaseStats(db))       // Статистика закупок
+			productPurchases.GET("/stats", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetProductPurchaseStats(db)) // Статистика закупок
 			productPurchases.PUT("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_purchases"), handlers.UpdateProductPurchase(db))           // Обновление закупки
 			productPurchases.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_purchases"), handlers.DeleteProductPurchase(db))        // Удаление закупки
 		}
 
 		// Analytics routes
+		// Аналитика — финансовые данные компании: только сама компания или админ
 		analytics := api.Group("/analytics")
 		{
-			analytics.GET("/company/:companyId", handlers.GetCompanyAnalytics(db))
-			analytics.GET("/company/:companyId/dashboard", handlers.GetCompanyDashboard(db)) // 📊 Единый дашборд продавца
-			analytics.GET("/revenue", handlers.GetRevenueAnalytics(db))
+			analytics.GET("/company/:companyId", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyAnalytics(db))
+			analytics.GET("/company/:companyId/dashboard", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyDashboard(db)) // 📊 Единый дашборд продавца
+			analytics.GET("/revenue", middleware.RequireCompany(cfg), middleware.RequireCompanyScope("companyId"), handlers.GetRevenueAnalytics(db))
 		}
 
-		// Admin Delivery Revenue routes (💰 Доходы админа от доставки)
-		adminDeliveryRevenue := api.Group("/admin-delivery-revenue")
+		// Admin Delivery Revenue routes (💰 Доходы админа от доставки — только админ)
+		adminDeliveryRevenue := api.Group("/admin-delivery-revenue", middleware.RequireAdmin(cfg))
 		{
 			adminDeliveryRevenue.GET("", handlers.GetAdminDeliveryRevenue(db))         // Список доходов от доставки
 			adminDeliveryRevenue.GET("/stats", handlers.GetAdminDeliveryStats(db))     // Статистика доходов
@@ -346,8 +354,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			ads.POST("/upload-image", middleware.RequireCompany(cfg), handlers.UploadAdImage(db)) // 🆕 Загрузка изображения
 			ads.PUT("/:id/moderate", middleware.RequireAdmin(cfg), handlers.ModerateAd(db))
 			ads.PUT("/:id/link", middleware.RequireAdmin(cfg), handlers.UpdateAdLink(db))
-			ads.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteAd(db))
-			ads.DELETE("/company/:companyId/all", middleware.RequireCompany(cfg), handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
+			ads.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "advertisements"), handlers.DeleteAd(db))
+			ads.DELETE("/company/:companyId/all", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.DeleteAllCompanyAds(db)) // 🆕 Удаление всех реклам компании
 		}
 
 		// Categories routes (global, managed by admin)
@@ -366,7 +374,7 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		{
 			discounts.POST("", middleware.RequireCompany(cfg), handlers.CreateDiscount(db))                       // Создание скидки компанией
 			discounts.GET("/company/:companyId", handlers.GetCompanyDiscounts(db)) // Скидки компании
-			discounts.GET("/all", handlers.GetAllDiscounts(db))                   // Все скидки (админ)
+			discounts.GET("/all", middleware.RequireAdmin(cfg), handlers.GetAllDiscounts(db)) // Все скидки (только админ)
 			discounts.GET("/approved", handlers.GetApprovedDiscounts(db))         // Одобренные скидки (клиенты)
 			discounts.PUT("/:id/status", middleware.RequireAdmin(cfg), handlers.UpdateDiscountStatus(db))       // Обновление статуса (админ)
 			discounts.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteDiscount(db))                 // Удаление скидки
@@ -388,12 +396,12 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 			referrals.POST("/agents", middleware.RequireAdmin(cfg), handlers.CreateReferralAgent(db))                    // Создание агента (админ)
 			referrals.POST("/agents/login", handlers.LoginReferralAgent(db, cfg))               // Вход агента
 			referrals.GET("/agents", middleware.RequireAdmin(cfg), handlers.GetReferralAgents(db)) // Список агентов (админ) — содержит креды
-			referrals.GET("/agents/:id/stats", handlers.GetReferralAgentStats(db))         // Статистика агента
-			referrals.GET("/agents/:id/analytics", handlers.GetAgentFinancialAnalytics(db)) // 💰 Финансовая аналитика агента
+			referrals.GET("/agents/:id/stats", middleware.RequireAgentSelf("id"), handlers.GetReferralAgentStats(db))         // Статистика агента (сам агент/админ)
+			referrals.GET("/agents/:id/analytics", middleware.RequireAgentSelf("id"), handlers.GetAgentFinancialAnalytics(db)) // 💰 Финансовая аналитика агента (сам агент/админ)
 			referrals.PUT("/agents/:id/password", middleware.RequireAdmin(cfg), handlers.UpdateReferralAgentPassword(db)) // Смена пароля агента
 			referrals.PUT("/agents/:id/commission", middleware.RequireAdmin(cfg), handlers.UpdateReferralAgentCommission(db)) // Изменить % агента (админ)
 			referrals.DELETE("/agents/:id", middleware.RequireAdmin(cfg), handlers.DeleteReferralAgent(db))              // Удаление агента (админ)
-			referrals.GET("/agents/:id/companies", handlers.GetMyReferredCompanies(db))    // Компании агента
+			referrals.GET("/agents/:id/companies", middleware.RequireAgentSelf("id"), handlers.GetMyReferredCompanies(db)) // Компании агента (сам агент/админ)
 			referrals.GET("/validate/:code", handlers.ValidateReferralCode(db))            // Проверка кода
 			referrals.PUT("/companies/:id/toggle", middleware.RequireAdmin(cfg), handlers.ToggleCompanyStatus(db))       // Включить/выключить компанию
 			referrals.PUT("/companies/:id/commission", middleware.RequireAdmin(cfg), handlers.UpdateCompanyCommission(db)) // Изменить % платформы для компании (админ) + уведомление
@@ -404,8 +412,8 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		promoCodes := api.Group("/promo-codes")
 		{
 			promoCodes.POST("", middleware.RequireAdmin(cfg), handlers.CreatePromoCode(db))                       // Создать промокод
-			promoCodes.GET("/all", handlers.GetAllPromoCodes(db))                   // Все промокоды (админ)
-			promoCodes.GET("/company/:companyId", handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
+			promoCodes.GET("/all", middleware.RequireAdmin(cfg), handlers.GetAllPromoCodes(db))                   // Все промокоды (только админ)
+			promoCodes.GET("/company/:companyId", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyPromoCodes(db)) // Промокоды компании (+ платформенные)
 			promoCodes.POST("/validate", handlers.ValidatePromoCode(db))            // Проверить промокод (без списания)
 			promoCodes.POST("/redeem", handlers.RedeemPromoCode(db))                // Зафиксировать использование
 			promoCodes.PUT("/:id/toggle", middleware.RequireAdmin(cfg), handlers.TogglePromoCode(db))             // Вкл/выкл промокод
@@ -424,24 +432,27 @@ func Setup(router *gin.Engine, db *sql.DB, cfg *config.Config) {
 		// Product questions & answers (❓ вопросы к товару)
 		questions := api.Group("/questions")
 		{
-			questions.POST("/:id/answer", middleware.RequireCompany(cfg), handlers.AnswerQuestion(db)) // Ответ продавца
-			questions.DELETE("/:id", middleware.RequireCompany(cfg), handlers.DeleteQuestion(db))      // Удалить вопрос
+			questions.POST("/:id/answer", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_questions"), handlers.AnswerQuestion(db)) // Ответ продавца
+			questions.DELETE("/:id", middleware.RequireCompany(cfg), middleware.RequireResourceOwner(db, "product_questions"), handlers.DeleteQuestion(db))      // Удалить вопрос
 		}
 		// Per-product question routes live under /products for discoverability.
 		products.POST("/:id/questions", handlers.AskQuestion(db)) // Задать вопрос о товаре
 		products.GET("/:id/questions", handlers.GetProductQuestions(db)) // Вопросы по товару
-		questions.GET("/company/:companyId", handlers.GetCompanyQuestions(db)) // Все вопросы компании (для ответов продавца)
+		questions.GET("/company/:companyId", middleware.RequireAdminOrOwnCompanyParam("companyId"), handlers.GetCompanyQuestions(db)) // Все вопросы компании (для ответов продавца)
 
 		// Loyalty / cashback points (⭐ баллы и кэшбэк)
 		loyalty := api.Group("/loyalty")
 		{
-			loyalty.GET("/:phone", handlers.GetLoyaltyAccount(db)) // Баланс + история
-			loyalty.POST("/earn", handlers.EarnLoyaltyPoints(db))  // Начислить баллы
-			loyalty.POST("/redeem", handlers.RedeemLoyaltyPoints(db)) // Списать баллы
+			loyalty.GET("/:phone", middleware.RequireSelfPhone("phone"), handlers.GetLoyaltyAccount(db)) // Баланс + история (только владелец)
+			// Начисление баллов происходит на сервере (awardCashback при доставке
+			// заказа); внешний вызов — только для админа, иначе любой мог бы
+			// начислить себе бесконечный кэшбэк.
+			loyalty.POST("/earn", middleware.RequireAdmin(cfg), handlers.EarnLoyaltyPoints(db))
+			loyalty.POST("/redeem", handlers.RedeemLoyaltyPoints(db)) // Списать баллы (владелец — проверка внутри)
 		}
 
-		// Internal maintenance endpoints (не публичные)
-		internal := api.Group("/internal")
+		// Internal maintenance endpoints (не публичные — только админ)
+		internal := api.Group("/internal", middleware.RequireAdmin(cfg))
 		{
 			internal.POST("/sla-cancel", handlers.SLACancelStaleOrders(db))
 		}

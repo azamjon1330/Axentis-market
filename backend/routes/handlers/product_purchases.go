@@ -26,10 +26,10 @@ func CreateProductPurchase(db *sql.DB) gin.HandlerFunc {
 		}
 
 		companyID := c.GetInt64("companyId") // From JWT middleware
-		
-		// Fallback: if not from JWT, try from request body
-		if companyID == 0 {
-			if cid, ok := req["companyId"].(float64); ok {
+
+		// Только админ может указать компанию явно в теле запроса.
+		if isAdmin(c) {
+			if cid, ok := req["companyId"].(float64); ok && cid > 0 {
 				companyID = int64(cid)
 			}
 		}

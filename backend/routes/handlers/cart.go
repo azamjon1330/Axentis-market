@@ -139,6 +139,9 @@ func AddToCart(db *sql.DB) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "User phone is required"})
 			return
 		}
+		if !requirePhoneMatch(c, input.UserPhone) {
+			return
+		}
 		if input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Product ID is required"})
 			return
@@ -246,8 +249,12 @@ func UpdateCartItem(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		if !requireCartItemOwner(c, db, itemID) {
+			return
+		}
+
 		result, err := db.Exec(`
-			UPDATE cart_items 
+			UPDATE cart_items
 			SET quantity = $1, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $2
 		`, input.Quantity, itemID)
@@ -273,6 +280,10 @@ func UpdateCartItem(db *sql.DB) gin.HandlerFunc {
 func RemoveFromCart(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		itemID := c.Param("id")
+
+		if !requireCartItemOwner(c, db, itemID) {
+			return
+		}
 
 		result, err := db.Exec("DELETE FROM cart_items WHERE id = $1", itemID)
 		if err != nil {
@@ -305,6 +316,9 @@ func SetCartItemQuantity(db *sql.DB) gin.HandlerFunc {
 		}
 		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone, product_id and quantity are required"})
+			return
+		}
+		if !requirePhoneMatch(c, input.UserPhone) {
 			return
 		}
 
@@ -382,6 +396,9 @@ func RemoveCartItemByProduct(db *sql.DB) gin.HandlerFunc {
 		}
 		if err := c.ShouldBindJSON(&input); err != nil || input.UserPhone == "" || input.ProductID == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "user_phone and product_id are required"})
+			return
+		}
+		if !requirePhoneMatch(c, input.UserPhone) {
 			return
 		}
 

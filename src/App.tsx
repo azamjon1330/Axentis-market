@@ -235,6 +235,13 @@ function AppContent() {
             console.log('👤 [App] Restoring customer session...');
             setPendingUser(session.userData);
             setUserType('customer');
+
+            // Персональные эндпоинты (корзина, избранное, заказы) теперь требуют
+            // JWT. Старые сессии могли сохраниться без токена — тихо перелогиниваем
+            // (работает для аккаунтов без пароля; с паролем попросим войти заново).
+            if (!api.getAuthToken() && session.userData?.phone) {
+              try { await api.auth.loginUser(session.userData.phone); } catch (e) { console.warn('Silent re-login failed:', e); }
+            }
             
             // Восстанавливаем company_id если есть
             if (session.userData.companyId) {
@@ -277,9 +284,8 @@ function AppContent() {
             return;
           } else if (session.userType === 'admin' && session.userData) {
             console.log('👨‍💼 [App] Restoring admin session...');
-            // Re-obtain a fresh admin JWT so protected admin endpoints (editing
-            // companies/passwords, etc.) keep working after the stored token expires.
-            try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token refresh error:', e); }
+            // Используем сохранённый admin JWT (живёт 168ч). Когда истечёт —
+            // админ входит заново через форму; креды в коде не хранятся.
             setPendingUser(session.userData);
             setUserType('admin');
             
@@ -438,11 +444,9 @@ function AppContent() {
     console.log('🔐 handleUserLogin called with userData:', userData);
     setPendingUser(userData);
 
-    // Check if this is admin login (already verified in LoginPage)
-    if (userData.phone === '914751330') {
+    // Check if this is admin login (already verified via backend in the login form)
+    if (userData.isAdmin) {
       console.log('✅ Admin detected! Opening admin panel...');
-      // Obtain a real admin JWT so the admin panel can call protected endpoints.
-      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
       // Admin login - go directly to admin panel
       setUserType('admin');
       navigateTo('admin', true);
@@ -530,10 +534,13 @@ function AppContent() {
   };
 
   const handleSmsVerify = async (code: string) => {
-    // Check for admin access
-    if (pendingUser.phone === '914751330' && code === '15051') {
-      // Obtain a real admin JWT so the admin panel can call protected endpoints.
-      try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
+    // Check for admin access — креды проверяет бэкенд, не фронтенд.
+    let adminOk = false;
+    try {
+      const resp = await api.auth.loginAdmin(pendingUser.phone, code);
+      adminOk = !!resp?.token;
+    } catch { /* не админ */ }
+    if (adminOk) {
       setUserType('admin');
       navigateTo('admin', true);
       
@@ -637,15 +644,14 @@ function AppContent() {
         fullObject: companyData
       });
       
-      // 🔑 Проверка на админа по телефону
-      if (companyData?.phone === '914751330' || companyData?.company?.phone === '914751330') {
+      // 🔑 Проверка на админа: CompanyLogin уже получил admin JWT у бэкенда
+      // и пометил объект isAdmin — никаких захардкоженных кредов здесь.
+      if (companyData?.isAdmin) {
         console.log('🔐 Admin detected, redirecting to admin panel...');
-        // Obtain a real admin JWT so the admin panel can call protected endpoints.
-        try { await api.auth.loginAdmin('914751330', '15051'); } catch (e) { console.error('Admin token error:', e); }
         setCurrentCompany({
           id: 0,
           name: 'Admin',
-          phone: '914751330',
+          phone: companyData.phone,
           mode: 'admin',
           status: 'active',
           isAdmin: true
